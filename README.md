@@ -1,14 +1,21 @@
 # pedestal-lacinia
 
-A Clojure library designed to ... well, that part is up to you.
+A library that adds the Pedestal underpinnings needed when exposing
+[Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
 
 ## Usage
 
-FIXME
+For a basic Pedestal server, simply supply a compiled Lacinia schema to
+the `com.walmart.lacinia.pedestal/pedestal-server` function to
+generate a server, then invoke `io.pedestal.http/start`.
+
+Lacinia will handle GET and POST requests at the `/graphql` endpoint.
+
+When the `:graphiql` option is supplied, then a
+[GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
 
 ## License
 
-Copyright © 2017 FIXME
+Copyright © 2017 Walmart
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Apache Software License 2.0.

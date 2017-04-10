@@ -108,24 +108,22 @@
                 (if (seq statuses)
                   (let [max-status (reduce max (:status response) statuses)]
                     (-> context
-                        (assoc-in [:response :status] max-status) (assoc-in [:response :body :errors]
-                                                                            (map errors dissoc :status))))
+                        (assoc-in [:response :status] max-status)
+                        (assoc-in [:response :body :errors]
+                                  (map errors dissoc :status))))
                   context)))}))
 
-(defn lacinia-handler
+(defn query-exector-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
   execute the query and return the main response.
 
   The handler adds the :request key to the context before executing the query.
 
   This comes after [[query-parser-interceptor]]
-  and [[status-conversion-interceptor]] in the interceptor chain.
-
-  An alternate handler is typically necessary to do anything more complex, typically
-  about what goes into the application context."
+  and [[status-conversion-interceptor]] in the interceptor chain."
   [app-context]
   (interceptor
-    {:name ::lacinia-handler
+    {:name ::query-executor
      :enter (fn [context]
               (let [request (:request context)
                     {q :parsed-lacinia-query
@@ -133,26 +131,16 @@
                     result (lacinia/execute-parsed-query q
                                                          vars
                                                          (assoc app-context :request request))
-                    response {:status (if (contains? result :data)
-                                        200
-                                        400)
+                    ;; When :data is missing, then a failure occured during parsing or preparing
+                    ;; the request, which indicates a bad request, rather than some failure
+                    ;; during execution.
+                    status (if (contains? result :data)
+                             200
+                             400)
+                    response {:status status
                               :headers {}
                               :body result}]
                 (assoc context :response response)))}))
-
-
-(def graphiql-handler
-  "Exposes the GraphiQL IDE index.html.  The other artifacts (.css, .js) are
-  exposed as resources."
-  (interceptor
-    {:name ::graphiql-ide-handler
-     :enter
-     (fn [context]
-       (let [index (slurp (io/resource "graphiql/index.html"))
-             response {:status 200
-                       :headers {"Content-Type" "text/html;charset=UTF-8"}
-                       :body index}]
-         (assoc context :response response)))}))
 
 (defn graphql-routes
   "Creates default routes for handling GET and POST requests (at `/graphql`) and
@@ -161,8 +149,11 @@
   Options:
 
   :graphiql (default false)
-  : If true, enables routes for the GraphiQL IDE."
-  [compiled-schema app-context options]
+  : If true, enables routes for the GraphiQL IDE.
+
+  :app-context
+  : The base application context provided to Lacinia when executing a query."
+  [compiled-schema options]
   (let [index-handler (when (:graphiql options)
                         (fn [request]
                           (response/redirect "/index.html")))
@@ -170,7 +161,7 @@
                             missing-query-interceptor
                             (query-parser-interceptor compiled-schema)
                             status-conversion-interceptor
-                            (lacinia-handler app-context)]]
+                            (query-exector-handler app-context)]]
     (-> #{["/graphql" :post intereceptor-chain :route-name ::graphql-post]
           ["/graphql" :get intereceptor-chain :route-name ::graphql-get]}
         (cond-> index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))
