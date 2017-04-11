@@ -9,7 +9,8 @@
     [io.pedestal.http :as http]
     [clj-http.client :as client]
     [cheshire.core :as cheshire]
-    [clojure.edn :as edn]))
+    [clojure.edn :as edn]
+    [clojure.string :as str]))
 
 (defn ^:private resolve-echo
   [context args _]
@@ -34,6 +35,10 @@
         (f)
         (finally
           (http/stop service))))))
+
+(defn ^:private get-url
+  [path]
+  (client/get (str "http://localhost:8888" path) {:throw-exceptions false}))
 
 (defn ^:private send-request
   "Sends a GraphQL request to the server and returns the response."
@@ -88,3 +93,16 @@
                              :query-path ["echo"]}]}
             :status 420}
            (select-keys response [:status :body])))))
+
+(deftest can-handle-vars
+  (let [response (send-request :post "query ($v: String) {
+    echo(value: $v) { value }
+   }" {:v "Calculon"})]
+    (is (= {:body {:data {:echo {:value "Calculon"}}}
+            :status 200}
+           (select-keys response [:status :body])))))
+
+(deftest can-access-graphiql
+  (let [response (client/get "http://localhost:8888/" {:throw-exceptions false})]
+    (is (= 200 (:status response)))
+    (is (str/includes? (:body response) "<html>"))))
