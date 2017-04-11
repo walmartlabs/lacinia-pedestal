@@ -26,6 +26,32 @@ The steps for processing a GraphQL query are broken into multiple steps:
 
 Each of these steps is its own Pedestal interceptor.
 
+### Response Status
+
+Response status is normally 200.
+
+If the :data key is missing, that indicates a bad request (a failure
+during query parse or prepare), and so
+the response status is set to 400.
+
+However, you can get more precise control over the response status.
+A field resolver function may use the `resolve-as` function to return
+an error map.
+An error map with a :status key is used to set the overall response
+status.
+The :status value is expected to be numeric.
+
+Typically, you would use this when a field resolver uses an external
+resource (a database, or another web service) and that resource
+fails; the field resolver can determine an appropriate HTTP status
+and include it with an error map.
+
+The response status is the maximum of any :status value of any
+error map.
+
+The :error key is `dissoc`'ed from the error maps in the response.
+
+
 ## License
 
 Copyright © 2017 Walmart
