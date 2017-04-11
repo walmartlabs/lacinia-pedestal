@@ -113,7 +113,7 @@
                                   (map errors dissoc :status))))
                   context)))}))
 
-(defn query-exector-handler
+(defn query-executor-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
   execute the query and return the main response.
 
@@ -146,6 +146,17 @@
   "Creates default routes for handling GET and POST requests (at `/graphql`) and
   (optionally) the GraphiQL IDE (at `/`).
 
+  Returns a set of route vectors, compatible with
+  `io.pedestal.http.route.definition.table/table-routes`.
+
+  The standard interceptor stack:
+
+  * [[graphql-data-interceptor]]
+  * [[missing-query-interceptor]]
+  * [[query-parser-interceptor]]
+  * [[status-conversion-interceptor]]
+  * [[query-executor-handler]]
+
   Options:
 
   :graphiql (default false)
@@ -161,11 +172,10 @@
                             missing-query-interceptor
                             (query-parser-interceptor compiled-schema)
                             status-conversion-interceptor
-                            (query-exector-handler app-context)]]
-    (-> #{["/graphql" :post intereceptor-chain :route-name ::graphql-post]
-          ["/graphql" :get intereceptor-chain :route-name ::graphql-get]}
-        (cond-> index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))
-        route/expand-routes)))
+                            (query-executor-handler (:app-context options))]]
+    (cond-> #{["/graphql" :post intereceptor-chain :route-name ::graphql-post]
+              ["/graphql" :get intereceptor-chain :route-name ::graphql-get]}
+      index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
 (defn pedestal-server
   "Creates and returns a Pedestal server instance, ready to be started.
@@ -183,7 +193,8 @@
   [compiled-schema options]
   (->
     {:env (:env options :dev)
-     ::http/routes (graphql-routes compiled-schema options)
+     ::http/routes (-> (graphql-routes compiled-schema options)
+                       route/expand-routes)
      ::http/resource-path "graphiql"
      ::http/port (:port options 8888)
      ::http/type :jetty

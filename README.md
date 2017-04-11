@@ -14,6 +14,17 @@ Lacinia will handle GET and POST requests at the `/graphql` endpoint.
 When the `:graphiql` option is supplied, then a
 [GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
 
+Alternately, you can build you own stack and re-use the individual pieces
+supplied here as building blocks.
+The steps for processing a GraphQL query are broken into multiple steps:
+- Extracting the query string and query variables from the request
+- Verifying that a query was included in the request
+- Converting the query string to a parsed query
+- Executing the parsed query
+- Setting the response status
+
+Each of these steps is its own Pedestal interceptor.
+
 ## License
 
 Copyright © 2017 Walmart
