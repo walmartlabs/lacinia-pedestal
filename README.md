@@ -1,4 +1,4 @@
-# pedestal-lacinia
+# com.walmartlabs/pedestal-lacinia
 
 A library that adds the Pedestal underpinnings needed when exposing
 [Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
@@ -6,8 +6,8 @@ A library that adds the Pedestal underpinnings needed when exposing
 ## Usage
 
 For a basic Pedestal server, simply supply a compiled Lacinia schema to
-the `com.walmart.lacinia.pedestal/pedestal-server` function to
-generate a server, then invoke `io.pedestal.http/start`.
+the `com.walmart.lacinia.pedestal/pedestal-service` function to
+generate a service, then invoke `io.pedestal.http/start`.
 
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
 
@@ -22,6 +22,7 @@ The steps for processing a GraphQL query are broken into multiple steps:
 - Converting the query string to a parsed query
 - Executing the parsed query
 - Setting the response status
+- Encoding the response body as JSON
 
 Each of these steps is its own Pedestal interceptor.
 

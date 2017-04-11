@@ -1,0 +1,15 @@
+{:enums
+ {:method
+  {:values [:get :post]}}
+
+ :objects
+ {:echoed_value
+  {:fields {:value {:type String}
+            :method {:type (non-null :method)}}}}
+
+ :queries
+ {:echo {:type :echoed_value
+         :args {:value {:type String}
+                ;; :error is an optional status code
+                :error {:type Int}}
+         :resolve :resolve-echo}}}

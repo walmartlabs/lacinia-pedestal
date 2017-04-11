@@ -47,6 +47,19 @@
     (cheshire/parse-string vars true)
     {}))
 
+(def json-response-interceptor
+  "An interceptor that sees if the response body is a map and, if so,
+  converts the map to JSON and sets the response Content-Type header."
+  (interceptor
+    {:name ::json-response
+     :leave (fn [context]
+              (let [body (get-in context [:response :body])]
+                (if (map? body)
+                  (-> context
+                      (assoc-in [:response :headers "Content-Type"] "application/json")
+                      (update-in [:response :body] cheshire/generate-string))
+                  context)))}))
+
 (def graphql-data-interceptor
   "Extracts the raw data (query and variables) from the request and validates that at least the query
   is present.
@@ -78,21 +91,22 @@
 (defn query-parser-interceptor
   "Given an schema, returns an interceptor that parses the query.
 
-   Expected to come after [[missing-query-interceptor]] in the interceptor chain."
+   Expected to come after [[missing-query-interceptor]] in the interceptor chain.
+
+   Adds a new reuest key, :parsed-lacinia-query."
   [schema]
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
               (try
-                (let [q (-> context :request :graphql-query)
+                (let [q (get-in context [:request :graphql-query])
                       parsed-query (parse-query schema q)]
                   (assoc-in context [:request :parsed-lacinia-query] parsed-query))
                 (catch Exception e
                   (assoc context :response
-                         {:status 400
-                          :headers {}
-                          :body {:errors [(assoc (ex-data e)
-                                                 :message (.getMessage e))]}}))))}))
+                         (bad-request
+                           {:errors [(assoc (ex-data e)
+                                            :message (.getMessage e))]})))))}))
 
 (def status-conversion-interceptor
   "Checks to see if any error map in the :errors key of the response
@@ -110,14 +124,15 @@
                     (-> context
                         (assoc-in [:response :status] max-status)
                         (assoc-in [:response :body :errors]
-                                  (map errors dissoc :status))))
+                                  (map #(dissoc % :status) errors))))
                   context)))}))
 
 (defn query-executor-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
   execute the query and return the main response.
 
-  The handler adds the :request key to the context before executing the query.
+  The handler adds the Ring request map as the :request key to the provided
+  app-context before executing the query.
 
   This comes after [[query-parser-interceptor]]
   and [[status-conversion-interceptor]] in the interceptor chain."
@@ -151,6 +166,7 @@
 
   The standard interceptor stack:
 
+  * [[json-response-interceptor]]
   * [[graphql-data-interceptor]]
   * [[missing-query-interceptor]]
   * [[query-parser-interceptor]]
@@ -168,7 +184,8 @@
   (let [index-handler (when (:graphiql options)
                         (fn [request]
                           (response/redirect "/index.html")))
-        intereceptor-chain [graphql-data-interceptor
+        intereceptor-chain [json-response-interceptor
+                            graphql-data-interceptor
                             missing-query-interceptor
                             (query-parser-interceptor compiled-schema)
                             status-conversion-interceptor
@@ -177,8 +194,9 @@
               ["/graphql" :get intereceptor-chain :route-name ::graphql-get]}
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
-(defn pedestal-server
-  "Creates and returns a Pedestal server instance, ready to be started.
+(defn pedestal-service
+  "Creates and returns a Pedestal service map, ready to be started.
+  This uses a server type of :jetty.
 
   Options:
 
