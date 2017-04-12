@@ -13,10 +13,10 @@
                         [io.aviso/logging "0.2.0"]]}}
   :jvm-opts ["-Xmx500m"]
   :plugins [[lein-codox "0.10.2"]
-            [test2junit "1.2.5"]]
-  :hooks [com.walmartlabs.shell-build]
-  :shell-build {:command "./build"
-                :dir "resources/graphiql"}
+            [test2junit "1.2.5"]
+            [lein-shell "0.5.0"]]
+  :shell {:dir "resources/graphiql"}
+  :prep-tasks [["shell" "./build"]]
   :jar-exclusions [#"graphiql/node_.*"
                    #"graphiql/build"
                    #"graphiql/package.json"
