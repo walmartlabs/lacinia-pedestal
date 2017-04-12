@@ -11,7 +11,7 @@ generate a service, then invoke `io.pedestal.http/start`.
 
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
 
-When the `:graphiql` option is supplied, then a
+When the `:graphiql` option is true, then a
 [GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
 
 Alternately, you can build you own stack and re-use the individual pieces
@@ -25,6 +25,18 @@ The steps for processing a GraphQL query are broken into multiple steps:
 - Encoding the response body as JSON
 
 Each of these steps is its own Pedestal interceptor.
+
+#### Clients
+
+For GET requests, query parameter `query` should be the query to execute.
+
+For POST requests, the content type should be `application/graphql` and the
+body of the request should be the query to execute.
+
+In both cases, query variables may be supplied.  The `variables`
+query parameter should be the string-ified JSON containing the variables.
+
+The response type will be `application/json`.
 
 #### Response Status
 
