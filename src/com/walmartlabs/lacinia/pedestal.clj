@@ -27,7 +27,7 @@
 
   For the POST method, this is the body of the request.
 
-  For other methods, returns an empty string."
+  For other methods, returns nil."
   [request]
   (case (:request-method request)
     :get
@@ -36,16 +36,15 @@
     :post
     (slurp (:body request))
 
-    ""))
+    nil))
 
 (defn variable-map
   "Converts the `variables` query parameter into Clojure data by parsing as JSON.
 
-  Returns the variables (with keyword keys) or the empty map if not found."
+  Returns the variables map (with keyword keys) or nil not found."
   [request]
-  (if-let [vars (get-in request [:query-params :variables])]
-    (cheshire/parse-string vars true)
-    {}))
+  (when-let [vars (get-in request [:query-params :variables])]
+    (cheshire/parse-string vars true)))
 
 (def json-response-interceptor
   "An interceptor that sees if the response body is a map and, if so,
@@ -59,6 +58,19 @@
                       (assoc-in [:response :headers "Content-Type"] "application/json")
                       (update-in [:response :body] cheshire/generate-string))
                   context)))}))
+
+(def require-graphql-content-interceptor
+  "An interceptor that verifies that the incoming content type is \"application/graphql\".
+
+  This should only appear in the interceptor stack for the POST method."
+  (interceptor
+    {:name ::require-graphql-content
+     :enter (fn [context]
+              (if (= "application/graphql"
+                     (get-in context [:request :headers "content-type"]))
+                context
+                (assoc context :response
+                       (bad-request {:message "Request content type must be application/graphql."}))))}))
 
 (def graphql-data-interceptor
   "Extracts the raw data (query and variables) from the request and validates that at least the query
@@ -167,6 +179,7 @@
   The standard interceptor stack:
 
   * [[json-response-interceptor]]
+  * [[require-graphql-content-interceptor]] (for method POST)
   * [[graphql-data-interceptor]]
   * [[missing-query-interceptor]]
   * [[query-parser-interceptor]]
@@ -184,14 +197,25 @@
   (let [index-handler (when (:graphiql options)
                         (fn [request]
                           (response/redirect "/index.html")))
-        intereceptor-chain [json-response-interceptor
-                            graphql-data-interceptor
-                            missing-query-interceptor
-                            (query-parser-interceptor compiled-schema)
-                            status-conversion-interceptor
-                            (query-executor-handler (:app-context options))]]
-    (cond-> #{["/graphql" :post intereceptor-chain :route-name ::graphql-post]
-              ["/graphql" :get intereceptor-chain :route-name ::graphql-get]}
+        query-parser (query-parser-interceptor compiled-schema)
+        executor (query-executor-handler (:app-context options))]
+    (cond-> #{["/graphql" :post
+               [json-response-interceptor
+                require-graphql-content-interceptor
+                graphql-data-interceptor
+                missing-query-interceptor
+                query-parser
+                status-conversion-interceptor
+                executor]
+               :route-name ::graphql-post]
+              ["/graphql" :get
+               [json-response-interceptor
+                graphql-data-interceptor
+                missing-query-interceptor
+                query-parser
+                status-conversion-interceptor
+                executor]
+               :route-name ::graphql-get]}
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
 (defn pedestal-service

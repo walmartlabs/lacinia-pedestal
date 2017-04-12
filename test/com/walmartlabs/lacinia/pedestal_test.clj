@@ -55,8 +55,12 @@
          (assoc-in [:query-params :query] query)
 
          (= method :post)
-         (-> (assoc-in [:headers "Content-Type"] "application/graphql")
-             (assoc :body query))
+         (assoc-in [:headers "Content-Type"] "application/graphql")
+
+         ;; :post-bad is like :post, but without setting the content type
+         (#{:post :post-bad} method)
+         (assoc :body query
+                :method :post)
 
          vars
          (assoc-in [:query-params :variables] (cheshire/generate-string vars)))
@@ -81,6 +85,12 @@
     (is (= {:data {:echo {:method "post"
                           :value "hello"}}}
            (:body response)))))
+
+(deftest includes-content-type-check-on-post
+  (let [response (send-request :post-bad "{ echo(value: \"hello\") { value method }}")]
+    (is (= {:body {:message "Request content type must be application/graphql."}
+            :status 400}
+           (select-keys response [:status :body])))))
 
 (deftest status-set-by-error
   (let [response (send-request "{ echo(value: \"Baked.\", error: 420) { value }}")]
