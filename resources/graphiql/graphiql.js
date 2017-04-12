@@ -7,6 +7,8 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.DocExplorer = undefined;
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
@@ -42,12 +44,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
+
+var initialNav = {
+  name: 'Schema',
+  title: 'Documentation Explorer'
+};
 
 /**
  * DocExplorer
@@ -65,6 +72,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
  *     top bar. Typically this will be a "close" button for temporary explorer.
  *
  */
+
 var DocExplorer = exports.DocExplorer = function (_React$Component) {
   _inherits(DocExplorer, _React$Component);
 
@@ -74,7 +82,9 @@ var DocExplorer = exports.DocExplorer = function (_React$Component) {
     var _this = _possibleConstructorReturn(this, (DocExplorer.__proto__ || Object.getPrototypeOf(DocExplorer)).call(this));
 
     _this.handleNavBackClick = function () {
-      _this.setState({ navStack: _this.state.navStack.slice(0, -1) });
+      if (_this.state.navStack.length > 1) {
+        _this.setState({ navStack: _this.state.navStack.slice(0, -1) });
+      }
     };
 
     _this.handleClickTypeOrField = function (typeOrField) {
@@ -82,84 +92,75 @@ var DocExplorer = exports.DocExplorer = function (_React$Component) {
     };
 
     _this.handleSearch = function (value) {
-      _this.showSearch({
-        name: 'Search Results',
-        searchValue: value
-      });
+      _this.showSearch(value);
     };
 
-    _this.state = { navStack: [] };
+    _this.state = { navStack: [initialNav] };
     return _this;
   }
 
   _createClass(DocExplorer, [{
     key: 'shouldComponentUpdate',
     value: function shouldComponentUpdate(nextProps, nextState) {
-      return this.props.schema !== nextProps.schema || this.state.navStack !== nextState.navStack || this.state.searchValue !== nextState.searchValue;
+      return this.props.schema !== nextProps.schema || this.state.navStack !== nextState.navStack;
     }
   }, {
     key: 'render',
     value: function render() {
       var schema = this.props.schema;
       var navStack = this.state.navStack;
+      var navItem = navStack[navStack.length - 1];
 
-      var navItem = void 0;
-      if (navStack.length > 0) {
-        navItem = navStack[navStack.length - 1];
-      }
-
-      var title = void 0;
       var content = void 0;
-      if (navItem) {
-        if (navItem.name === 'Search Results') {
-          title = navItem.name;
-          content = _react2.default.createElement(_SearchResults2.default, {
-            searchValue: navItem.searchValue,
-            schema: schema,
-            onClickType: this.handleClickTypeOrField,
-            onClickField: this.handleClickTypeOrField
-          });
-        } else {
-          title = navItem.name;
-          if ((0, _graphql.isType)(navItem)) {
-            content = _react2.default.createElement(_TypeDoc2.default, {
-              key: navItem.name,
-              schema: schema,
-              type: navItem,
-              onClickType: this.handleClickTypeOrField,
-              onClickField: this.handleClickTypeOrField
-            });
-          } else {
-            content = _react2.default.createElement(_FieldDoc2.default, {
-              key: navItem.name,
-              field: navItem,
-              onClickType: this.handleClickTypeOrField
-            });
-          }
-        }
-      } else if (schema) {
-        title = 'Documentation Explorer';
+      if (schema === undefined) {
+        // Schema is undefined when it is being loaded via introspection.
+        content = _react2.default.createElement(
+          'div',
+          { className: 'spinner-container' },
+          _react2.default.createElement('div', { className: 'spinner' })
+        );
+      } else if (!schema) {
+        // Schema is null when it explicitly does not exist, typically due to
+        // an error during introspection.
+        content = _react2.default.createElement(
+          'div',
+          { className: 'error-container' },
+          'No Schema Available'
+        );
+      } else if (navItem.search) {
+        content = _react2.default.createElement(_SearchResults2.default, {
+          searchValue: navItem.search,
+          withinType: navItem.def,
+          schema: schema,
+          onClickType: this.handleClickTypeOrField,
+          onClickField: this.handleClickTypeOrField
+        });
+      } else if (navStack.length === 1) {
         content = _react2.default.createElement(_SchemaDoc2.default, { schema: schema, onClickType: this.handleClickTypeOrField });
+      } else if ((0, _graphql.isType)(navItem.def)) {
+        content = _react2.default.createElement(_TypeDoc2.default, {
+          schema: schema,
+          type: navItem.def,
+          onClickType: this.handleClickTypeOrField,
+          onClickField: this.handleClickTypeOrField
+        });
+      } else {
+        content = _react2.default.createElement(_FieldDoc2.default, {
+          field: navItem.def,
+          onClickType: this.handleClickTypeOrField
+        });
       }
+
+      var shouldSearchBoxAppear = navStack.length === 1 || (0, _graphql.isType)(navItem.def) && navItem.def.getFields;
 
       var prevName = void 0;
-      if (navStack.length === 1) {
-        prevName = 'Schema';
-      } else if (navStack.length > 1) {
+      if (navStack.length > 1) {
         prevName = navStack[navStack.length - 2].name;
       }
 
-      var spinnerDiv = _react2.default.createElement(
-        'div',
-        { className: 'spinner-container' },
-        _react2.default.createElement('div', { className: 'spinner' })
-      );
-
-      var shouldSearchBoxAppear = content && (content.type === _SearchResults2.default || content.type === _SchemaDoc2.default);
-
       return _react2.default.createElement(
         'div',
-        { className: 'doc-explorer' },
+        { className: 'doc-explorer', key: navItem.name },
         _react2.default.createElement(
           'div',
           { className: 'doc-explorer-title-bar' },
@@ -173,7 +174,7 @@ var DocExplorer = exports.DocExplorer = function (_React$Component) {
           _react2.default.createElement(
             'div',
             { className: 'doc-explorer-title' },
-            title
+            navItem.title || navItem.name
           ),
           _react2.default.createElement(
             'div',
@@ -184,11 +185,12 @@ var DocExplorer = exports.DocExplorer = function (_React$Component) {
         _react2.default.createElement(
           'div',
           { className: 'doc-explorer-contents' },
-          _react2.default.createElement(_SearchBox2.default, {
-            isShown: shouldSearchBoxAppear,
+          shouldSearchBoxAppear && _react2.default.createElement(_SearchBox2.default, {
+            value: navItem.search,
+            placeholder: 'Search ' + navItem.name + '...',
             onSearch: this.handleSearch
           }),
-          this.props.schema ? content : spinnerDiv
+          content
         )
       );
     }
@@ -199,28 +201,47 @@ var DocExplorer = exports.DocExplorer = function (_React$Component) {
     key: 'showDoc',
     value: function showDoc(typeOrField) {
       var navStack = this.state.navStack;
-      var isCurrentlyShown = navStack.length > 0 && navStack[navStack.length - 1] === typeOrField;
-      if (!isCurrentlyShown) {
-        navStack = navStack.concat([typeOrField]);
+      var topNav = navStack[navStack.length - 1];
+      if (topNav.def !== typeOrField) {
+        this.setState({
+          navStack: navStack.concat([{
+            name: typeOrField.name,
+            def: typeOrField
+          }])
+        });
       }
+    }
 
-      this.setState({ navStack: navStack });
+    // Public API
+
+  }, {
+    key: 'showDocForReference',
+    value: function showDocForReference(reference) {
+      if (reference.kind === 'Type') {
+        this.showDoc(reference.type);
+      } else if (reference.kind === 'Field') {
+        this.showDoc(reference.field);
+      } else if (reference.kind === 'Argument' && reference.field) {
+        this.showDoc(reference.field);
+      } else if (reference.kind === 'EnumValue' && reference.type) {
+        this.showDoc(reference.type);
+      }
     }
 
     // Public API
 
   }, {
     key: 'showSearch',
-    value: function showSearch(searchItem) {
-      var navStack = this.state.navStack;
-      var lastEntry = navStack.length > 0 && navStack[navStack.length - 1];
-      if (!lastEntry) {
-        navStack = navStack.concat([searchItem]);
-      } else if (lastEntry.searchValue !== searchItem.searchValue) {
-        navStack = navStack.slice(0, -1).concat([searchItem]);
-      }
-
+    value: function showSearch(search) {
+      var navStack = this.state.navStack.slice();
+      var topNav = navStack[navStack.length - 1];
+      navStack[navStack.length - 1] = _extends({}, topNav, { search: search });
       this.setState({ navStack: navStack });
+    }
+  }, {
+    key: 'reset',
+    value: function reset() {
+      this.setState({ navStack: [initialNav] });
     }
   }]);
 
@@ -231,7 +252,68 @@ DocExplorer.propTypes = {
   schema: _react.PropTypes.instanceOf(_graphql.GraphQLSchema)
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./DocExplorer/FieldDoc":2,"./DocExplorer/SchemaDoc":4,"./DocExplorer/SearchBox":5,"./DocExplorer/SearchResults":6,"./DocExplorer/TypeDoc":7,"graphql":64}],2:[function(require,module,exports){
+},{"./DocExplorer/FieldDoc":3,"./DocExplorer/SchemaDoc":5,"./DocExplorer/SearchBox":6,"./DocExplorer/SearchResults":7,"./DocExplorer/TypeDoc":8,"graphql":74}],2:[function(require,module,exports){
+(function (global){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = Argument;
+
+var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
+
+var _react2 = _interopRequireDefault(_react);
+
+var _graphql = require('graphql');
+
+var _TypeLink = require('./TypeLink');
+
+var _TypeLink2 = _interopRequireDefault(_TypeLink);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function Argument(_ref) {
+  var arg = _ref.arg,
+      onClickType = _ref.onClickType,
+      showDefaultValue = _ref.showDefaultValue;
+
+  return _react2.default.createElement(
+    'span',
+    { className: 'arg' },
+    _react2.default.createElement(
+      'span',
+      { className: 'arg-name' },
+      arg.name
+    ),
+    ': ',
+    _react2.default.createElement(_TypeLink2.default, { type: arg.type, onClick: onClickType }),
+    arg.defaultValue !== undefined && showDefaultValue !== false && _react2.default.createElement(
+      'span',
+      null,
+      ' = ',
+      _react2.default.createElement(
+        'span',
+        { className: 'arg-default-value' },
+        (0, _graphql.print)((0, _graphql.astFromValue)(arg.defaultValue, arg.type))
+      )
+    )
+  );
+} /**
+   *  Copyright (c) Facebook, Inc.
+   *  All rights reserved.
+   *
+   *  This source code is licensed under the license found in the
+   *  LICENSE file in the root directory of this source tree.
+   */
+
+Argument.propTypes = {
+  arg: _react.PropTypes.object.isRequired,
+  onClickType: _react.PropTypes.func.isRequired,
+  showDefaultValue: _react.PropTypes.bool
+};
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./TypeLink":9,"graphql":74}],3:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -244,6 +326,10 @@ var _createClass = function () { function defineProperties(target, props) { for 
 var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
 
 var _react2 = _interopRequireDefault(_react);
+
+var _Argument = require('./Argument');
+
+var _Argument2 = _interopRequireDefault(_Argument);
 
 var _MarkdownContent = require('./MarkdownContent');
 
@@ -260,11 +346,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 var FieldDoc = function (_React$Component) {
@@ -305,13 +391,7 @@ var FieldDoc = function (_React$Component) {
               _react2.default.createElement(
                 'div',
                 null,
-                _react2.default.createElement(
-                  'span',
-                  { className: 'arg-name' },
-                  arg.name
-                ),
-                ': ',
-                _react2.default.createElement(_TypeLink2.default, { type: arg.type, onClick: _this2.props.onClickType })
+                _react2.default.createElement(_Argument2.default, { arg: arg, onClickType: _this2.props.onClickType })
               ),
               _react2.default.createElement(_MarkdownContent2.default, {
                 className: 'doc-value-description',
@@ -330,7 +410,7 @@ var FieldDoc = function (_React$Component) {
           markdown: field.description || 'No Description'
         }),
         field.deprecationReason && _react2.default.createElement(_MarkdownContent2.default, {
-          className: 'doc-alert-text',
+          className: 'doc-deprecation',
           markdown: field.deprecationReason
         }),
         _react2.default.createElement(
@@ -357,7 +437,7 @@ FieldDoc.propTypes = {
 };
 exports.default = FieldDoc;
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./MarkdownContent":3,"./TypeLink":8}],3:[function(require,module,exports){
+},{"./Argument":2,"./MarkdownContent":4,"./TypeLink":9}],4:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -382,11 +462,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 var MarkdownContent = function (_React$Component) {
@@ -428,7 +508,7 @@ MarkdownContent.propTypes = {
 };
 exports.default = MarkdownContent;
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"marked":134}],4:[function(require,module,exports){
+},{"marked":145}],5:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -457,11 +537,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 // Render the top level Schema
@@ -552,7 +632,7 @@ SchemaDoc.propTypes = {
 };
 exports.default = SchemaDoc;
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./MarkdownContent":3,"./TypeLink":8}],5:[function(require,module,exports){
+},{"./MarkdownContent":4,"./TypeLink":9}],6:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -577,11 +657,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 var SearchBox = function (_React$Component) {
@@ -593,38 +673,37 @@ var SearchBox = function (_React$Component) {
     var _this = _possibleConstructorReturn(this, (SearchBox.__proto__ || Object.getPrototypeOf(SearchBox)).call(this, props));
 
     _this.handleChange = function (event) {
-      _this.setState({ value: event.target.value });
-      _this._debouncedOnSearch();
+      var value = event.target.value;
+      _this.setState({ value: value });
+      _this.debouncedOnSearch(value);
     };
 
-    _this.state = { value: '' };
+    _this.handleClear = function () {
+      _this.setState({ value: '' });
+      _this.props.onSearch('');
+    };
 
-    _this._debouncedOnSearch = (0, _debounce2.default)(200, function () {
-      _this.props.onSearch(_this.state.value);
-    });
+    _this.state = { value: props.value || '' };
+    _this.debouncedOnSearch = (0, _debounce2.default)(200, _this.props.onSearch);
     return _this;
   }
 
   _createClass(SearchBox, [{
-    key: 'shouldComponentUpdate',
-    value: function shouldComponentUpdate(nextProps, nextState) {
-      return nextProps.isShown !== this.props.isShown || nextState.value !== this.state.value;
-    }
-  }, {
     key: 'render',
     value: function render() {
       return _react2.default.createElement(
-        'div',
-        null,
-        this.props.isShown && _react2.default.createElement(
-          'label',
-          { className: 'search-box-outer' },
-          _react2.default.createElement('input', { className: 'search-box-input',
-            onChange: this.handleChange,
-            type: 'text',
-            value: this.state.value,
-            placeholder: 'Search the schema ...'
-          })
+        'label',
+        { className: 'search-box' },
+        _react2.default.createElement('input', {
+          value: this.state.value,
+          onChange: this.handleChange,
+          type: 'text',
+          placeholder: this.props.placeholder
+        }),
+        this.state.value && _react2.default.createElement(
+          'div',
+          { className: 'search-box-clear', onClick: this.handleClear },
+          '\u2715'
         )
       );
     }
@@ -634,12 +713,13 @@ var SearchBox = function (_React$Component) {
 }(_react2.default.Component);
 
 SearchBox.propTypes = {
-  isShown: _react.PropTypes.bool,
+  value: _react.PropTypes.string,
+  placeholder: _react.PropTypes.string,
   onSearch: _react.PropTypes.func
 };
 exports.default = SearchBox;
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../utility/debounce":17}],6:[function(require,module,exports){
+},{"../../utility/debounce":21}],7:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -653,6 +733,10 @@ var _react = (typeof window !== "undefined" ? window['React'] : typeof global !=
 
 var _react2 = _interopRequireDefault(_react);
 
+var _Argument = require('./Argument');
+
+var _Argument2 = _interopRequireDefault(_Argument);
+
 var _TypeLink = require('./TypeLink');
 
 var _TypeLink2 = _interopRequireDefault(_TypeLink);
@@ -664,11 +748,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 var SearchResults = function (_React$Component) {
@@ -688,19 +772,27 @@ var SearchResults = function (_React$Component) {
   }, {
     key: 'render',
     value: function render() {
-      var _this2 = this;
-
       var searchValue = this.props.searchValue;
+      var withinType = this.props.withinType;
       var schema = this.props.schema;
       var onClickType = this.props.onClickType;
       var onClickField = this.props.onClickField;
 
-      var typeMap = schema.getTypeMap();
-
+      var matchedWithin = [];
       var matchedTypes = [];
       var matchedFields = [];
 
+      var typeMap = schema.getTypeMap();
       var typeNames = Object.keys(typeMap);
+
+      // Move the within type name to be the first searched.
+      if (withinType) {
+        typeNames = typeNames.filter(function (n) {
+          return n !== withinType.name;
+        });
+        typeNames.unshift(withinType.name);
+      }
+
       var _iteratorNormalCompletion = true;
       var _didIteratorError = false;
       var _iteratorError = undefined;
@@ -709,20 +801,15 @@ var SearchResults = function (_React$Component) {
         var _loop = function _loop() {
           var typeName = _step.value;
 
-          if (matchedTypes.length + matchedFields.length >= 100) {
+          if (matchedWithin.length + matchedTypes.length + matchedFields.length >= 100) {
             return 'break';
           }
 
           var type = typeMap[typeName];
-          var matchedOn = [];
-          if (_this2._isMatch(typeName, searchValue)) {
-            matchedOn.push('Type Name');
-          }
-
-          if (matchedOn.length) {
+          if (withinType !== type && isMatch(typeName, searchValue)) {
             matchedTypes.push(_react2.default.createElement(
               'div',
-              { className: 'doc-category-item' },
+              { className: 'doc-category-item', key: typeName },
               _react2.default.createElement(_TypeLink2.default, { type: type, onClick: onClickType })
             ));
           }
@@ -732,60 +819,51 @@ var SearchResults = function (_React$Component) {
               var fields = type.getFields();
               Object.keys(fields).forEach(function (fieldName) {
                 var field = fields[fieldName];
-                if (_this2._isMatch(fieldName, searchValue)) {
-                  matchedFields.push(_react2.default.createElement(
-                    'div',
-                    { className: 'doc-category-item' },
-                    _react2.default.createElement(
-                      'a',
-                      { className: 'field-name',
-                        onClick: function onClick(event) {
-                          return onClickField(field, type, event);
-                        } },
-                      field.name
-                    ),
-                    ' on ',
-                    _react2.default.createElement(_TypeLink2.default, { type: type, onClick: onClickType })
-                  ));
-                } else if (field.args && field.args.length) {
-                  var matches = field.args.filter(function (arg) {
-                    return _this2._isMatch(arg.name, searchValue);
-                  });
-                  if (matches.length > 0) {
-                    matchedFields.push(_react2.default.createElement(
-                      'div',
-                      { className: 'doc-category-item' },
-                      _react2.default.createElement(
-                        'a',
-                        { className: 'field-name',
-                          onClick: function onClick(event) {
-                            return onClickField(field, type, event);
-                          } },
-                        field.name
-                      ),
-                      '(',
-                      _react2.default.createElement(
-                        'span',
-                        null,
-                        matches.map(function (arg) {
-                          return _react2.default.createElement(
-                            'span',
-                            { className: 'arg', key: arg.name },
-                            _react2.default.createElement(
-                              'span',
-                              { className: 'arg-name' },
-                              arg.name
-                            ),
-                            ': ',
-                            _react2.default.createElement(_TypeLink2.default, { type: arg.type, onClick: onClickType })
-                          );
-                        })
-                      ),
-                      ')',
-                      ' on ',
-                      _react2.default.createElement(_TypeLink2.default, { type: type, onClick: onClickType })
-                    ));
+                var matchingArgs = void 0;
+
+                if (!isMatch(fieldName, searchValue)) {
+                  if (field.args && field.args.length) {
+                    matchingArgs = field.args.filter(function (arg) {
+                      return isMatch(arg.name, searchValue);
+                    });
+                    if (matchingArgs.length === 0) {
+                      return;
+                    }
+                  } else {
+                    return;
                   }
+                }
+
+                var match = _react2.default.createElement(
+                  'div',
+                  { className: 'doc-category-item', key: typeName + '.' + fieldName },
+                  withinType !== type && [_react2.default.createElement(_TypeLink2.default, { key: 'type', type: type, onClick: onClickType }), '.'],
+                  _react2.default.createElement(
+                    'a',
+                    { className: 'field-name',
+                      onClick: function onClick(event) {
+                        return onClickField(field, type, event);
+                      } },
+                    field.name
+                  ),
+                  matchingArgs && ['(', _react2.default.createElement(
+                    'span',
+                    { key: 'args' },
+                    matchingArgs.map(function (arg) {
+                      return _react2.default.createElement(_Argument2.default, {
+                        key: arg.name,
+                        arg: arg,
+                        onClickType: onClickType,
+                        showDefaultValue: false
+                      });
+                    })
+                  ), ')']
+                );
+
+                if (withinType === type) {
+                  matchedWithin.push(match);
+                } else {
+                  matchedFields.push(match);
                 }
               });
             })();
@@ -812,7 +890,7 @@ var SearchResults = function (_React$Component) {
         }
       }
 
-      if (matchedTypes.length === 0 && matchedFields.length === 0) {
+      if (matchedWithin.length + matchedTypes.length + matchedFields.length === 0) {
         return _react2.default.createElement(
           'span',
           { className: 'doc-alert-text' },
@@ -820,33 +898,32 @@ var SearchResults = function (_React$Component) {
         );
       }
 
+      if (withinType && matchedTypes.length + matchedFields.length > 0) {
+        return _react2.default.createElement(
+          'div',
+          null,
+          matchedWithin,
+          _react2.default.createElement(
+            'div',
+            { className: 'doc-category' },
+            _react2.default.createElement(
+              'div',
+              { className: 'doc-category-title' },
+              'other results'
+            ),
+            matchedTypes,
+            matchedFields
+          )
+        );
+      }
+
       return _react2.default.createElement(
         'div',
         null,
-        _react2.default.createElement(
-          'div',
-          { className: 'doc-category' },
-          (matchedTypes.length > 0 || matchedFields.length > 0) && _react2.default.createElement(
-            'div',
-            { className: 'doc-category-title' },
-            'search results'
-          ),
-          matchedTypes,
-          matchedFields
-        )
+        matchedWithin,
+        matchedTypes,
+        matchedFields
       );
-    }
-  }, {
-    key: '_isMatch',
-    value: function _isMatch(sourceText, searchValue) {
-      try {
-        var escaped = searchValue.replace(/[^_0-9A-Za-z]/g, function (ch) {
-          return '\\' + ch;
-        });
-        return sourceText.search(new RegExp(escaped, 'i')) !== -1;
-      } catch (e) {
-        return sourceText.toLowerCase().indexOf(searchValue.toLowerCase()) !== -1;
-      }
     }
   }]);
 
@@ -855,13 +932,26 @@ var SearchResults = function (_React$Component) {
 
 SearchResults.propTypes = {
   schema: _react.PropTypes.object,
+  withinType: _react.PropTypes.object,
   searchValue: _react.PropTypes.string,
   onClickType: _react.PropTypes.func,
   onClickField: _react.PropTypes.func
 };
 exports.default = SearchResults;
+
+
+function isMatch(sourceText, searchValue) {
+  try {
+    var escaped = searchValue.replace(/[^_0-9A-Za-z]/g, function (ch) {
+      return '\\' + ch;
+    });
+    return sourceText.search(new RegExp(escaped, 'i')) !== -1;
+  } catch (e) {
+    return sourceText.toLowerCase().indexOf(searchValue.toLowerCase()) !== -1;
+  }
+}
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./TypeLink":8}],7:[function(require,module,exports){
+},{"./Argument":2,"./TypeLink":9}],8:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -876,6 +966,10 @@ var _react = (typeof window !== "undefined" ? window['React'] : typeof global !=
 var _react2 = _interopRequireDefault(_react);
 
 var _graphql = require('graphql');
+
+var _Argument = require('./Argument');
+
+var _Argument2 = _interopRequireDefault(_Argument);
 
 var _MarkdownContent = require('./MarkdownContent');
 
@@ -892,30 +986,39 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 var TypeDoc = function (_React$Component) {
   _inherits(TypeDoc, _React$Component);
 
-  function TypeDoc() {
+  function TypeDoc(props) {
     _classCallCheck(this, TypeDoc);
 
-    return _possibleConstructorReturn(this, (TypeDoc.__proto__ || Object.getPrototypeOf(TypeDoc)).apply(this, arguments));
+    var _this = _possibleConstructorReturn(this, (TypeDoc.__proto__ || Object.getPrototypeOf(TypeDoc)).call(this, props));
+
+    _this.handleShowDeprecated = function () {
+      return _this.setState({ showDeprecated: true });
+    };
+
+    _this.state = { showDeprecated: false };
+    return _this;
   }
 
   _createClass(TypeDoc, [{
     key: 'shouldComponentUpdate',
-    value: function shouldComponentUpdate(nextProps) {
-      return this.props.type !== nextProps.type || this.props.schema !== nextProps.schema;
+    value: function shouldComponentUpdate(nextProps, nextState) {
+      return this.props.type !== nextProps.type || this.props.schema !== nextProps.schema || this.state.showDeprecated !== nextState.showDeprecated;
     }
   }, {
     key: 'render',
     value: function render() {
+      var _this2 = this;
+
       var schema = this.props.schema;
       var type = this.props.type;
       var onClickType = this.props.onClickType;
@@ -956,6 +1059,7 @@ var TypeDoc = function (_React$Component) {
 
       // InputObject and Object
       var fieldsDef = void 0;
+      var deprecatedFieldsDef = void 0;
       if (type.getFields) {
         (function () {
           var fieldMap = type.getFields();
@@ -970,58 +1074,53 @@ var TypeDoc = function (_React$Component) {
               { className: 'doc-category-title' },
               'fields'
             ),
-            fields.map(function (field) {
-
-              // Field arguments
-              var argsDef = void 0;
-              if (field.args && field.args.length > 0) {
-                argsDef = field.args.map(function (arg) {
-                  return _react2.default.createElement(
-                    'span',
-                    { className: 'arg', key: arg.name },
-                    _react2.default.createElement(
-                      'span',
-                      { className: 'arg-name' },
-                      arg.name
-                    ),
-                    ': ',
-                    _react2.default.createElement(_TypeLink2.default, { type: arg.type, onClick: onClickType })
-                  );
-                });
-              }
-
-              return _react2.default.createElement(
-                'div',
-                { key: field.name, className: 'doc-category-item' },
-                _react2.default.createElement(
-                  'a',
-                  {
-                    className: 'field-name',
-                    onClick: function onClick(event) {
-                      return onClickField(field, type, event);
-                    } },
-                  field.name
-                ),
-                argsDef && ['(', _react2.default.createElement(
-                  'span',
-                  { key: 'args' },
-                  argsDef
-                ), ')'],
-                ': ',
-                _react2.default.createElement(_TypeLink2.default, { type: field.type, onClick: onClickType }),
-                (field.isDeprecated || field.deprecationReason) && _react2.default.createElement(
-                  'span',
-                  { className: 'doc-alert-text' },
-                  ' (DEPRECATED)'
-                )
-              );
+            fields.filter(function (field) {
+              return !field.isDeprecated;
+            }).map(function (field) {
+              return _react2.default.createElement(Field, {
+                key: field.name,
+                type: type,
+                field: field,
+                onClickType: onClickType,
+                onClickField: onClickField
+              });
             })
           );
+
+          var deprecatedFields = fields.filter(function (field) {
+            return field.isDeprecated;
+          });
+          if (deprecatedFields.length > 0) {
+            deprecatedFieldsDef = _react2.default.createElement(
+              'div',
+              { className: 'doc-category' },
+              _react2.default.createElement(
+                'div',
+                { className: 'doc-category-title' },
+                'deprecated fields'
+              ),
+              !_this2.state.showDeprecated ? _react2.default.createElement(
+                'button',
+                { className: 'show-btn', onClick: _this2.handleShowDeprecated },
+                'Show deprecated fields...'
+              ) : deprecatedFields.map(function (field) {
+                return _react2.default.createElement(Field, {
+                  key: field.name,
+                  type: type,
+                  field: field,
+                  onClickType: onClickType,
+                  onClickField: onClickField
+                });
+              })
+            );
+          }
         })();
       }
 
       var valuesDef = void 0;
+      var deprecatedValuesDef = void 0;
       if (type instanceof _graphql.GraphQLEnumType) {
+        var values = type.getValues();
         valuesDef = _react2.default.createElement(
           'div',
           { className: 'doc-category' },
@@ -1030,31 +1129,34 @@ var TypeDoc = function (_React$Component) {
             { className: 'doc-category-title' },
             'values'
           ),
-          type.getValues().map(function (value) {
-            return _react2.default.createElement(
-              'div',
-              { key: value.name, className: 'doc-category-item' },
-              _react2.default.createElement(
-                'div',
-                { className: 'enum-value' },
-                value.name,
-                (value.isDeprecated || value.deprecationReason) && _react2.default.createElement(
-                  'span',
-                  { className: 'doc-alert-text' },
-                  ' (DEPRECATED)'
-                )
-              ),
-              _react2.default.createElement(_MarkdownContent2.default, {
-                className: 'doc-value-description',
-                markdown: value.description
-              }),
-              value.deprecationReason && _react2.default.createElement(_MarkdownContent2.default, {
-                className: 'doc-alert-text',
-                markdown: value.deprecationReason
-              })
-            );
+          values.filter(function (value) {
+            return !value.isDeprecated;
+          }).map(function (value) {
+            return _react2.default.createElement(EnumValue, { key: value.name, value: value });
           })
         );
+
+        var deprecatedValues = values.filter(function (value) {
+          return value.isDeprecated;
+        });
+        if (deprecatedValues.length > 0) {
+          deprecatedValuesDef = _react2.default.createElement(
+            'div',
+            { className: 'doc-category' },
+            _react2.default.createElement(
+              'div',
+              { className: 'doc-category-title' },
+              'deprecated values'
+            ),
+            !this.state.showDeprecated ? _react2.default.createElement(
+              'button',
+              { className: 'show-btn', onClick: this.handleShowDeprecated },
+              'Show deprecated values...'
+            ) : deprecatedValues.map(function (value) {
+              return _react2.default.createElement(EnumValue, { key: value.name, value: value });
+            })
+          );
+        }
       }
 
       return _react2.default.createElement(
@@ -1066,7 +1168,9 @@ var TypeDoc = function (_React$Component) {
         }),
         type instanceof _graphql.GraphQLObjectType && typesDef,
         fieldsDef,
+        deprecatedFieldsDef,
         valuesDef,
+        deprecatedValuesDef,
         !(type instanceof _graphql.GraphQLObjectType) && typesDef
       );
     }
@@ -1082,8 +1186,80 @@ TypeDoc.propTypes = {
   onClickField: _react.PropTypes.func
 };
 exports.default = TypeDoc;
+
+
+function Field(_ref) {
+  var type = _ref.type,
+      field = _ref.field,
+      onClickType = _ref.onClickType,
+      onClickField = _ref.onClickField;
+
+  return _react2.default.createElement(
+    'div',
+    { className: 'doc-category-item' },
+    _react2.default.createElement(
+      'a',
+      {
+        className: 'field-name',
+        onClick: function onClick(event) {
+          return onClickField(field, type, event);
+        } },
+      field.name
+    ),
+    field.args && field.args.length > 0 && ['(', _react2.default.createElement(
+      'span',
+      { key: 'args' },
+      field.args.map(function (arg) {
+        return _react2.default.createElement(_Argument2.default, {
+          key: arg.name,
+          arg: arg,
+          onClickType: onClickType
+        });
+      })
+    ), ')'],
+    ': ',
+    _react2.default.createElement(_TypeLink2.default, { type: field.type, onClick: onClickType }),
+    field.deprecationReason && _react2.default.createElement(_MarkdownContent2.default, {
+      className: 'doc-deprecation',
+      markdown: field.deprecationReason
+    })
+  );
+}
+
+Field.propTypes = {
+  type: _react.PropTypes.object,
+  field: _react.PropTypes.object,
+  onClickType: _react.PropTypes.func,
+  onClickField: _react.PropTypes.func
+};
+
+function EnumValue(_ref2) {
+  var value = _ref2.value;
+
+  return _react2.default.createElement(
+    'div',
+    { className: 'doc-category-item' },
+    _react2.default.createElement(
+      'div',
+      { className: 'enum-value' },
+      value.name
+    ),
+    _react2.default.createElement(_MarkdownContent2.default, {
+      className: 'doc-value-description',
+      markdown: value.description
+    }),
+    value.deprecationReason && _react2.default.createElement(_MarkdownContent2.default, {
+      className: 'doc-deprecation',
+      markdown: value.deprecationReason
+    })
+  );
+}
+
+EnumValue.propTypes = {
+  value: _react.PropTypes.object
+};
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./MarkdownContent":3,"./TypeLink":8,"graphql":64}],8:[function(require,module,exports){
+},{"./Argument":2,"./MarkdownContent":4,"./TypeLink":9,"graphql":74}],9:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -1106,11 +1282,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 var TypeLink = function (_React$Component) {
@@ -1171,7 +1347,7 @@ function renderType(type, _onClick) {
   );
 }
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"graphql":64}],9:[function(require,module,exports){
+},{"graphql":74}],10:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -1193,11 +1369,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 /**
@@ -1316,6 +1492,7 @@ var ExecuteButton = exports.ExecuteButton = function (_React$Component) {
         _react2.default.createElement(
           'button',
           {
+            type: 'button',
             className: 'execute-button',
             onMouseDown: onMouseDown,
             onClick: onClick,
@@ -1341,7 +1518,7 @@ ExecuteButton.propTypes = {
   operations: _react.PropTypes.array
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -1369,6 +1546,12 @@ var _graphql = require('graphql');
 var _ExecuteButton = require('./ExecuteButton');
 
 var _ToolbarButton = require('./ToolbarButton');
+
+var _ToolbarGroup = require('./ToolbarGroup');
+
+var _ToolbarMenu = require('./ToolbarMenu');
+
+var _ToolbarSelect = require('./ToolbarSelect');
 
 var _QueryEditor = require('./QueryEditor');
 
@@ -1411,11 +1594,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 /**
@@ -1485,16 +1668,22 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
   _createClass(GraphiQL, [{
     key: 'componentDidMount',
     value: function componentDidMount() {
-      // Ensure a form of a schema exists (including `null`) and
-      // if not, fetch one using an introspection query.
-      this._ensureOfSchema();
+      // Only fetch schema via introspection if a schema has not been
+      // provided, including if `null` was provided.
+      if (this.state.schema === undefined) {
+        this._fetchSchema();
+      }
 
       // Utility for keeping CodeMirror correctly sized.
       this.codeMirrorSizer = new _CodeMirrorSizer2.default();
+
+      global.g = this;
     }
   }, {
     key: 'componentWillReceiveProps',
     value: function componentWillReceiveProps(nextProps) {
+      var _this2 = this;
+
       var nextSchema = this.state.schema;
       var nextQuery = this.state.query;
       var nextVariables = this.state.variables;
@@ -1520,12 +1709,23 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
         this._updateQueryFacts(nextQuery);
       }
 
+      // If schema is not supplied via props and the fetcher changed, then
+      // remove the schema so fetchSchema() will be called with the new fetcher.
+      if (nextProps.schema === undefined && nextProps.fetcher !== this.props.fetcher) {
+        nextSchema = undefined;
+      }
+
       this.setState({
         schema: nextSchema,
         query: nextQuery,
         variables: nextVariables,
         operationName: nextOperationName,
         response: nextResponse
+      }, function () {
+        if (_this2.state.schema === undefined) {
+          _this2.docExplorerComponent.reset();
+          _this2._fetchSchema();
+        }
       });
     }
   }, {
@@ -1543,7 +1743,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
     key: 'componentWillUnmount',
     value: function componentWillUnmount() {
       this._storageSet('query', this.state.query);
-      this._storageSet('variables', this.state.variables || '');
+      this._storageSet('variables', this.state.variables);
       this._storageSet('operationName', this.state.operationName);
       this._storageSet('editorFlex', this.state.editorFlex);
       this._storageSet('variableEditorHeight', this.state.variableEditorHeight);
@@ -1553,7 +1753,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
   }, {
     key: 'render',
     value: function render() {
-      var _this2 = this;
+      var _this3 = this;
 
       var children = _react2.default.Children.toArray(this.props.children);
 
@@ -1563,7 +1763,15 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
 
       var toolbar = (0, _find2.default)(children, function (child) {
         return child.type === GraphiQL.Toolbar;
-      }) || _react2.default.createElement(GraphiQL.Toolbar, null);
+      }) || _react2.default.createElement(
+        GraphiQL.Toolbar,
+        null,
+        _react2.default.createElement(_ToolbarButton.ToolbarButton, {
+          onClick: this.handlePrettifyQuery,
+          title: 'Prettify Query',
+          label: 'Prettify'
+        })
+      );
 
       var footer = (0, _find2.default)(children, function (child) {
         return child.type === GraphiQL.Footer;
@@ -1604,11 +1812,6 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
                 onStop: this.handleStopQuery,
                 operations: this.state.operations
               }),
-              _react2.default.createElement(GraphiQL.ToolbarButton, {
-                onClick: this.handlePrettifyQuery,
-                title: 'Prettify Query',
-                label: 'Prettify'
-              }),
               toolbar
             ),
             !this.state.docExplorerOpen && _react2.default.createElement(
@@ -1623,7 +1826,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
             'div',
             {
               ref: function ref(n) {
-                _this2.editorBarComponent = n;
+                _this3.editorBarComponent = n;
               },
               className: 'editorBar',
               onMouseDown: this.handleResizeStart },
@@ -1632,13 +1835,15 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
               { className: 'queryWrap', style: queryWrapStyle },
               _react2.default.createElement(_QueryEditor.QueryEditor, {
                 ref: function ref(n) {
-                  _this2.queryEditorComponent = n;
+                  _this3.queryEditorComponent = n;
                 },
                 schema: this.state.schema,
                 value: this.state.query,
                 onEdit: this.handleEditQuery,
                 onHintInformationRender: this.handleHintInformationRender,
-                onRunQuery: this.handleEditorRunQuery
+                onClickReference: this.handleClickReference,
+                onRunQuery: this.handleEditorRunQuery,
+                editorTheme: this.props.editorTheme
               }),
               _react2.default.createElement(
                 'div',
@@ -1653,13 +1858,14 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
                 ),
                 _react2.default.createElement(_VariableEditor.VariableEditor, {
                   ref: function ref(n) {
-                    _this2.variableEditorComponent = n;
+                    _this3.variableEditorComponent = n;
                   },
                   value: this.state.variables,
                   variableToType: this.state.variableToType,
                   onEdit: this.handleEditVariables,
                   onHintInformationRender: this.handleHintInformationRender,
-                  onRunQuery: this.handleEditorRunQuery
+                  onRunQuery: this.handleEditorRunQuery,
+                  editorTheme: this.props.editorTheme
                 })
               )
             ),
@@ -1673,9 +1879,10 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
               ),
               _react2.default.createElement(_ResultViewer.ResultViewer, {
                 ref: function ref(c) {
-                  _this2.resultComponent = c;
+                  _this3.resultComponent = c;
                 },
-                value: this.state.response
+                value: this.state.response,
+                editorTheme: this.props.editorTheme
               }),
               footer
             )
@@ -1692,7 +1899,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
             _DocExplorer.DocExplorer,
             {
               ref: function ref(c) {
-                _this2.docExplorerComponent = c;
+                _this3.docExplorerComponent = c;
               },
               schema: this.state.schema },
             _react2.default.createElement(
@@ -1706,6 +1913,44 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
     }
 
     /**
+     * Get the query editor CodeMirror instance.
+     *
+     * @public
+     */
+
+  }, {
+    key: 'getQueryEditor',
+    value: function getQueryEditor() {
+      return this.queryEditorComponent.getCodeMirror();
+    }
+
+    /**
+     * Get the variable editor CodeMirror instance.
+     *
+     * @public
+     */
+
+  }, {
+    key: 'getVariableEditor',
+    value: function getVariableEditor() {
+      return this.variableEditorComponent.getCodeMirror();
+    }
+
+    /**
+     * Refresh all CodeMirror instances.
+     *
+     * @public
+     */
+
+  }, {
+    key: 'refresh',
+    value: function refresh() {
+      this.queryEditorComponent.getCodeMirror().refresh();
+      this.variableEditorComponent.getCodeMirror().refresh();
+      this.resultComponent.getCodeMirror().refresh();
+    }
+
+    /**
      * Inspect the query, automatically filling in selection sets for non-leaf
      * fields which do not yet have them.
      *
@@ -1715,7 +1960,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
   }, {
     key: 'autoCompleteLeafs',
     value: function autoCompleteLeafs() {
-      var _this3 = this;
+      var _this4 = this;
 
       var _fillLeafs = (0, _fillLeafs2.fillLeafs)(this.state.schema, this.state.query, this.props.getDefaultFieldNames),
           insertions = _fillLeafs.insertions,
@@ -1723,7 +1968,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
 
       if (insertions && insertions.length > 0) {
         (function () {
-          var editor = _this3.queryEditorComponent.getCodeMirror();
+          var editor = _this4.getQueryEditor();
           editor.operation(function () {
             var cursor = editor.getCursor();
             var cursorIndex = editor.indexFromPos(cursor);
@@ -1763,14 +2008,9 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
     // Private methods
 
   }, {
-    key: '_ensureOfSchema',
-    value: function _ensureOfSchema() {
-      var _this4 = this;
-
-      // Only perform introspection if a schema is not provided (undefined)
-      if (this.state.schema !== undefined) {
-        return;
-      }
+    key: '_fetchSchema',
+    value: function _fetchSchema() {
+      var _this5 = this;
 
       var fetcher = this.props.fetcher;
 
@@ -1800,38 +2040,57 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
         // If a schema was provided while this fetch was underway, then
         // satisfy the race condition by respecting the already
         // provided schema.
-        if (_this4.state.schema !== undefined) {
+        if (_this5.state.schema !== undefined) {
           return;
         }
 
         if (result && result.data) {
           var schema = (0, _graphql.buildClientSchema)(result.data);
-          var queryFacts = (0, _getQueryFacts2.default)(schema, _this4.state.query);
-          _this4.setState(_extends({ schema: schema }, queryFacts));
+          var queryFacts = (0, _getQueryFacts2.default)(schema, _this5.state.query);
+          _this5.setState(_extends({ schema: schema }, queryFacts));
         } else {
           var responseString = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-          _this4.setState({ response: responseString });
+          _this5.setState({
+            // Set schema to `null` to explicitly indicate that no schema exists.
+            schema: null,
+            response: responseString
+          });
         }
       }).catch(function (error) {
-        _this4.setState({ response: error && String(error.stack || error) });
+        _this5.setState({
+          schema: null,
+          response: error && String(error.stack || error)
+        });
       });
     }
   }, {
     key: '_storageGet',
     value: function _storageGet(name) {
-      return this._storage && this._storage.getItem('graphiql:' + name);
+      if (this._storage) {
+        var value = this._storage.getItem('graphiql:' + name);
+        // Clean up any inadvertently saved null/undefined values.
+        if (value === 'null' || value === 'undefined') {
+          this._storage.removeItem('graphiql:' + name);
+        } else {
+          return value;
+        }
+      }
     }
   }, {
     key: '_storageSet',
     value: function _storageSet(name, value) {
       if (this._storage) {
-        this._storage.setItem('graphiql:' + name, value);
+        if (value) {
+          this._storage.setItem('graphiql:' + name, value);
+        } else {
+          this._storage.removeItem('graphiql:' + name);
+        }
       }
     }
   }, {
     key: '_fetchQuery',
     value: function _fetchQuery(query, variables, operationName, cb) {
-      var _this5 = this;
+      var _this6 = this;
 
       var fetcher = this.props.fetcher;
       var jsonVariables = null;
@@ -1856,7 +2115,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
         // If fetcher returned a Promise, then call the callback when the promise
         // resolves, otherwise handle the error.
         fetch.then(cb).catch(function (error) {
-          _this5.setState({
+          _this6.setState({
             isWaitingForResponse: false,
             response: error && String(error.stack || error)
           });
@@ -1868,14 +2127,14 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
         var subscription = fetch.subscribe({
           next: cb,
           error: function error(_error) {
-            _this5.setState({
+            _this6.setState({
               isWaitingForResponse: false,
               response: _error && String(_error.stack || _error),
               subscription: null
             });
           },
           complete: function complete() {
-            _this5.setState({
+            _this6.setState({
               isWaitingForResponse: false,
               subscription: null
             });
@@ -1898,7 +2157,7 @@ var GraphiQL = exports.GraphiQL = function (_React$Component) {
       var operationName = void 0;
       var operations = this.state.operations;
       if (operations) {
-        var editor = this.queryEditorComponent.getCodeMirror();
+        var editor = this.getQueryEditor();
         if (editor.hasFocus()) {
           var cursor = editor.getCursor();
           var cursorIndex = editor.indexFromPos(cursor);
@@ -1962,53 +2221,60 @@ GraphiQL.propTypes = {
   onEditVariables: _react.PropTypes.func,
   onEditOperationName: _react.PropTypes.func,
   onToggleDocs: _react.PropTypes.func,
-  getDefaultFieldNames: _react.PropTypes.func
+  getDefaultFieldNames: _react.PropTypes.func,
+  editorTheme: _react.PropTypes.string
 };
 
 var _initialiseProps = function _initialiseProps() {
-  var _this6 = this;
+  var _this7 = this;
+
+  this.handleClickReference = function (reference) {
+    _this7.setState({ docExplorerOpen: true }, function () {
+      _this7.docExplorerComponent.showDocForReference(reference);
+    });
+  };
 
   this.handleRunQuery = function (selectedOperationName) {
-    _this6._editorQueryID++;
-    var queryID = _this6._editorQueryID;
+    _this7._editorQueryID++;
+    var queryID = _this7._editorQueryID;
 
     // Use the edited query after autoCompleteLeafs() runs or,
     // in case autoCompletion fails (the function returns undefined),
     // the current query from the editor.
-    var editedQuery = _this6.autoCompleteLeafs() || _this6.state.query;
-    var variables = _this6.state.variables;
-    var operationName = _this6.state.operationName;
+    var editedQuery = _this7.autoCompleteLeafs() || _this7.state.query;
+    var variables = _this7.state.variables;
+    var operationName = _this7.state.operationName;
 
     // If an operation was explicitly provided, different from the current
     // operation name, then report that it changed.
     if (selectedOperationName && selectedOperationName !== operationName) {
       operationName = selectedOperationName;
-      var onEditOperationName = _this6.props.onEditOperationName;
+      var onEditOperationName = _this7.props.onEditOperationName;
       if (onEditOperationName) {
         onEditOperationName(operationName);
       }
     }
 
     try {
-      _this6.setState({
+      _this7.setState({
         isWaitingForResponse: true,
         response: null,
         operationName: operationName
       });
 
       // _fetchQuery may return a subscription.
-      var subscription = _this6._fetchQuery(editedQuery, variables, operationName, function (result) {
-        if (queryID === _this6._editorQueryID) {
-          _this6.setState({
+      var subscription = _this7._fetchQuery(editedQuery, variables, operationName, function (result) {
+        if (queryID === _this7._editorQueryID) {
+          _this7.setState({
             isWaitingForResponse: false,
             response: JSON.stringify(result, null, 2)
           });
         }
       });
 
-      _this6.setState({ subscription: subscription });
+      _this7.setState({ subscription: subscription });
     } catch (error) {
-      _this6.setState({
+      _this7.setState({
         isWaitingForResponse: false,
         response: error.message
       });
@@ -2016,8 +2282,8 @@ var _initialiseProps = function _initialiseProps() {
   };
 
   this.handleStopQuery = function () {
-    var subscription = _this6.state.subscription;
-    _this6.setState({
+    var subscription = _this7.state.subscription;
+    _this7.setState({
       isWaitingForResponse: false,
       subscription: null
     });
@@ -2027,70 +2293,69 @@ var _initialiseProps = function _initialiseProps() {
   };
 
   this.handlePrettifyQuery = function () {
-    var query = (0, _graphql.print)((0, _graphql.parse)(_this6.state.query));
-    var editor = _this6.queryEditorComponent.getCodeMirror();
-    editor.setValue(query);
+    var editor = _this7.getQueryEditor();
+    editor.setValue((0, _graphql.print)((0, _graphql.parse)(editor.getValue())));
   };
 
-  this.handleEditQuery = function (value) {
-    if (_this6.state.schema) {
-      _this6._updateQueryFacts(value);
+  this.handleEditQuery = (0, _debounce2.default)(100, function (value) {
+    if (_this7.state.schema) {
+      _this7._updateQueryFacts(value);
     }
-    _this6.setState({ query: value });
-    if (_this6.props.onEditQuery) {
-      return _this6.props.onEditQuery(value);
-    }
-  };
-
-  this._updateQueryFacts = (0, _debounce2.default)(150, function (query) {
-    var queryFacts = (0, _getQueryFacts2.default)(_this6.state.schema, query);
-    if (queryFacts) {
-      // Update operation name should any query names change.
-      var operationName = (0, _getSelectedOperationName2.default)(_this6.state.operations, _this6.state.operationName, queryFacts.operations);
-
-      // Report changing of operationName if it changed.
-      var onEditOperationName = _this6.props.onEditOperationName;
-      if (onEditOperationName && operationName !== _this6.state.operationName) {
-        onEditOperationName(operationName);
-      }
-
-      _this6.setState(_extends({
-        operationName: operationName
-      }, queryFacts));
+    _this7.setState({ query: value });
+    if (_this7.props.onEditQuery) {
+      return _this7.props.onEditQuery(value);
     }
   });
 
+  this._updateQueryFacts = function (query) {
+    var queryFacts = (0, _getQueryFacts2.default)(_this7.state.schema, query);
+    if (queryFacts) {
+      // Update operation name should any query names change.
+      var operationName = (0, _getSelectedOperationName2.default)(_this7.state.operations, _this7.state.operationName, queryFacts.operations);
+
+      // Report changing of operationName if it changed.
+      var onEditOperationName = _this7.props.onEditOperationName;
+      if (onEditOperationName && operationName !== _this7.state.operationName) {
+        onEditOperationName(operationName);
+      }
+
+      _this7.setState(_extends({
+        operationName: operationName
+      }, queryFacts));
+    }
+  };
+
   this.handleEditVariables = function (value) {
-    _this6.setState({ variables: value });
-    if (_this6.props.onEditVariables) {
-      _this6.props.onEditVariables(value);
+    _this7.setState({ variables: value });
+    if (_this7.props.onEditVariables) {
+      _this7.props.onEditVariables(value);
     }
   };
 
   this.handleHintInformationRender = function (elem) {
-    elem.addEventListener('click', _this6._onClickHintInformation);
+    elem.addEventListener('click', _this7._onClickHintInformation);
 
     var _onRemoveFn = void 0;
     elem.addEventListener('DOMNodeRemoved', _onRemoveFn = function onRemoveFn() {
       elem.removeEventListener('DOMNodeRemoved', _onRemoveFn);
-      elem.removeEventListener('click', _this6._onClickHintInformation);
+      elem.removeEventListener('click', _this7._onClickHintInformation);
     });
   };
 
   this.handleEditorRunQuery = function () {
-    _this6._runQueryAtCursor();
+    _this7._runQueryAtCursor();
   };
 
   this._onClickHintInformation = function (event) {
     if (event.target.className === 'typeName') {
       var typeName = event.target.innerHTML;
-      var schema = _this6.state.schema;
+      var schema = _this7.state.schema;
       if (schema) {
         (function () {
           var type = schema.getType(typeName);
           if (type) {
-            _this6.setState({ docExplorerOpen: true }, function () {
-              _this6.docExplorerComponent.showDoc(type);
+            _this7.setState({ docExplorerOpen: true }, function () {
+              _this7.docExplorerComponent.showDoc(type);
             });
           }
         })();
@@ -2099,14 +2364,14 @@ var _initialiseProps = function _initialiseProps() {
   };
 
   this.handleToggleDocs = function () {
-    if (typeof _this6.props.onToggleDocs === 'function') {
-      _this6.props.onToggleDocs(!_this6.state.docExplorerOpen);
+    if (typeof _this7.props.onToggleDocs === 'function') {
+      _this7.props.onToggleDocs(!_this7.state.docExplorerOpen);
     }
-    _this6.setState({ docExplorerOpen: !_this6.state.docExplorerOpen });
+    _this7.setState({ docExplorerOpen: !_this7.state.docExplorerOpen });
   };
 
   this.handleResizeStart = function (downEvent) {
-    if (!_this6._didClickDragBar(downEvent)) {
+    if (!_this7._didClickDragBar(downEvent)) {
       return;
     }
 
@@ -2119,10 +2384,10 @@ var _initialiseProps = function _initialiseProps() {
         return onMouseUp();
       }
 
-      var editorBar = _reactDom2.default.findDOMNode(_this6.editorBarComponent);
+      var editorBar = _reactDom2.default.findDOMNode(_this7.editorBarComponent);
       var leftSize = moveEvent.clientX - (0, _elementPosition.getLeft)(editorBar) - offset;
       var rightSize = editorBar.clientWidth - leftSize;
-      _this6.setState({ editorFlex: leftSize / rightSize });
+      _this7.setState({ editorFlex: leftSize / rightSize });
     };
 
     var onMouseUp = function (_onMouseUp) {
@@ -2149,7 +2414,7 @@ var _initialiseProps = function _initialiseProps() {
   this.handleDocsResizeStart = function (downEvent) {
     downEvent.preventDefault();
 
-    var hadWidth = _this6.state.docExplorerWidth;
+    var hadWidth = _this7.state.docExplorerWidth;
     var offset = downEvent.clientX - (0, _elementPosition.getLeft)(downEvent.target);
 
     var onMouseMove = function onMouseMove(moveEvent) {
@@ -2157,14 +2422,14 @@ var _initialiseProps = function _initialiseProps() {
         return onMouseUp();
       }
 
-      var app = _reactDom2.default.findDOMNode(_this6);
+      var app = _reactDom2.default.findDOMNode(_this7);
       var cursorPos = moveEvent.clientX - (0, _elementPosition.getLeft)(app) - offset;
       var docsSize = app.clientWidth - cursorPos;
 
       if (docsSize < 100) {
-        _this6.setState({ docExplorerOpen: false });
+        _this7.setState({ docExplorerOpen: false });
       } else {
-        _this6.setState({
+        _this7.setState({
           docExplorerOpen: true,
           docExplorerWidth: Math.min(docsSize, 650)
         });
@@ -2182,8 +2447,8 @@ var _initialiseProps = function _initialiseProps() {
 
       return onMouseUp;
     }(function () {
-      if (!_this6.state.docExplorerOpen) {
-        _this6.setState({ docExplorerWidth: hadWidth });
+      if (!_this7.state.docExplorerOpen) {
+        _this7.setState({ docExplorerWidth: hadWidth });
       }
 
       document.removeEventListener('mousemove', onMouseMove);
@@ -2200,8 +2465,8 @@ var _initialiseProps = function _initialiseProps() {
     downEvent.preventDefault();
 
     var didMove = false;
-    var wasOpen = _this6.state.variableEditorOpen;
-    var hadHeight = _this6.state.variableEditorHeight;
+    var wasOpen = _this7.state.variableEditorOpen;
+    var hadHeight = _this7.state.variableEditorHeight;
     var offset = downEvent.clientY - (0, _elementPosition.getTop)(downEvent.target);
 
     var onMouseMove = function onMouseMove(moveEvent) {
@@ -2211,16 +2476,16 @@ var _initialiseProps = function _initialiseProps() {
 
       didMove = true;
 
-      var editorBar = _reactDom2.default.findDOMNode(_this6.editorBarComponent);
+      var editorBar = _reactDom2.default.findDOMNode(_this7.editorBarComponent);
       var topSize = moveEvent.clientY - (0, _elementPosition.getTop)(editorBar) - offset;
       var bottomSize = editorBar.clientHeight - topSize;
       if (bottomSize < 60) {
-        _this6.setState({
+        _this7.setState({
           variableEditorOpen: false,
           variableEditorHeight: hadHeight
         });
       } else {
-        _this6.setState({
+        _this7.setState({
           variableEditorOpen: true,
           variableEditorHeight: bottomSize
         });
@@ -2239,7 +2504,7 @@ var _initialiseProps = function _initialiseProps() {
       return onMouseUp;
     }(function () {
       if (!didMove) {
-        _this6.setState({ variableEditorOpen: !wasOpen });
+        _this7.setState({ variableEditorOpen: !wasOpen });
       }
 
       document.removeEventListener('mousemove', onMouseMove);
@@ -2281,7 +2546,19 @@ GraphiQL.Toolbar = function GraphiQLToolbar(props) {
 };
 
 // Add a button to the Toolbar.
-GraphiQL.ToolbarButton = _ToolbarButton.ToolbarButton;
+GraphiQL.Button = _ToolbarButton.ToolbarButton;
+GraphiQL.ToolbarButton = _ToolbarButton.ToolbarButton; // Don't break existing API.
+
+// Add a group of buttons to the Toolbar
+GraphiQL.Group = _ToolbarGroup.ToolbarGroup;
+
+// Add a menu of items to the Toolbar.
+GraphiQL.Menu = _ToolbarMenu.ToolbarMenu;
+GraphiQL.MenuItem = _ToolbarMenu.ToolbarMenuItem;
+
+// Add a select-option input to the Toolbar.
+GraphiQL.Select = _ToolbarSelect.ToolbarSelect;
+GraphiQL.SelectOption = _ToolbarSelect.ToolbarSelectOption;
 
 // Configure the UI by providing this Component as a child of GraphiQL.
 GraphiQL.Footer = function GraphiQLFooter(props) {
@@ -2292,7 +2569,7 @@ GraphiQL.Footer = function GraphiQLFooter(props) {
   );
 };
 
-var defaultQuery = '# Welcome to GraphiQL\n#\n# GraphiQL is an in-browser IDE for writing, validating, and\n# testing GraphQL queries.\n#\n# Type queries into this side of the screen, and you will\n# see intelligent typeaheads aware of the current GraphQL type schema and\n# live syntax and validation errors highlighted within the text.\n#\n# To bring up the auto-complete at any point, just press Ctrl-Space.\n#\n# Press the run button above, or Cmd-Enter to execute the query, and the result\n# will appear in the pane to the right.\n\n';
+var defaultQuery = '# Welcome to GraphiQL\n#\n# GraphiQL is an in-browser tool for writing, validating, and\n# testing GraphQL queries.\n#\n# Type queries into this side of the screen, and you will see intelligent\n# typeaheads aware of the current GraphQL type schema and live syntax and\n# validation errors highlighted within the text.\n#\n# GraphQL queries typically start with a "{" character. Lines that starts\n# with a # are ignored.\n#\n# An example GraphQL query might look like:\n#\n#     {\n#       field(arg: "value") {\n#         subField\n#       }\n#     }\n#\n# Keyboard shortcuts:\n#\n#       Run Query:  Ctrl-Enter (or press the play button above)\n#\n#   Auto Complete:  Ctrl-Space (or just start typing)\n#\n\n';
 
 // Duck-type promise detection.
 function isPromise(value) {
@@ -2319,7 +2596,7 @@ function isObservable(value) {
   return (typeof value === 'undefined' ? 'undefined' : _typeof(value)) === 'object' && typeof value.subscribe === 'function';
 }
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../utility/CodeMirrorSizer":16,"../utility/debounce":17,"../utility/elementPosition":18,"../utility/fillLeafs":19,"../utility/find":20,"../utility/getQueryFacts":21,"../utility/getSelectedOperationName":22,"../utility/introspectionQueries":23,"./DocExplorer":1,"./ExecuteButton":9,"./QueryEditor":11,"./ResultViewer":12,"./ToolbarButton":13,"./VariableEditor":14,"graphql":64}],11:[function(require,module,exports){
+},{"../utility/CodeMirrorSizer":20,"../utility/debounce":21,"../utility/elementPosition":22,"../utility/fillLeafs":23,"../utility/find":24,"../utility/getQueryFacts":25,"../utility/getSelectedOperationName":26,"../utility/introspectionQueries":27,"./DocExplorer":1,"./ExecuteButton":10,"./QueryEditor":12,"./ResultViewer":13,"./ToolbarButton":14,"./ToolbarGroup":15,"./ToolbarMenu":16,"./ToolbarSelect":17,"./VariableEditor":18,"graphql":74}],12:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2336,6 +2613,10 @@ var _react2 = _interopRequireDefault(_react);
 
 var _graphql = require('graphql');
 
+var _marked = require('marked');
+
+var _marked2 = _interopRequireDefault(_marked);
+
 var _onHasCompletion = require('../utility/onHasCompletion');
 
 var _onHasCompletion2 = _interopRequireDefault(_onHasCompletion);
@@ -2347,11 +2628,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 /**
@@ -2424,6 +2705,8 @@ var QueryEditor = exports.QueryEditor = function (_React$Component) {
       require('codemirror/keymap/sublime');
       require('codemirror-graphql/hint');
       require('codemirror-graphql/lint');
+      require('codemirror-graphql/info');
+      require('codemirror-graphql/jump');
       require('codemirror-graphql/mode');
 
       this.editor = CodeMirror(this._node, {
@@ -2431,7 +2714,7 @@ var QueryEditor = exports.QueryEditor = function (_React$Component) {
         lineNumbers: true,
         tabSize: 2,
         mode: 'graphql',
-        theme: 'graphiql',
+        theme: this.props.editorTheme || 'graphiql',
         keyMap: 'sublime',
         autoCloseBrackets: true,
         matchBrackets: true,
@@ -2446,6 +2729,21 @@ var QueryEditor = exports.QueryEditor = function (_React$Component) {
           schema: this.props.schema,
           closeOnUnfocus: false,
           completeSingle: false
+        },
+        info: {
+          schema: this.props.schema,
+          renderDescription: function renderDescription(text) {
+            return (0, _marked2.default)(text, { sanitize: true });
+          },
+          onClick: function onClick(reference) {
+            return _this2.props.onClickReference(reference);
+          }
+        },
+        jump: {
+          schema: this.props.schema,
+          onClick: function onClick(reference) {
+            return _this2.props.onClickReference(reference);
+          }
         },
         gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
         extraKeys: {
@@ -2497,6 +2795,8 @@ var QueryEditor = exports.QueryEditor = function (_React$Component) {
       if (this.props.schema !== prevProps.schema) {
         this.editor.options.lint.schema = this.props.schema;
         this.editor.options.hintOptions.schema = this.props.schema;
+        this.editor.options.info.schema = this.props.schema;
+        this.editor.options.jump.schema = this.props.schema;
         CodeMirror.signal(this.editor, 'change', this.editor);
       }
       if (this.props.value !== prevProps.value && this.props.value !== this.cachedValue) {
@@ -2562,10 +2862,12 @@ QueryEditor.propTypes = {
   value: _react.PropTypes.string,
   onEdit: _react.PropTypes.func,
   onHintInformationRender: _react.PropTypes.func,
-  onRunQuery: _react.PropTypes.func
+  onClickReference: _react.PropTypes.func,
+  onRunQuery: _react.PropTypes.func,
+  editorTheme: _react.PropTypes.string
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../utility/onHasCompletion":24,"codemirror":54,"codemirror-graphql/hint":25,"codemirror-graphql/lint":26,"codemirror-graphql/mode":27,"codemirror/addon/comment/comment":42,"codemirror/addon/edit/closebrackets":44,"codemirror/addon/edit/matchbrackets":45,"codemirror/addon/fold/brace-fold":46,"codemirror/addon/fold/foldgutter":48,"codemirror/addon/hint/show-hint":49,"codemirror/addon/lint/lint":50,"codemirror/keymap/sublime":53,"graphql":64}],12:[function(require,module,exports){
+},{"../utility/onHasCompletion":28,"codemirror":64,"codemirror-graphql/hint":29,"codemirror-graphql/info":30,"codemirror-graphql/jump":31,"codemirror-graphql/lint":32,"codemirror-graphql/mode":33,"codemirror/addon/comment/comment":52,"codemirror/addon/edit/closebrackets":54,"codemirror/addon/edit/matchbrackets":55,"codemirror/addon/fold/brace-fold":56,"codemirror/addon/fold/foldgutter":58,"codemirror/addon/hint/show-hint":59,"codemirror/addon/lint/lint":60,"codemirror/keymap/sublime":63,"graphql":74,"marked":145}],13:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2587,11 +2889,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 /**
@@ -2630,7 +2932,7 @@ var ResultViewer = exports.ResultViewer = function (_React$Component) {
         lineWrapping: true,
         value: this.props.value || '',
         readOnly: true,
-        theme: 'graphiql',
+        theme: this.props.editorTheme || 'graphiql',
         mode: 'graphql-results',
         keyMap: 'sublime',
         foldGutter: {
@@ -2700,10 +3002,11 @@ var ResultViewer = exports.ResultViewer = function (_React$Component) {
 }(_react2.default.Component);
 
 ResultViewer.propTypes = {
-  value: _react.PropTypes.string
+  value: _react.PropTypes.string,
+  editorTheme: _react.PropTypes.string
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"codemirror":54,"codemirror-graphql/results/mode":28,"codemirror/addon/dialog/dialog":43,"codemirror/addon/fold/brace-fold":46,"codemirror/addon/fold/foldgutter":48,"codemirror/addon/search/search":51,"codemirror/keymap/sublime":53}],13:[function(require,module,exports){
+},{"codemirror":64,"codemirror-graphql/results/mode":34,"codemirror/addon/dialog/dialog":53,"codemirror/addon/fold/brace-fold":56,"codemirror/addon/fold/foldgutter":58,"codemirror/addon/search/search":61,"codemirror/keymap/sublime":63}],14:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2725,11 +3028,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 /**
@@ -2768,6 +3071,7 @@ var ToolbarButton = exports.ToolbarButton = function (_React$Component) {
         'a',
         {
           className: 'toolbar-button' + (error ? ' error' : ''),
+          onMouseDown: preventDefault,
           onClick: this.handleClick,
           title: error ? error.message : this.props.title },
         this.props.label
@@ -2783,8 +3087,375 @@ ToolbarButton.propTypes = {
   title: _react.PropTypes.string,
   label: _react.PropTypes.string
 };
+
+
+function preventDefault(e) {
+  e.preventDefault();
+}
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
+(function (global){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.ToolbarGroup = ToolbarGroup;
+
+var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
+
+var _react2 = _interopRequireDefault(_react);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * ToolbarGroup
+ *
+ * A group of associated controls.
+ */
+function ToolbarGroup(_ref) {
+  var children = _ref.children;
+
+  return _react2.default.createElement(
+    "div",
+    { className: "toolbar-button-group" },
+    children
+  );
+} /**
+   *  Copyright (c) Facebook, Inc.
+   *  All rights reserved.
+   *
+   *  This source code is licensed under the license found in the
+   *  LICENSE file in the root directory of this source tree.
+   */
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],16:[function(require,module,exports){
+(function (global){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.ToolbarMenu = undefined;
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+exports.ToolbarMenuItem = ToolbarMenuItem;
+
+var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
+
+var _react2 = _interopRequireDefault(_react);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  All rights reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  This source code is licensed under the license found in the
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                */
+
+/**
+ * ToolbarMenu
+ *
+ * A menu style button to use within the Toolbar.
+ */
+var ToolbarMenu = exports.ToolbarMenu = function (_React$Component) {
+  _inherits(ToolbarMenu, _React$Component);
+
+  function ToolbarMenu(props) {
+    _classCallCheck(this, ToolbarMenu);
+
+    var _this = _possibleConstructorReturn(this, (ToolbarMenu.__proto__ || Object.getPrototypeOf(ToolbarMenu)).call(this, props));
+
+    _this.handleOpen = function (e) {
+      preventDefault(e);
+      _this.setState({ visible: true });
+      _this._subscribe();
+    };
+
+    _this.state = { visible: false };
+    return _this;
+  }
+
+  _createClass(ToolbarMenu, [{
+    key: "componentWillUnmount",
+    value: function componentWillUnmount() {
+      this._release();
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      var _this2 = this;
+
+      var visible = this.state.visible;
+      return _react2.default.createElement(
+        "a",
+        {
+          className: "toolbar-menu toolbar-button",
+          onClick: this.handleOpen.bind(this),
+          onMouseDown: preventDefault,
+          ref: function ref(node) {
+            _this2._node = node;
+          },
+          title: this.props.title },
+        this.props.label,
+        _react2.default.createElement(
+          "svg",
+          { width: "14", height: "8" },
+          _react2.default.createElement("path", { fill: "#666", d: "M 5 1.5 L 14 1.5 L 9.5 7 z" })
+        ),
+        _react2.default.createElement(
+          "ul",
+          { className: 'toolbar-menu-items' + (visible ? ' open' : '') },
+          this.props.children
+        )
+      );
+    }
+  }, {
+    key: "_subscribe",
+    value: function _subscribe() {
+      if (!this._listener) {
+        this._listener = this.handleClick.bind(this);
+        document.addEventListener('click', this._listener);
+      }
+    }
+  }, {
+    key: "_release",
+    value: function _release() {
+      if (this._listener) {
+        document.removeEventListener('click', this._listener);
+        this._listener = null;
+      }
+    }
+  }, {
+    key: "handleClick",
+    value: function handleClick(e) {
+      if (this._node !== e.target) {
+        preventDefault(e);
+        this.setState({ visible: false });
+        this._release();
+      }
+    }
+  }]);
+
+  return ToolbarMenu;
+}(_react2.default.Component);
+
+ToolbarMenu.propTypes = {
+  title: _react.PropTypes.string,
+  label: _react.PropTypes.string
+};
+function ToolbarMenuItem(_ref) {
+  var onSelect = _ref.onSelect,
+      title = _ref.title,
+      label = _ref.label;
+
+  return _react2.default.createElement(
+    "li",
+    {
+      onMouseOver: function onMouseOver(e) {
+        e.target.className = 'hover';
+      },
+      onMouseOut: function onMouseOut(e) {
+        e.target.className = null;
+      },
+      onMouseDown: preventDefault,
+      onMouseUp: onSelect,
+      title: title },
+    label
+  );
+}
+
+ToolbarMenuItem.propTypes = {
+  onSelect: _react.PropTypes.func,
+  title: _react.PropTypes.string,
+  label: _react.PropTypes.string
+};
+
+function preventDefault(e) {
+  e.preventDefault();
+}
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],17:[function(require,module,exports){
+(function (global){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.ToolbarSelect = undefined;
+
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+exports.ToolbarSelectOption = ToolbarSelectOption;
+
+var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
+
+var _react2 = _interopRequireDefault(_react);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  All rights reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  This source code is licensed under the license found in the
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                */
+
+/**
+ * ToolbarSelect
+ *
+ * A select-option style button to use within the Toolbar.
+ *
+ */
+
+var ToolbarSelect = exports.ToolbarSelect = function (_React$Component) {
+  _inherits(ToolbarSelect, _React$Component);
+
+  function ToolbarSelect(props) {
+    _classCallCheck(this, ToolbarSelect);
+
+    var _this = _possibleConstructorReturn(this, (ToolbarSelect.__proto__ || Object.getPrototypeOf(ToolbarSelect)).call(this, props));
+
+    _this.handleOpen = function (e) {
+      preventDefault(e);
+      _this.setState({ visible: true });
+      _this._subscribe();
+    };
+
+    _this.state = { visible: false };
+    return _this;
+  }
+
+  _createClass(ToolbarSelect, [{
+    key: "componentWillUnmount",
+    value: function componentWillUnmount() {
+      this._release();
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      var _this2 = this;
+
+      var selectedChild = void 0;
+      var visible = this.state.visible;
+      var optionChildren = _react2.default.Children.map(this.props.children, function (child, i) {
+        if (!selectedChild || child.props.selected) {
+          selectedChild = child;
+        }
+        var onChildSelect = child.props.onSelect || _this2.props.onSelect && _this2.props.onSelect.bind(null, child.props.value, i);
+        return _react2.default.createElement(ToolbarSelectOption, _extends({}, child.props, { onSelect: onChildSelect }));
+      });
+      return _react2.default.createElement(
+        "a",
+        {
+          className: "toolbar-select toolbar-button",
+          onClick: this.handleOpen.bind(this),
+          onMouseDown: preventDefault,
+          ref: function ref(node) {
+            _this2._node = node;
+          },
+          title: this.props.title },
+        selectedChild.props.label,
+        _react2.default.createElement(
+          "svg",
+          { width: "13", height: "10" },
+          _react2.default.createElement("path", { fill: "#666", d: "M 5 5 L 13 5 L 9 1 z" }),
+          _react2.default.createElement("path", { fill: "#666", d: "M 5 6 L 13 6 L 9 10 z" })
+        ),
+        _react2.default.createElement(
+          "ul",
+          { className: 'toolbar-select-options' + (visible ? ' open' : '') },
+          optionChildren
+        )
+      );
+    }
+  }, {
+    key: "_subscribe",
+    value: function _subscribe() {
+      if (!this._listener) {
+        this._listener = this.handleClick.bind(this);
+        document.addEventListener('click', this._listener);
+      }
+    }
+  }, {
+    key: "_release",
+    value: function _release() {
+      if (this._listener) {
+        document.removeEventListener('click', this._listener);
+        this._listener = null;
+      }
+    }
+  }, {
+    key: "handleClick",
+    value: function handleClick(e) {
+      if (this._node !== e.target) {
+        preventDefault(e);
+        this.setState({ visible: false });
+        this._release();
+      }
+    }
+  }]);
+
+  return ToolbarSelect;
+}(_react2.default.Component);
+
+ToolbarSelect.propTypes = {
+  title: _react.PropTypes.string,
+  label: _react.PropTypes.string,
+  onSelect: _react.PropTypes.func
+};
+function ToolbarSelectOption(_ref) {
+  var onSelect = _ref.onSelect,
+      label = _ref.label,
+      selected = _ref.selected;
+
+  return _react2.default.createElement(
+    "li",
+    {
+      onMouseOver: function onMouseOver(e) {
+        e.target.className = 'hover';
+      },
+      onMouseOut: function onMouseOut(e) {
+        e.target.className = null;
+      },
+      onMouseDown: preventDefault,
+      onMouseUp: onSelect },
+    label,
+    selected && _react2.default.createElement(
+      "svg",
+      { width: "13", height: "13" },
+      _react2.default.createElement("polygon", { points: "4.851,10.462 0,5.611 2.314,3.297 4.851,5.835 10.686,0 13,2.314 4.851,10.462"
+      })
+    )
+  );
+}
+
+ToolbarSelectOption.propTypes = {
+  onSelect: _react.PropTypes.func,
+  selected: _react.PropTypes.bool,
+  label: _react.PropTypes.string,
+  value: _react.PropTypes.any
+};
+
+function preventDefault(e) {
+  e.preventDefault();
+}
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],18:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2810,11 +3481,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) 2015, Facebook, Inc.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  Copyright (c) Facebook, Inc.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  All rights reserved.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 *  This source code is licensed under the license found in the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE-examples file in the root directory of this source tree.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *  LICENSE file in the root directory of this source tree.
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
 
 /**
@@ -2892,7 +3563,7 @@ var VariableEditor = exports.VariableEditor = function (_React$Component) {
         lineNumbers: true,
         tabSize: 2,
         mode: 'graphql-variables',
-        theme: 'graphiql',
+        theme: this.props.editorTheme || 'graphiql',
         keyMap: 'sublime',
         autoCloseBrackets: true,
         matchBrackets: true,
@@ -3015,23 +3686,24 @@ VariableEditor.propTypes = {
   value: _react.PropTypes.string,
   onEdit: _react.PropTypes.func,
   onHintInformationRender: _react.PropTypes.func,
-  onRunQuery: _react.PropTypes.func
+  onRunQuery: _react.PropTypes.func,
+  editorTheme: _react.PropTypes.string
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../utility/onHasCompletion":24,"codemirror":54,"codemirror-graphql/variables/hint":39,"codemirror-graphql/variables/lint":40,"codemirror-graphql/variables/mode":41,"codemirror/addon/edit/closebrackets":44,"codemirror/addon/edit/matchbrackets":45,"codemirror/addon/fold/brace-fold":46,"codemirror/addon/fold/foldgutter":48,"codemirror/addon/hint/show-hint":49,"codemirror/addon/lint/lint":50,"codemirror/keymap/sublime":53}],15:[function(require,module,exports){
+},{"../utility/onHasCompletion":28,"codemirror":64,"codemirror-graphql/variables/hint":49,"codemirror-graphql/variables/lint":50,"codemirror-graphql/variables/mode":51,"codemirror/addon/edit/closebrackets":54,"codemirror/addon/edit/matchbrackets":55,"codemirror/addon/fold/brace-fold":56,"codemirror/addon/fold/foldgutter":58,"codemirror/addon/hint/show-hint":59,"codemirror/addon/lint/lint":60,"codemirror/keymap/sublime":63}],19:[function(require,module,exports){
 'use strict';
 
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the license found in the
- *  LICENSE-examples file in the root directory of this source tree.
+ *  LICENSE file in the root directory of this source tree.
  */
 
 // The primary React component to use.
 module.exports = require('./components/GraphiQL').GraphiQL;
-},{"./components/GraphiQL":10}],16:[function(require,module,exports){
+},{"./components/GraphiQL":11}],20:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3043,11 +3715,11 @@ var _createClass = function () { function defineProperties(target, props) { for 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the license found in the
- *  LICENSE-examples file in the root directory of this source tree.
+ *  LICENSE file in the root directory of this source tree.
  */
 
 /**
@@ -3080,7 +3752,7 @@ var CodeMirrorSizer = function () {
 }();
 
 exports.default = CodeMirrorSizer;
-},{}],17:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3088,11 +3760,11 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.default = debounce;
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the license found in the
- *  LICENSE-examples file in the root directory of this source tree.
+ *  LICENSE file in the root directory of this source tree.
  */
 
 /**
@@ -3112,7 +3784,7 @@ function debounce(duration, fn) {
     }, duration);
   };
 }
-},{}],18:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3121,11 +3793,11 @@ Object.defineProperty(exports, "__esModule", {
 exports.getLeft = getLeft;
 exports.getTop = getTop;
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the license found in the
- *  LICENSE-examples file in the root directory of this source tree.
+ *  LICENSE file in the root directory of this source tree.
  */
 
 /**
@@ -3151,7 +3823,7 @@ function getTop(initialElem) {
   }
   return pt;
 }
-},{}],19:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3218,11 +3890,11 @@ function fillLeafs(schema, docString, getDefaultFieldNames) {
 // This function first looks for some common patterns, and falls back to
 // including all leaf-type fields.
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the license found in the
- *  LICENSE-examples file in the root directory of this source tree.
+ *  LICENSE file in the root directory of this source tree.
  */
 
 function defaultGetDefaultFieldNames(type) {
@@ -3333,7 +4005,7 @@ function getIndentation(str, index) {
   }
   return str.substring(indentStart, indentEnd);
 }
-},{"graphql":64}],20:[function(require,module,exports){
+},{"graphql":74}],24:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3343,12 +4015,11 @@ exports.default = find;
 
 /* eslint-disable no-undef */
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
+ *  This source code is licensed under the license found in the
+ *  LICENSE file in the root directory of this source tree.
  */
 
 function find(list, predicate) {
@@ -3358,7 +4029,7 @@ function find(list, predicate) {
     }
   }
 }
-},{}],21:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3404,11 +4075,11 @@ function getQueryFacts(schema, documentStr) {
  * Provided a schema and a document, produces a `variableToType` Object.
  */
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the license found in the
- *  LICENSE-examples file in the root directory of this source tree.
+ *  LICENSE file in the root directory of this source tree.
  */
 
 function collectVariables(schema, documentAST) {
@@ -3431,7 +4102,7 @@ function collectVariables(schema, documentAST) {
   });
   return variableToType;
 }
-},{"graphql":64}],22:[function(require,module,exports){
+},{"graphql":74}],26:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3439,11 +4110,11 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.default = getSelectedOperationName;
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the license found in the
- *  LICENSE-examples file in the root directory of this source tree.
+ *  LICENSE file in the root directory of this source tree.
  */
 
 /**
@@ -3478,7 +4149,7 @@ function getSelectedOperationName(prevOperations, prevSelectedOperationName, ope
   // Use the first operation.
   return names[0];
 }
-},{}],23:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3499,7 +4170,7 @@ Object.defineProperty(exports, 'introspectionQuery', {
 // query which includes the `subscriptionType` field as the stock introspection
 // query does. This backup query removes that field.
 var introspectionQuerySansSubscriptions = exports.introspectionQuerySansSubscriptions = '\n  query IntrospectionQuery {\n    __schema {\n      queryType { name }\n      mutationType { name }\n      types {\n        ...FullType\n      }\n      directives {\n        name\n        description\n        locations\n        args {\n          ...InputValue\n        }\n      }\n    }\n  }\n\n  fragment FullType on __Type {\n    kind\n    name\n    description\n    fields(includeDeprecated: true) {\n      name\n      description\n      args {\n        ...InputValue\n      }\n      type {\n        ...TypeRef\n      }\n      isDeprecated\n      deprecationReason\n    }\n    inputFields {\n      ...InputValue\n    }\n    interfaces {\n      ...TypeRef\n    }\n    enumValues(includeDeprecated: true) {\n      name\n      description\n      isDeprecated\n      deprecationReason\n    }\n    possibleTypes {\n      ...TypeRef\n    }\n  }\n\n  fragment InputValue on __InputValue {\n    name\n    description\n    type { ...TypeRef }\n    defaultValue\n  }\n\n  fragment TypeRef on __Type {\n    kind\n    name\n    ofType {\n      kind\n      name\n      ofType {\n        kind\n        name\n        ofType {\n          kind\n          name\n          ofType {\n            kind\n            name\n            ofType {\n              kind\n              name\n              ofType {\n                kind\n                name\n                ofType {\n                  kind\n                  name\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n';
-},{"graphql":64}],24:[function(require,module,exports){
+},{"graphql":74}],28:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3520,76 +4191,46 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  * about the type and description for the selected context.
  */
 /**
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) Facebook, Inc.
  *  All rights reserved.
  *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
+ *  This source code is licensed under the license found in the
+ *  LICENSE file in the root directory of this source tree.
  */
 
 function onHasCompletion(cm, data, onHintInformationRender) {
   var CodeMirror = require('codemirror');
 
-  var wrapper = void 0;
   var information = void 0;
+  var deprecation = void 0;
 
-  // When a hint result is selected, we touch the UI.
+  // When a hint result is selected, we augment the UI with information.
   CodeMirror.on(data, 'select', function (ctx, el) {
     // Only the first time (usually when the hint UI is first displayed)
-    // do we create the wrapping node.
-    if (!wrapper) {
+    // do we create the information nodes.
+    if (!information) {
       (function () {
-        // Wrap the existing hint UI, so we have a place to put information.
         var hintsUl = el.parentNode;
-        var container = hintsUl.parentNode;
-        wrapper = document.createElement('div');
-        container.appendChild(wrapper);
-
-        // CodeMirror vertically inverts the hint UI if there is not enough
-        // space below the cursor. Since this modified UI appends to the bottom
-        // of CodeMirror's existing UI, it could cover the cursor. This adjusts
-        // the positioning of the hint UI to accomodate.
-        var top = hintsUl.style.top;
-        var bottom = '';
-        var cursorTop = cm.cursorCoords().top;
-        if (parseInt(top, 10) < cursorTop) {
-          top = '';
-          bottom = window.innerHeight - cursorTop + 3 + 'px';
-        }
-
-        // Style the wrapper, remove positioning from hints. Note that usage
-        // of this option will need to specify CSS to remove some styles from
-        // the existing hint UI.
-        wrapper.className = 'CodeMirror-hints-wrapper';
-        wrapper.style.left = hintsUl.style.left;
-        wrapper.style.top = top;
-        wrapper.style.bottom = bottom;
-        hintsUl.style.left = '';
-        hintsUl.style.top = '';
 
         // This "information" node will contain the additional info about the
         // highlighted typeahead option.
         information = document.createElement('div');
         information.className = 'CodeMirror-hint-information';
-        if (bottom) {
-          wrapper.appendChild(information);
-          wrapper.appendChild(hintsUl);
-        } else {
-          wrapper.appendChild(hintsUl);
-          wrapper.appendChild(information);
-        }
+        hintsUl.appendChild(information);
+
+        // This "deprecation" node will contain info about deprecated usage.
+        deprecation = document.createElement('div');
+        deprecation.className = 'CodeMirror-hint-deprecation';
+        hintsUl.appendChild(deprecation);
 
         // When CodeMirror attempts to remove the hint UI, we detect that it was
-        // removed from our wrapper and in turn remove the wrapper from the
-        // original container.
+        // removed and in turn remove the information nodes.
         var _onRemoveFn = void 0;
-        wrapper.addEventListener('DOMNodeRemoved', _onRemoveFn = function onRemoveFn(event) {
+        hintsUl.addEventListener('DOMNodeRemoved', _onRemoveFn = function onRemoveFn(event) {
           if (event.target === hintsUl) {
-            wrapper.removeEventListener('DOMNodeRemoved', _onRemoveFn);
-            wrapper.parentNode.removeChild(wrapper);
-            wrapper = null;
+            hintsUl.removeEventListener('DOMNodeRemoved', _onRemoveFn);
             information = null;
+            deprecation = null;
             _onRemoveFn = null;
           }
         });
@@ -3597,10 +4238,18 @@ function onHasCompletion(cm, data, onHintInformationRender) {
     }
 
     // Now that the UI has been set up, add info to information.
-    var description = ctx.description ? (0, _marked2.default)(ctx.description, { smartypants: true }) : 'Self descriptive.';
+    var description = ctx.description ? (0, _marked2.default)(ctx.description, { sanitize: true }) : 'Self descriptive.';
     var type = ctx.type ? '<span class="infoType">' + renderType(ctx.type) + '</span>' : '';
 
     information.innerHTML = '<div class="content">' + (description.slice(0, 3) === '<p>' ? '<p>' + type + description.slice(3) : type + description) + '</div>';
+
+    if (ctx.isDeprecated) {
+      var reason = ctx.deprecationReason ? (0, _marked2.default)(ctx.deprecationReason, { sanitize: true }) : '';
+      deprecation.innerHTML = '<span class="deprecation-label">Deprecated</span>' + reason;
+      deprecation.style.display = 'block';
+    } else {
+      deprecation.style.display = 'none';
+    }
 
     // Additional rendering?
     if (onHintInformationRender) {
@@ -3618,7 +4267,7 @@ function renderType(type) {
   }
   return '<a class="typeName">' + type.name + '</a>';
 }
-},{"codemirror":54,"graphql":64,"marked":134}],25:[function(require,module,exports){
+},{"codemirror":64,"graphql":74,"marked":145}],29:[function(require,module,exports){
 'use strict';
 
 var _codemirror = require('codemirror');
@@ -3674,7 +4323,266 @@ _codemirror2.default.registerHelper('hint', 'graphql', function (editor, options
 
   return results;
 });
-},{"./utils/getHintsAtPosition":33,"codemirror":54}],26:[function(require,module,exports){
+},{"./utils/getHintsAtPosition":40,"codemirror":64}],30:[function(require,module,exports){
+'use strict';
+
+var _graphql = require('graphql');
+
+var _codemirror = require('codemirror');
+
+var _codemirror2 = _interopRequireDefault(_codemirror);
+
+var _getTypeInfo = require('./utils/getTypeInfo');
+
+var _getTypeInfo2 = _interopRequireDefault(_getTypeInfo);
+
+var _SchemaReference = require('./utils/SchemaReference');
+
+require('./utils/info-addon');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * Registers GraphQL "info" tooltips for CodeMirror.
+ *
+ * When hovering over a token, this presents a tooltip explaining it.
+ *
+ * Options:
+ *
+ *   - schema: GraphQLSchema provides positionally relevant info.
+ *   - hoverTime: The number of ms to wait before showing info. (Default 500)
+ *   - renderDescription: Convert a description to some HTML, Useful since
+ *                        descriptions are often Markdown formatted.
+ *   - onClick: A function called when a named thing is clicked.
+ *
+ */
+_codemirror2.default.registerHelper('info', 'graphql', function (token, options) {
+  if (!options.schema || !token.state) {
+    return;
+  }
+
+  var state = token.state;
+  var kind = state.kind;
+  var step = state.step;
+  var typeInfo = (0, _getTypeInfo2.default)(options.schema, token.state);
+
+  // Given a Schema and a Token, produce the contents of an info tooltip.
+  // To do this, create a div element that we will render "into" and then pass
+  // it to various rendering functions.
+  if (kind === 'Field' && step === 0 && typeInfo.fieldDef || kind === 'AliasedField' && step === 2 && typeInfo.fieldDef) {
+    var into = document.createElement('div');
+    renderField(into, typeInfo, options);
+    renderDescription(into, options, typeInfo.fieldDef);
+    return into;
+  } else if (kind === 'Directive' && step === 1 && typeInfo.directiveDef) {
+    var _into = document.createElement('div');
+    renderDirective(_into, typeInfo, options);
+    renderDescription(_into, options, typeInfo.directiveDef);
+    return _into;
+  } else if (kind === 'Argument' && step === 0 && typeInfo.argDef) {
+    var _into2 = document.createElement('div');
+    renderArg(_into2, typeInfo, options);
+    renderDescription(_into2, options, typeInfo.argDef);
+    return _into2;
+  } else if (kind === 'EnumValue' && typeInfo.enumValue && typeInfo.enumValue.description) {
+    var _into3 = document.createElement('div');
+    renderEnumValue(_into3, typeInfo, options);
+    renderDescription(_into3, options, typeInfo.enumValue);
+    return _into3;
+  } else if (kind === 'NamedType' && typeInfo.type && typeInfo.type.description) {
+    var _into4 = document.createElement('div');
+    renderType(_into4, typeInfo, options, typeInfo.type);
+    renderDescription(_into4, options, typeInfo.type);
+    return _into4;
+  }
+});
+/**
+ *  Copyright (c) 2017, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+function renderField(into, typeInfo, options) {
+  renderQualifiedField(into, typeInfo, options);
+  renderTypeAnnotation(into, typeInfo, options, typeInfo.type);
+}
+
+function renderQualifiedField(into, typeInfo, options) {
+  var fieldName = typeInfo.fieldDef.name;
+  if (fieldName.slice(0, 2) !== '__') {
+    renderType(into, typeInfo, options, typeInfo.parentType);
+    text(into, '.');
+  }
+  text(into, fieldName, 'field-name', options, (0, _SchemaReference.getFieldReference)(typeInfo));
+}
+
+function renderDirective(into, typeInfo, options) {
+  var name = '@' + typeInfo.directiveDef.name;
+  text(into, name, 'directive-name', options, (0, _SchemaReference.getDirectiveReference)(typeInfo));
+}
+
+function renderArg(into, typeInfo, options) {
+  if (typeInfo.directiveDef) {
+    renderDirective(into, typeInfo, options);
+  } else if (typeInfo.fieldDef) {
+    renderQualifiedField(into, typeInfo, options);
+  }
+
+  var name = typeInfo.argDef.name;
+  text(into, '(');
+  text(into, name, 'arg-name', options, (0, _SchemaReference.getArgumentReference)(typeInfo));
+  renderTypeAnnotation(into, typeInfo, options, typeInfo.inputType);
+  text(into, ')');
+}
+
+function renderTypeAnnotation(into, typeInfo, options, t) {
+  text(into, ': ');
+  renderType(into, typeInfo, options, t);
+}
+
+function renderEnumValue(into, typeInfo, options) {
+  var name = typeInfo.enumValue.name;
+  renderType(into, typeInfo, options, typeInfo.inputType);
+  text(into, '.');
+  text(into, name, 'enum-value', options, (0, _SchemaReference.getEnumValueReference)(typeInfo));
+}
+
+function renderType(into, typeInfo, options, t) {
+  if (t instanceof _graphql.GraphQLNonNull) {
+    renderType(into, typeInfo, options, t.ofType);
+    text(into, '!');
+  } else if (t instanceof _graphql.GraphQLList) {
+    text(into, '[');
+    renderType(into, typeInfo, options, t.ofType);
+    text(into, ']');
+  } else {
+    text(into, t.name, 'type-name', options, (0, _SchemaReference.getTypeReference)(typeInfo, t));
+  }
+}
+
+function renderDescription(into, options, def) {
+  var description = def.description;
+  if (description) {
+    var descriptionDiv = document.createElement('div');
+    descriptionDiv.className = 'info-description';
+    if (options.renderDescription) {
+      descriptionDiv.innerHTML = options.renderDescription(description);
+    } else {
+      descriptionDiv.appendChild(document.createTextNode(description));
+    }
+    into.appendChild(descriptionDiv);
+  }
+
+  renderDeprecation(into, options, def);
+}
+
+function renderDeprecation(into, options, def) {
+  var reason = def.deprecationReason;
+  if (reason) {
+    var deprecationDiv = document.createElement('div');
+    deprecationDiv.className = 'info-deprecation';
+    if (options.renderDescription) {
+      deprecationDiv.innerHTML = options.renderDescription(reason);
+    } else {
+      deprecationDiv.appendChild(document.createTextNode(reason));
+    }
+    var label = document.createElement('span');
+    label.className = 'info-deprecation-label';
+    label.appendChild(document.createTextNode('Deprecated: '));
+    deprecationDiv.insertBefore(label, deprecationDiv.firstChild);
+    into.appendChild(deprecationDiv);
+  }
+}
+
+function text(into, content, className, options, ref) {
+  if (className) {
+    (function () {
+      var onClick = options.onClick;
+      var node = document.createElement(onClick ? 'a' : 'span');
+      if (onClick) {
+        // Providing a href forces proper a tag behavior, though we don't actually
+        // want clicking the node to navigate anywhere.
+        node.href = 'javascript:void 0'; // eslint-disable-line no-script-url
+        node.addEventListener('click', function (e) {
+          onClick(ref, e);
+        });
+      }
+      node.className = className;
+      node.appendChild(document.createTextNode(content));
+      into.appendChild(node);
+    })();
+  } else {
+    into.appendChild(document.createTextNode(content));
+  }
+}
+},{"./utils/SchemaReference":38,"./utils/getTypeInfo":41,"./utils/info-addon":43,"codemirror":64,"graphql":74}],31:[function(require,module,exports){
+'use strict';
+
+var _codemirror = require('codemirror');
+
+var _codemirror2 = _interopRequireDefault(_codemirror);
+
+var _getTypeInfo = require('./utils/getTypeInfo');
+
+var _getTypeInfo2 = _interopRequireDefault(_getTypeInfo);
+
+var _SchemaReference = require('./utils/SchemaReference');
+
+require('./utils/jump-addon');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * Registers GraphQL "jump" links for CodeMirror.
+ *
+ * When command-hovering over a token, this converts it to a link, which when
+ * pressed will call the provided onClick handler.
+ *
+ * Options:
+ *
+ *   - schema: GraphQLSchema provides positionally relevant info.
+ *   - onClick: A function called when a named thing is clicked.
+ *
+ */
+
+/**
+ *  Copyright (c) 2017, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+_codemirror2.default.registerHelper('jump', 'graphql', function (token, options) {
+  if (!options.schema || !options.onClick || !token.state) {
+    return;
+  }
+
+  // Given a Schema and a Token, produce a "SchemaReference" which refers to
+  // the particular artifact from the schema (such as a type, field, argument,
+  // or directive) that token references.
+  var state = token.state;
+  var kind = state.kind;
+  var step = state.step;
+  var typeInfo = (0, _getTypeInfo2.default)(options.schema, state);
+
+  if (kind === 'Field' && step === 0 && typeInfo.fieldDef || kind === 'AliasedField' && step === 2 && typeInfo.fieldDef) {
+    return (0, _SchemaReference.getFieldReference)(typeInfo);
+  } else if (kind === 'Directive' && step === 1 && typeInfo.directiveDef) {
+    return (0, _SchemaReference.getDirectiveReference)(typeInfo);
+  } else if (kind === 'Argument' && step === 0 && typeInfo.argDef) {
+    return (0, _SchemaReference.getArgumentReference)(typeInfo);
+  } else if (kind === 'EnumValue' && typeInfo.enumValue) {
+    return (0, _SchemaReference.getEnumValueReference)(typeInfo);
+  } else if (kind === 'NamedType' && typeInfo.type) {
+    return (0, _SchemaReference.getTypeReference)(typeInfo);
+  }
+});
+},{"./utils/SchemaReference":38,"./utils/getTypeInfo":41,"./utils/jump-addon":45,"codemirror":64}],32:[function(require,module,exports){
 'use strict';
 
 var _codemirror = require('codemirror');
@@ -3708,12 +4616,21 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 _codemirror2.default.registerHelper('lint', 'graphql', function (text, options, editor) {
   var schema = options.schema;
+  if (!schema) {
+    return [];
+  }
+
   try {
     var ast = (0, _graphql.parse)(text);
-    var errors = schema ? (0, _graphql.validate)(schema, ast) : [];
-    return mapCat(errors, function (error) {
-      return errorAnnotations(editor, error);
+    var validationErrorAnnotations = mapCat((0, _graphql.validate)(schema, ast), function (error) {
+      return annotations(editor, error, 'error', 'validation');
     });
+    // Note: findDeprecatedUsages was added in graphql@0.9.0, but we want to
+    // support older versions of graphql-js.
+    var deprecationWarningAnnotations = !_graphql.findDeprecatedUsages ? [] : mapCat((0, _graphql.findDeprecatedUsages)(schema, ast), function (error) {
+      return annotations(editor, error, 'warning', 'deprecation');
+    });
+    return validationErrorAnnotations.concat(deprecationWarningAnnotations);
   } catch (error) {
     var location = error.locations[0];
     var pos = _codemirror2.default.Pos(location.line - 1, location.column);
@@ -3728,13 +4645,13 @@ _codemirror2.default.registerHelper('lint', 'graphql', function (text, options, 
   }
 });
 
-function errorAnnotations(editor, error) {
+function annotations(editor, error, severity, type) {
   return error.nodes.map(function (node) {
     var highlightNode = node.kind !== 'Variable' && node.name ? node.name : node.variable ? node.variable : node;
     return {
       message: error.message,
-      severity: 'error',
-      type: 'validation',
+      severity: severity,
+      type: type,
       from: editor.posFromIndex(highlightNode.loc.start),
       to: editor.posFromIndex(highlightNode.loc.end)
     };
@@ -3745,7 +4662,7 @@ function errorAnnotations(editor, error) {
 function mapCat(array, mapper) {
   return Array.prototype.concat.apply([], array.map(mapper));
 }
-},{"codemirror":54,"graphql":64}],27:[function(require,module,exports){
+},{"codemirror":64,"graphql":74}],33:[function(require,module,exports){
 'use strict';
 
 var _codemirror = require('codemirror');
@@ -3819,7 +4736,7 @@ function indent(state, textAfter) {
   var level = !levels || levels.length === 0 ? state.indentLevel : levels[levels.length - 1] - (this.electricInput.test(textAfter) ? 1 : 0);
   return level * this.config.indentUnit;
 }
-},{"./utils/Rules":31,"./utils/onlineParser":37,"codemirror":54}],28:[function(require,module,exports){
+},{"./utils/Rules":37,"./utils/onlineParser":47,"codemirror":64}],34:[function(require,module,exports){
 'use strict';
 
 var _codemirror = require('codemirror');
@@ -3933,7 +4850,7 @@ var ParseRules = {
   ObjectValue: [(0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('ObjectField', (0, _RuleHelpers.p)(',')), (0, _RuleHelpers.p)('}')],
   ObjectField: [(0, _RuleHelpers.t)('String', 'property'), (0, _RuleHelpers.p)(':'), 'Value']
 };
-},{"../utils/RuleHelpers":30,"../utils/onlineParser":37,"codemirror":54}],29:[function(require,module,exports){
+},{"../utils/RuleHelpers":36,"../utils/onlineParser":47,"codemirror":64}],35:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4110,7 +5027,7 @@ var CharacterStream = function () {
 }();
 
 exports.default = CharacterStream;
-},{}],30:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4168,7 +5085,7 @@ function p(value, style) {
     }
   };
 }
-},{}],31:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4208,7 +5125,10 @@ var LexRules = exports.LexRules = {
   Number: /^-?(?:0|(?:[1-9][0-9]*))(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?/,
 
   // Note the closing quote is made optional as an IDE experience improvment.
-  String: /^"(?:[^"\\]|\\(?:"|\/|\\|b|f|n|r|t|u[0-9a-fA-F]{4}))*"?/
+  String: /^"(?:[^"\\]|\\(?:"|\/|\\|b|f|n|r|t|u[0-9a-fA-F]{4}))*"?/,
+
+  // Comments consume entire lines.
+  Comment: /^#.*/
 };
 
 /**
@@ -4273,7 +5193,7 @@ var ParseRules = exports.ParseRules = {
   FragmentSpread: [(0, _RuleHelpers.p)('...'), name('def'), (0, _RuleHelpers.list)('Directive')],
   InlineFragment: [(0, _RuleHelpers.p)('...'), (0, _RuleHelpers.opt)('TypeCondition'), (0, _RuleHelpers.list)('Directive'), 'SelectionSet'],
   FragmentDefinition: [word('fragment'), (0, _RuleHelpers.opt)((0, _RuleHelpers.butNot)(name('def'), [word('on')])), 'TypeCondition', (0, _RuleHelpers.list)('Directive'), 'SelectionSet'],
-  TypeCondition: [word('on'), type('atom')],
+  TypeCondition: [word('on'), 'NamedType'],
   // Variables could be parsed in cases where only Const is expected by spec.
   Value: function Value(token) {
     switch (token.kind) {
@@ -4312,31 +5232,32 @@ var ParseRules = exports.ParseRules = {
   ObjectValue: [(0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('ObjectField'), (0, _RuleHelpers.p)('}')],
   ObjectField: [name('attribute'), (0, _RuleHelpers.p)(':'), 'Value'],
   Type: function Type(token) {
-    return token.value === '[' ? 'ListType' : 'NamedType';
+    return token.value === '[' ? 'ListType' : 'NonNullType';
   },
 
-  // NonNullType has been merged into ListType and NamedType to simplify.
+  // NonNullType has been merged into ListType to simplify.
   ListType: [(0, _RuleHelpers.p)('['), 'Type', (0, _RuleHelpers.p)(']'), (0, _RuleHelpers.opt)((0, _RuleHelpers.p)('!'))],
-  NamedType: [name('atom'), (0, _RuleHelpers.opt)((0, _RuleHelpers.p)('!'))],
+  NonNullType: ['NamedType', (0, _RuleHelpers.opt)((0, _RuleHelpers.p)('!'))],
+  NamedType: [type('atom')],
   Directive: [(0, _RuleHelpers.p)('@', 'meta'), name('meta'), (0, _RuleHelpers.opt)('Arguments')],
   // GraphQL schema language
   SchemaDef: [word('schema'), (0, _RuleHelpers.list)('Directive'), (0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('OperationTypeDef'), (0, _RuleHelpers.p)('}')],
   OperationTypeDef: [name('keyword'), (0, _RuleHelpers.p)(':'), name('atom')],
   ScalarDef: [word('scalar'), name('atom'), (0, _RuleHelpers.list)('Directive')],
   ObjectTypeDef: [word('type'), name('atom'), (0, _RuleHelpers.opt)('Implements'), (0, _RuleHelpers.list)('Directive'), (0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('FieldDef'), (0, _RuleHelpers.p)('}')],
-  Implements: [word('implements'), (0, _RuleHelpers.list)(name('atom'))],
+  Implements: [word('implements'), (0, _RuleHelpers.list)('NamedType')],
   FieldDef: [name('property'), (0, _RuleHelpers.opt)('ArgumentsDef'), (0, _RuleHelpers.p)(':'), 'Type', (0, _RuleHelpers.list)('Directive')],
   ArgumentsDef: [(0, _RuleHelpers.p)('('), (0, _RuleHelpers.list)('InputValueDef'), (0, _RuleHelpers.p)(')')],
   InputValueDef: [name('attribute'), (0, _RuleHelpers.p)(':'), 'Type', (0, _RuleHelpers.opt)('DefaultValue'), (0, _RuleHelpers.list)('Directive')],
   InterfaceDef: [word('interface'), name('atom'), (0, _RuleHelpers.list)('Directive'), (0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('FieldDef'), (0, _RuleHelpers.p)('}')],
-  UnionDef: [word('union'), name('atom'), (0, _RuleHelpers.list)('Directive'), (0, _RuleHelpers.p)('='), name('atom'), (0, _RuleHelpers.list)('UnionMember')],
-  UnionMember: [(0, _RuleHelpers.p)('|'), name('atom')],
+  UnionDef: [word('union'), name('atom'), (0, _RuleHelpers.list)('Directive'), (0, _RuleHelpers.p)('='), (0, _RuleHelpers.list)('UnionMember', (0, _RuleHelpers.p)('|'))],
+  UnionMember: ['NamedType'],
   EnumDef: [word('enum'), name('atom'), (0, _RuleHelpers.list)('Directive'), (0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('EnumValueDef'), (0, _RuleHelpers.p)('}')],
   EnumValueDef: [name('string-2'), (0, _RuleHelpers.list)('Directive')],
   InputDef: [word('input'), name('atom'), (0, _RuleHelpers.list)('Directive'), (0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('InputValueDef'), (0, _RuleHelpers.p)('}')],
   ExtendDef: [word('extend'), 'ObjectTypeDef'],
-  DirectiveDef: [word('directive'), (0, _RuleHelpers.p)('@', 'meta'), name('meta'), (0, _RuleHelpers.opt)('ArgumentsDef'), word('on'), name('string-2'), (0, _RuleHelpers.list)('DirectiveLocation')],
-  DirectiveLocation: [(0, _RuleHelpers.p)('|'), name('string-2')]
+  DirectiveDef: [word('directive'), (0, _RuleHelpers.p)('@', 'meta'), name('meta'), (0, _RuleHelpers.opt)('ArgumentsDef'), word('on'), (0, _RuleHelpers.list)('DirectiveLocation', (0, _RuleHelpers.p)('|'))],
+  DirectiveLocation: [name('string-2')]
 };
 
 // A keyword Token.
@@ -4370,11 +5291,87 @@ function type(style) {
       return token.kind === 'Name';
     },
     update: function update(state, token) {
-      state.prevState.type = token.value;
+      state.name = token.value;
+      state.prevState.prevState.type = token.value;
     }
   };
 }
-},{"../utils/RuleHelpers":30}],32:[function(require,module,exports){
+},{"../utils/RuleHelpers":36}],38:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.getFieldReference = getFieldReference;
+exports.getDirectiveReference = getDirectiveReference;
+exports.getArgumentReference = getArgumentReference;
+exports.getEnumValueReference = getEnumValueReference;
+exports.getTypeReference = getTypeReference;
+
+var _graphql = require('graphql');
+
+function getFieldReference(typeInfo) {
+  return {
+    kind: 'Field',
+    schema: typeInfo.schema,
+    field: typeInfo.fieldDef,
+    type: isMetaField(typeInfo.fieldDef) ? null : typeInfo.parentType
+  };
+}
+/**
+ *  Copyright (c), Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+function getDirectiveReference(typeInfo) {
+  return {
+    kind: 'Directive',
+    schema: typeInfo.schema,
+    directive: typeInfo.directiveDef
+  };
+}
+
+function getArgumentReference(typeInfo) {
+  return typeInfo.directiveDef ? {
+    kind: 'Argument',
+    schema: typeInfo.schema,
+    argument: typeInfo.argDef,
+    directive: typeInfo.directiveDef
+  } : {
+    kind: 'Argument',
+    schema: typeInfo.schema,
+    argument: typeInfo.argDef,
+    field: typeInfo.fieldDef,
+    type: isMetaField(typeInfo.fieldDef) ? null : typeInfo.parentType
+  };
+}
+
+function getEnumValueReference(typeInfo) {
+  return {
+    kind: 'EnumValue',
+    value: typeInfo.enumValue,
+    type: (0, _graphql.getNamedType)(typeInfo.inputType)
+  };
+}
+
+// Note: for reusability, getTypeReference can produce a reference to any type,
+// though it defaults to the current type.
+function getTypeReference(typeInfo, type) {
+  return {
+    kind: 'Type',
+    schema: typeInfo.schema,
+    type: type || typeInfo.type
+  };
+}
+
+function isMetaField(fieldDef) {
+  return fieldDef.name.slice(0, 2) === '__';
+}
+},{"graphql":74}],39:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -4402,7 +5399,7 @@ function forEachState(stack, fn) {
     fn(reverseStateStack[i]);
   }
 }
-},{}],33:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4417,6 +5414,10 @@ var _introspection = require('graphql/type/introspection');
 var _forEachState = require('./forEachState');
 
 var _forEachState2 = _interopRequireDefault(_forEachState);
+
+var _getTypeInfo = require('./getTypeInfo');
+
+var _getTypeInfo2 = _interopRequireDefault(_getTypeInfo);
 
 var _hintList = require('./hintList');
 
@@ -4449,15 +5450,23 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  *
  */
 
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
 function getHintsAtPosition(schema, sourceText, cursor, token) {
-  var typeInfo = getTypeInfo(schema, token.state);
-  var state = token.state;
+  // Get the current state, however if the current state is an invalid token,
+  // then use the previous state to determine which hints to generate.
+  var state = token.state.kind === 'Invalid' ? token.state.prevState : token.state;
+
   var kind = state.kind;
   var step = state.step;
-
-  if (token.type === 'comment') {
-    return;
-  }
+  var typeInfo = (0, _getTypeInfo2.default)(schema, state);
 
   // Definition kinds
   if (kind === 'Document') {
@@ -4478,7 +5487,9 @@ function getHintsAtPosition(schema, sourceText, cursor, token) {
         return {
           text: field.name,
           type: field.type,
-          description: field.description
+          description: field.description,
+          isDeprecated: field.isDeprecated,
+          deprecationReason: field.deprecationReason
         };
       }));
     }
@@ -4524,7 +5535,9 @@ function getHintsAtPosition(schema, sourceText, cursor, token) {
             return {
               text: value.name,
               type: namedInputType,
-              description: value.description
+              description: value.description,
+              isDeprecated: value.isDeprecated,
+              deprecationReason: value.deprecationReason
             };
           }))
         };
@@ -4629,14 +5642,7 @@ function getHintsAtPosition(schema, sourceText, cursor, token) {
       };
     }));
   }
-} /**
-   *  Copyright (c) 2015, Facebook, Inc.
-   *  All rights reserved.
-   *
-   *  This source code is licensed under the BSD-style license found in the
-   *  LICENSE file in the root directory of this source tree. An additional grant
-   *  of patent rights can be found in the PATENTS file in the same directory.
-   */
+}
 
 function canUseDirective(kind, directive) {
   var locations = directive.locations;
@@ -4658,82 +5664,6 @@ function canUseDirective(kind, directive) {
       return locations.indexOf('INLINE_FRAGMENT') !== -1;
   }
   return false;
-}
-
-// Utility for collecting rich type information given any token's state
-// from the graphql-mode parser.
-function getTypeInfo(schema, tokenState) {
-  var info = {
-    type: null,
-    parentType: null,
-    inputType: null,
-    directiveDef: null,
-    fieldDef: null,
-    argDef: null,
-    argDefs: null,
-    objectFieldDefs: null
-  };
-
-  (0, _forEachState2.default)(tokenState, function (state) {
-    switch (state.kind) {
-      case 'Query':
-      case 'ShortQuery':
-        info.type = schema.getQueryType();
-        break;
-      case 'Mutation':
-        info.type = schema.getMutationType();
-        break;
-      case 'Subscription':
-        info.type = schema.getSubscriptionType();
-        break;
-      case 'InlineFragment':
-      case 'FragmentDefinition':
-        if (state.type) {
-          info.type = schema.getType(state.type);
-        }
-        break;
-      case 'Field':
-      case 'AliasedField':
-        info.fieldDef = info.type && state.name ? getFieldDef(schema, info.parentType, state.name) : null;
-        info.type = info.fieldDef && info.fieldDef.type;
-        break;
-      case 'SelectionSet':
-        info.parentType = (0, _graphql.getNamedType)(info.type);
-        break;
-      case 'Directive':
-        info.directiveDef = state.name && schema.getDirective(state.name);
-        break;
-      case 'Arguments':
-        info.argDefs = state.prevState.kind === 'Field' ? info.fieldDef && info.fieldDef.args : state.prevState.kind === 'Directive' ? info.directiveDef && info.directiveDef.args : state.prevState.kind === 'AliasedField' ? state.prevState.name && getFieldDef(schema, info.parentType, state.prevState.name).args : null;
-        break;
-      case 'Argument':
-        info.argDef = null;
-        if (info.argDefs) {
-          for (var i = 0; i < info.argDefs.length; i++) {
-            if (info.argDefs[i].name === state.name) {
-              info.argDef = info.argDefs[i];
-              break;
-            }
-          }
-        }
-        info.inputType = info.argDef && info.argDef.type;
-        break;
-      case 'ListValue':
-        var nullableType = (0, _graphql.getNullableType)(info.inputType);
-        info.inputType = nullableType instanceof _graphql.GraphQLList ? nullableType.ofType : null;
-        break;
-      case 'ObjectValue':
-        var objectType = (0, _graphql.getNamedType)(info.inputType);
-        info.objectFieldDefs = objectType instanceof _graphql.GraphQLInputObjectType ? objectType.getFields() : null;
-        break;
-      case 'ObjectField':
-        var objectField = state.name && info.objectFieldDefs ? info.objectFieldDefs[state.name] : null;
-        info.inputType = objectField && objectField.type;
-        break;
-    }
-  });
-
-  return info;
 }
 
 // Finds all fragment definition ASTs in a source.
@@ -4786,8 +5716,123 @@ function getDefinitionState(tokenState) {
 
   return definitionState;
 }
+},{"./Rules":37,"./forEachState":39,"./getTypeInfo":41,"./hintList":42,"./objectValues":46,"./runParser":48,"graphql":74,"graphql/type/introspection":94}],41:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = getTypeInfo;
+
+var _graphql = require('graphql');
+
+var _introspection = require('graphql/type/introspection');
+
+var _forEachState = require('./forEachState');
+
+var _forEachState2 = _interopRequireDefault(_forEachState);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * Utility for collecting rich type information given any token's state
+ * from the graphql-mode parser.
+ */
+function getTypeInfo(schema, tokenState) {
+  var info = {
+    schema: schema,
+    type: null,
+    parentType: null,
+    inputType: null,
+    directiveDef: null,
+    fieldDef: null,
+    argDef: null,
+    argDefs: null,
+    objectFieldDefs: null
+  };
+
+  (0, _forEachState2.default)(tokenState, function (state) {
+    switch (state.kind) {
+      case 'Query':
+      case 'ShortQuery':
+        info.type = schema.getQueryType();
+        break;
+      case 'Mutation':
+        info.type = schema.getMutationType();
+        break;
+      case 'Subscription':
+        info.type = schema.getSubscriptionType();
+        break;
+      case 'InlineFragment':
+      case 'FragmentDefinition':
+        if (state.type) {
+          info.type = schema.getType(state.type);
+        }
+        break;
+      case 'Field':
+      case 'AliasedField':
+        info.fieldDef = info.type && state.name ? getFieldDef(schema, info.parentType, state.name) : null;
+        info.type = info.fieldDef && info.fieldDef.type;
+        break;
+      case 'SelectionSet':
+        info.parentType = (0, _graphql.getNamedType)(info.type);
+        break;
+      case 'Directive':
+        info.directiveDef = state.name && schema.getDirective(state.name);
+        break;
+      case 'Arguments':
+        var parentDef = state.prevState.kind === 'Field' ? info.fieldDef : state.prevState.kind === 'Directive' ? info.directiveDef : state.prevState.kind === 'AliasedField' ? state.prevState.name && getFieldDef(schema, info.parentType, state.prevState.name) : null;
+        info.argDefs = parentDef && parentDef.args;
+        break;
+      case 'Argument':
+        info.argDef = null;
+        if (info.argDefs) {
+          for (var i = 0; i < info.argDefs.length; i++) {
+            if (info.argDefs[i].name === state.name) {
+              info.argDef = info.argDefs[i];
+              break;
+            }
+          }
+        }
+        info.inputType = info.argDef && info.argDef.type;
+        break;
+      case 'EnumValue':
+        var enumType = (0, _graphql.getNamedType)(info.inputType);
+        info.enumValue = enumType instanceof _graphql.GraphQLEnumType ? find(enumType.getValues(), function (val) {
+          return val.value === state.name;
+        }) : null;
+        break;
+      case 'ListValue':
+        var nullableType = (0, _graphql.getNullableType)(info.inputType);
+        info.inputType = nullableType instanceof _graphql.GraphQLList ? nullableType.ofType : null;
+        break;
+      case 'ObjectValue':
+        var objectType = (0, _graphql.getNamedType)(info.inputType);
+        info.objectFieldDefs = objectType instanceof _graphql.GraphQLInputObjectType ? objectType.getFields() : null;
+        break;
+      case 'ObjectField':
+        var objectField = state.name && info.objectFieldDefs ? info.objectFieldDefs[state.name] : null;
+        info.inputType = objectField && objectField.type;
+        break;
+      case 'NamedType':
+        info.type = schema.getType(state.name);
+        break;
+    }
+  });
+
+  return info;
+}
 
 // Gets the field definition given a type and field name
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
 function getFieldDef(schema, type, fieldName) {
   if (fieldName === _introspection.SchemaMetaFieldDef.name && schema.getQueryType() === type) {
     return _introspection.SchemaMetaFieldDef;
@@ -4802,7 +5847,16 @@ function getFieldDef(schema, type, fieldName) {
     return type.getFields()[fieldName];
   }
 }
-},{"./Rules":31,"./forEachState":32,"./hintList":34,"./objectValues":36,"./runParser":38,"graphql":64,"graphql/type/introspection":84}],34:[function(require,module,exports){
+
+// Returns the first item in the array which causes predicate to return truthy.
+function find(array, predicate) {
+  for (var i = 0; i < array.length; i++) {
+    if (predicate(array[i])) {
+      return array[i];
+    }
+  }
+}
+},{"./forEachState":39,"graphql":74,"graphql/type/introspection":94}],42:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4827,32 +5881,49 @@ function hintList(cursor, token, list) {
 
   var tokenStart = token.type !== null && /"|\w/.test(token.string[0]) ? token.start : token.end;
 
-  var results = {
+  return {
     list: hints,
     from: { line: cursor.line, column: tokenStart },
     to: { line: cursor.line, column: token.end }
   };
-
-  return results;
 }
 
 // Given a list of hint entries and currently typed text, sort and filter to
 // provide a concise list.
 function filterAndSortList(list, text) {
-  var sorted = !text ? list : list.map(function (entry) {
+  if (!text) {
+    return filterNonEmpty(list, function (entry) {
+      return !entry.isDeprecated;
+    });
+  }
+
+  var byProximity = list.map(function (entry) {
     return {
       proximity: getProximity(normalizeText(entry.text), text),
       entry: entry
     };
-  }).filter(function (pair) {
-    return pair.proximity <= 2;
-  }).sort(function (a, b) {
-    return a.proximity - b.proximity || a.entry.text.length - b.entry.text.length;
-  }).map(function (pair) {
-    return pair.entry;
   });
 
-  return sorted.length > 0 ? sorted : list;
+  var conciseMatches = filterNonEmpty(filterNonEmpty(byProximity, function (pair) {
+    return pair.proximity <= 2;
+  }), function (pair) {
+    return !pair.entry.isDeprecated;
+  });
+
+  var sortedMatches = conciseMatches.sort(function (a, b) {
+    return (a.entry.isDeprecated ? 1 : 0) - (b.entry.isDeprecated ? 1 : 0) || a.proximity - b.proximity || a.entry.text.length - b.entry.text.length;
+  });
+
+  return sortedMatches.map(function (pair) {
+    return pair.entry;
+  });
+}
+
+// Filters the array by the predicate, unless it results in an empty array,
+// in which case return the original array.
+function filterNonEmpty(array, predicate) {
+  var filtered = array.filter(predicate);
+  return filtered.length === 0 ? array : filtered;
 }
 
 function normalizeText(text) {
@@ -4915,7 +5986,166 @@ function lexicalDistance(a, b) {
 
   return d[aLength][bLength];
 }
-},{}],35:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
+'use strict';
+
+var _codemirror = require('codemirror');
+
+var _codemirror2 = _interopRequireDefault(_codemirror);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+_codemirror2.default.defineOption('info', false, function (cm, options, old) {
+  if (old && old !== _codemirror2.default.Init) {
+    var oldOnMouseOver = cm.state.info.onMouseOver;
+    _codemirror2.default.off(cm.getWrapperElement(), 'mouseover', oldOnMouseOver);
+    clearTimeout(cm.state.info.hoverTimeout);
+    delete cm.state.info;
+  }
+
+  if (options) {
+    var state = cm.state.info = createState(options);
+    state.onMouseOver = onMouseOver.bind(null, cm);
+    _codemirror2.default.on(cm.getWrapperElement(), 'mouseover', state.onMouseOver);
+  }
+}); /**
+     *  Copyright (c) 2017, Facebook, Inc.
+     *  All rights reserved.
+     *
+     *  This source code is licensed under the BSD-style license found in the
+     *  LICENSE file in the root directory of this source tree. An additional grant
+     *  of patent rights can be found in the PATENTS file in the same directory.
+     */
+
+function createState(options) {
+  return {
+    options: options instanceof Function ? { render: options } : options === true ? {} : options
+  };
+}
+
+function getHoverTime(cm) {
+  var options = cm.state.info.options;
+  return options && options.hoverTime || 500;
+}
+
+function onMouseOver(cm, e) {
+  var state = cm.state.info;
+
+  var target = e.target || e.srcElement;
+  if (target.nodeName !== 'SPAN' || state.hoverTimeout !== undefined) {
+    return;
+  }
+
+  var box = target.getBoundingClientRect();
+
+  var hoverTime = getHoverTime(cm);
+  state.hoverTimeout = setTimeout(onHover, hoverTime);
+
+  var onMouseMove = function onMouseMove() {
+    clearTimeout(state.hoverTimeout);
+    state.hoverTimeout = setTimeout(onHover, hoverTime);
+  };
+
+  var onMouseOut = function onMouseOut() {
+    _codemirror2.default.off(document, 'mousemove', onMouseMove);
+    _codemirror2.default.off(cm.getWrapperElement(), 'mouseout', onMouseOut);
+    clearTimeout(state.hoverTimeout);
+    state.hoverTimeout = undefined;
+  };
+
+  var onHover = function onHover() {
+    _codemirror2.default.off(document, 'mousemove', onMouseMove);
+    _codemirror2.default.off(cm.getWrapperElement(), 'mouseout', onMouseOut);
+    state.hoverTimeout = undefined;
+    onMouseHover(cm, box);
+  };
+
+  _codemirror2.default.on(document, 'mousemove', onMouseMove);
+  _codemirror2.default.on(cm.getWrapperElement(), 'mouseout', onMouseOut);
+}
+
+function onMouseHover(cm, box) {
+  var pos = cm.coordsChar({
+    left: (box.left + box.right) / 2,
+    top: (box.top + box.bottom) / 2
+  });
+
+  var state = cm.state.info;
+  var options = state.options;
+  var render = options.render || cm.getHelper(pos, 'info');
+  if (render) {
+    var token = cm.getTokenAt(pos, true);
+    if (token) {
+      var info = render(token, options, cm);
+      if (info) {
+        showPopup(cm, box, info);
+      }
+    }
+  }
+}
+
+function showPopup(cm, box, info) {
+  var popup = document.createElement('div');
+  popup.className = 'CodeMirror-info';
+  popup.appendChild(info);
+  document.body.appendChild(popup);
+
+  var popupBox = popup.getBoundingClientRect();
+  var popupStyle = popup.currentStyle || window.getComputedStyle(popup);
+  var popupWidth = popupBox.right - popupBox.left + parseFloat(popupStyle.marginLeft) + parseFloat(popupStyle.marginRight);
+  var popupHeight = popupBox.bottom - popupBox.top + parseFloat(popupStyle.marginTop) + parseFloat(popupStyle.marginBottom);
+
+  var topPos = box.bottom;
+  if (popupHeight > window.innerHeight - box.bottom - 15 && box.top > window.innerHeight - box.bottom) {
+    topPos = box.top - popupHeight;
+  }
+
+  if (topPos < 0) {
+    topPos = box.bottom;
+  }
+
+  var leftPos = Math.max(0, window.innerWidth - popupWidth - 15);
+  if (leftPos > box.left) {
+    leftPos = box.left;
+  }
+
+  popup.style.opacity = 1;
+  popup.style.top = topPos + 'px';
+  popup.style.left = leftPos + 'px';
+
+  var popupTimeout = void 0;
+
+  var onMouseOverPopup = function onMouseOverPopup() {
+    clearTimeout(popupTimeout);
+  };
+
+  var onMouseOut = function onMouseOut() {
+    clearTimeout(popupTimeout);
+    popupTimeout = setTimeout(hidePopup, 200);
+  };
+
+  var hidePopup = function hidePopup() {
+    _codemirror2.default.off(popup, 'mouseover', onMouseOverPopup);
+    _codemirror2.default.off(popup, 'mouseout', onMouseOut);
+    _codemirror2.default.off(cm.getWrapperElement(), 'mouseout', onMouseOut);
+
+    if (popup.style.opacity) {
+      popup.style.opacity = 0;
+      setTimeout(function () {
+        if (popup.parentNode) {
+          popup.parentNode.removeChild(popup);
+        }
+      }, 600);
+    } else if (popup.parentNode) {
+      popup.parentNode.removeChild(popup);
+    }
+  };
+
+  _codemirror2.default.on(popup, 'mouseover', onMouseOverPopup);
+  _codemirror2.default.on(popup, 'mouseout', onMouseOut);
+  _codemirror2.default.on(cm.getWrapperElement(), 'mouseout', onMouseOut);
+}
+},{"codemirror":64}],44:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5222,7 +6452,157 @@ function readDigits() {
     ch();
   } while (code >= 48 && code <= 57); // 0 - 9
 }
-},{}],36:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
+'use strict';
+
+var _codemirror = require('codemirror');
+
+var _codemirror2 = _interopRequireDefault(_codemirror);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+_codemirror2.default.defineOption('jump', false, function (cm, options, old) {
+  if (old && old !== _codemirror2.default.Init) {
+    var oldOnMouseOver = cm.state.jump.onMouseOver;
+    _codemirror2.default.off(cm.getWrapperElement(), 'mouseover', oldOnMouseOver);
+    var oldOnMouseOut = cm.state.jump.onMouseOut;
+    _codemirror2.default.off(cm.getWrapperElement(), 'mouseout', oldOnMouseOut);
+    _codemirror2.default.off(document, 'keydown', cm.state.jump.onKeyDown);
+    delete cm.state.jump;
+  }
+
+  if (options) {
+    var state = cm.state.jump = {
+      options: options,
+      onMouseOver: onMouseOver.bind(null, cm),
+      onMouseOut: onMouseOut.bind(null, cm),
+      onKeyDown: onKeyDown.bind(null, cm)
+    };
+
+    _codemirror2.default.on(cm.getWrapperElement(), 'mouseover', state.onMouseOver);
+    _codemirror2.default.on(cm.getWrapperElement(), 'mouseout', state.onMouseOut);
+    _codemirror2.default.on(document, 'keydown', state.onKeyDown);
+  }
+}); /**
+     *  Copyright (c) 2017, Facebook, Inc.
+     *  All rights reserved.
+     *
+     *  This source code is licensed under the BSD-style license found in the
+     *  LICENSE file in the root directory of this source tree. An additional grant
+     *  of patent rights can be found in the PATENTS file in the same directory.
+     */
+
+function onMouseOver(cm, event) {
+  var target = event.target || event.srcElement;
+  if (target.nodeName !== 'SPAN') {
+    return;
+  }
+
+  var box = target.getBoundingClientRect();
+  var cursor = {
+    left: (box.left + box.right) / 2,
+    top: (box.top + box.bottom) / 2
+  };
+
+  cm.state.jump.cursor = cursor;
+
+  if (cm.state.jump.isHoldingModifier) {
+    enableJumpMode(cm);
+  }
+}
+
+function onMouseOut(cm) {
+  if (!cm.state.jump.isHoldingModifier && cm.state.jump.cursor) {
+    cm.state.jump.cursor = null;
+    return;
+  }
+
+  if (cm.state.jump.isHoldingModifier && cm.state.jump.marker) {
+    disableJumpMode(cm);
+  }
+}
+
+function onKeyDown(cm, event) {
+  if (cm.state.jump.isHoldingModifier || !isJumpModifier(event.key)) {
+    return;
+  }
+
+  cm.state.jump.isHoldingModifier = true;
+
+  if (cm.state.jump.cursor) {
+    enableJumpMode(cm);
+  }
+
+  var onKeyUp = function onKeyUp(upEvent) {
+    if (upEvent.code !== event.code) {
+      return;
+    }
+
+    cm.state.jump.isHoldingModifier = false;
+
+    if (cm.state.jump.marker) {
+      disableJumpMode(cm);
+    }
+
+    _codemirror2.default.off(document, 'keyup', onKeyUp);
+    _codemirror2.default.off(document, 'click', onClick);
+    cm.off('mousedown', onMouseDown);
+  };
+
+  var onClick = function onClick(clickEvent) {
+    var destination = cm.state.jump.destination;
+    if (destination) {
+      cm.state.jump.options.onClick(destination, clickEvent);
+    }
+  };
+
+  var onMouseDown = function onMouseDown(_, downEvent) {
+    if (cm.state.jump.destination) {
+      downEvent.codemirrorIgnore = true;
+    }
+  };
+
+  _codemirror2.default.on(document, 'keyup', onKeyUp);
+  _codemirror2.default.on(document, 'click', onClick);
+  cm.on('mousedown', onMouseDown);
+}
+
+var isMac = navigator && navigator.appVersion.indexOf('Mac') !== -1;
+
+function isJumpModifier(key) {
+  return key === (isMac ? 'Meta' : 'Control');
+}
+
+function enableJumpMode(cm) {
+  if (cm.state.jump.marker) {
+    return;
+  }
+
+  var cursor = cm.state.jump.cursor;
+  var pos = cm.coordsChar(cursor);
+  var token = cm.getTokenAt(pos, true);
+
+  var options = cm.state.jump.options;
+  var getDestination = options.getDestination || cm.getHelper(pos, 'jump');
+  if (getDestination) {
+    var destination = getDestination(token, options, cm);
+    if (destination) {
+      var marker = cm.markText({ line: pos.line, ch: token.start }, { line: pos.line, ch: token.end }, { className: 'CodeMirror-jump-token' });
+
+      cm.state.jump.marker = marker;
+      cm.state.jump.destination = destination;
+    }
+  }
+}
+
+function disableJumpMode(cm) {
+  var marker = cm.state.jump.marker;
+  cm.state.jump.marker = null;
+  cm.state.jump.destination = null;
+
+  marker.clear();
+}
+},{"codemirror":64}],46:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -5247,7 +6627,7 @@ function objectValues(object) {
   }
   return values;
 }
-},{}],37:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5274,7 +6654,7 @@ exports.default = onlineParser;
  *     ) => boolean
  *       Use CodeMirror API.
  *
- *     LexRules: { [name: string]: RegExp }, Includes `Punctuation`.
+ *     LexRules: { [name: string]: RegExp }, Includes `Punctuation`, `Comment`.
  *
  *     ParseRules: { [name: string]: Array<Rule> }, Includes `Document`.
  *
@@ -5302,7 +6682,11 @@ function getToken(stream, state, options) {
       eatWhitespace = options.eatWhitespace,
       editorConfig = options.editorConfig;
 
-  if (state.needsAdvance) {
+  // Restore state after an empty-rule.
+
+  if (state.rule && state.rule.length === 0) {
+    popRule(state);
+  } else if (state.needsAdvance) {
     state.needsAdvance = false;
     advanceRule(state, true);
   }
@@ -5318,23 +6702,24 @@ function getToken(stream, state, options) {
     return 'ws';
   }
 
-  // Peek a character forward and skip the entire line if it's a comment line
-  if (stream.peek() === '#') {
-    stream.skipToEnd();
-    return 'comment';
-  }
-
   // Get a matched token from the stream, using lex
   var token = lex(LexRules, stream);
 
   // If there's no matching token, skip ahead.
   if (!token) {
     stream.match(/\S+/);
+    pushRule(SpecialParseRules, state, 'Invalid');
     return 'invalidchar';
   }
 
+  // If the next token is a Comment, insert a Comment parsing rule.
+  if (token.kind === 'Comment') {
+    pushRule(SpecialParseRules, state, 'Comment');
+    return 'comment';
+  }
+
   // Save state before continuing.
-  saveState(state);
+  var backupState = assign({}, state);
 
   // Handle changes in expected indentation level
   if (token.kind === 'Punctuation') {
@@ -5397,9 +6782,16 @@ function getToken(stream, state, options) {
   }
 
   // The parser does not know how to interpret this token, do not affect state.
-  restoreState(state);
+  assign(state, backupState);
+  pushRule(SpecialParseRules, state, 'Invalid');
   return 'invalidchar';
 }
+
+// A special rule set for parsing comment tokens.
+var SpecialParseRules = {
+  Invalid: [],
+  Comment: []
+};
 
 function assign(to, from) {
   var keys = Object.keys(from);
@@ -5407,18 +6799,6 @@ function assign(to, from) {
     to[keys[i]] = from[keys[i]];
   }
   return to;
-}
-
-var stateCache = {};
-
-// Save the current state in the cache.
-function saveState(state) {
-  assign(stateCache, state);
-}
-
-// Restore from the state cache.
-function restoreState(state) {
-  assign(state, stateCache);
 }
 
 // Push a new rule onto the state.
@@ -5451,11 +6831,11 @@ function advanceRule(state, successful) {
   // If this is advancing successfully and the current state is a list, give
   // it an opportunity to repeat itself.
   if (isList(state)) {
-    if (state.rule[state.step].separator) {
+    var separator = state.rule[state.step].separator;
+    if (separator) {
       state.needsSeperator = !state.needsSeperator;
-      // If the next list iteration might accept a non-separator, then give it
-      // an opportunity to repeat.
-      if (!state.needsSeperator) {
+      // If the separator was optional, then give it an opportunity to repeat.
+      if (!state.needsSeperator && separator.ofRule) {
         return;
       }
     }
@@ -5516,7 +6896,7 @@ function lex(LexRules, stream) {
     }
   }
 }
-},{}],38:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5556,7 +6936,7 @@ function runParser(sourceText, parserOptions, callbackFn) {
     }
   });
 }
-},{"./CharacterStream":29,"./onlineParser":37}],39:[function(require,module,exports){
+},{"./CharacterStream":35,"./onlineParser":47}],49:[function(require,module,exports){
 'use strict';
 
 var _codemirror = require('codemirror');
@@ -5616,7 +6996,9 @@ _codemirror2.default.registerHelper('hint', 'graphql-variables', function (edito
 });
 
 function getVariablesHint(cur, token, options) {
-  var state = token.state;
+  // If currently parsing an invalid state, attempt to hint to the prior state.
+  var state = token.state.kind === 'Invalid' ? token.state.prevState : token.state;
+
   var kind = state.kind;
   var step = state.step;
 
@@ -5723,7 +7105,7 @@ function getTypeInfo(variableToType, tokenState) {
 
   return info;
 }
-},{"../utils/forEachState":32,"../utils/hintList":34,"codemirror":54,"graphql":64}],40:[function(require,module,exports){
+},{"../utils/forEachState":39,"../utils/hintList":42,"codemirror":64,"graphql":74}],50:[function(require,module,exports){
 'use strict';
 
 var _codemirror = require('codemirror');
@@ -5917,7 +7299,7 @@ function isNullish(value) {
 function mapCat(array, mapper) {
   return Array.prototype.concat.apply([], array.map(mapper));
 }
-},{"../utils/jsonParse":35,"codemirror":54,"graphql":64}],41:[function(require,module,exports){
+},{"../utils/jsonParse":44,"codemirror":64,"graphql":74}],51:[function(require,module,exports){
 'use strict';
 
 var _codemirror = require('codemirror');
@@ -5996,7 +7378,7 @@ var LexRules = {
  * The parser rules for JSON.
  */
 var ParseRules = {
-  Document: [(0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('Variable', (0, _RuleHelpers.p)(',')), (0, _RuleHelpers.p)('}')],
+  Document: [(0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('Variable', (0, _RuleHelpers.opt)((0, _RuleHelpers.p)(','))), (0, _RuleHelpers.p)('}')],
   Variable: [namedKey('variable'), (0, _RuleHelpers.p)(':'), 'Value'],
   Value: function Value(token) {
     switch (token.kind) {
@@ -6027,8 +7409,8 @@ var ParseRules = {
   StringValue: [(0, _RuleHelpers.t)('String', 'string')],
   BooleanValue: [(0, _RuleHelpers.t)('Keyword', 'builtin')],
   NullValue: [(0, _RuleHelpers.t)('Keyword', 'keyword')],
-  ListValue: [(0, _RuleHelpers.p)('['), (0, _RuleHelpers.list)('Value', (0, _RuleHelpers.p)(',')), (0, _RuleHelpers.p)(']')],
-  ObjectValue: [(0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('ObjectField', (0, _RuleHelpers.p)(',')), (0, _RuleHelpers.p)('}')],
+  ListValue: [(0, _RuleHelpers.p)('['), (0, _RuleHelpers.list)('Value', (0, _RuleHelpers.opt)((0, _RuleHelpers.p)(','))), (0, _RuleHelpers.p)(']')],
+  ObjectValue: [(0, _RuleHelpers.p)('{'), (0, _RuleHelpers.list)('ObjectField', (0, _RuleHelpers.opt)((0, _RuleHelpers.p)(','))), (0, _RuleHelpers.p)('}')],
   ObjectField: [namedKey('attribute'), (0, _RuleHelpers.p)(':'), 'Value']
 };
 
@@ -6044,7 +7426,7 @@ function namedKey(style) {
     }
   };
 }
-},{"../utils/RuleHelpers":30,"../utils/onlineParser":37,"codemirror":54}],42:[function(require,module,exports){
+},{"../utils/RuleHelpers":36,"../utils/onlineParser":47,"codemirror":64}],52:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -6252,7 +7634,7 @@ function namedKey(style) {
   });
 });
 
-},{"../../lib/codemirror":54}],43:[function(require,module,exports){
+},{"../../lib/codemirror":64}],53:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -6411,7 +7793,7 @@ function namedKey(style) {
   });
 });
 
-},{"../../lib/codemirror":54}],44:[function(require,module,exports){
+},{"../../lib/codemirror":64}],54:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -6459,7 +7841,7 @@ function namedKey(style) {
 
   function getConfig(cm) {
     var deflt = cm.state.closeBrackets;
-    if (!deflt) return null;
+    if (!deflt || deflt.override) return deflt;
     var mode = cm.getModeAt(cm.getCursor());
     return mode.closeBrackets || deflt;
   }
@@ -6615,7 +7997,7 @@ function namedKey(style) {
   }
 });
 
-},{"../../lib/codemirror":54}],45:[function(require,module,exports){
+},{"../../lib/codemirror":64}],55:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -6739,7 +8121,7 @@ function namedKey(style) {
   });
 });
 
-},{"../../lib/codemirror":54}],46:[function(require,module,exports){
+},{"../../lib/codemirror":64}],56:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -6846,7 +8228,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
 
 });
 
-},{"../../lib/codemirror":54}],47:[function(require,module,exports){
+},{"../../lib/codemirror":64}],57:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -6998,7 +8380,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
   });
 });
 
-},{"../../lib/codemirror":54}],48:[function(require,module,exports){
+},{"../../lib/codemirror":64}],58:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -7146,7 +8528,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
   }
 });
 
-},{"../../lib/codemirror":54,"./foldcode":47}],49:[function(require,module,exports){
+},{"../../lib/codemirror":64,"./foldcode":57}],59:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -7586,7 +8968,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
   CodeMirror.defineOption("hintOptions", null);
 });
 
-},{"../../lib/codemirror":54}],50:[function(require,module,exports){
+},{"../../lib/codemirror":64}],60:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -7827,7 +9209,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
   });
 });
 
-},{"../../lib/codemirror":54}],51:[function(require,module,exports){
+},{"../../lib/codemirror":64}],61:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -8081,7 +9463,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
   CodeMirror.commands.replaceAll = function(cm) {replace(cm, true);};
 });
 
-},{"../../lib/codemirror":54,"../dialog/dialog":43,"./searchcursor":52}],52:[function(require,module,exports){
+},{"../../lib/codemirror":64,"../dialog/dialog":53,"./searchcursor":62}],62:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -8272,7 +9654,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
   });
 });
 
-},{"../../lib/codemirror":54}],53:[function(require,module,exports){
+},{"../../lib/codemirror":64}],63:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -8441,17 +9823,23 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
 
   var mirror = "(){}[]";
   function selectBetweenBrackets(cm) {
-    var pos = cm.getCursor(), opening = cm.scanForBracket(pos, -1);
-    if (!opening) return;
-    for (;;) {
-      var closing = cm.scanForBracket(pos, 1);
-      if (!closing) return;
-      if (closing.ch == mirror.charAt(mirror.indexOf(opening.ch) + 1)) {
-        cm.setSelection(Pos(opening.pos.line, opening.pos.ch + 1), closing.pos, false);
-        return true;
+    var ranges = cm.listSelections(), newRanges = []
+    for (var i = 0; i < ranges.length; i++) {
+      var range = ranges[i], pos = range.head, opening = cm.scanForBracket(pos, -1);
+      if (!opening) return false;
+      for (;;) {
+        var closing = cm.scanForBracket(pos, 1);
+        if (!closing) return false;
+        if (closing.ch == mirror.charAt(mirror.indexOf(opening.ch) + 1)) {
+          newRanges.push({anchor: Pos(opening.pos.line, opening.pos.ch + 1),
+                          head: closing.pos});
+          break;
+        }
+        pos = Pos(closing.pos.line, closing.pos.ch + 1);
       }
-      pos = Pos(closing.pos.line, closing.pos.ch + 1);
     }
+    cm.setSelections(newRanges);
+    return true;
   }
 
   cmds[map["Shift-" + ctrl + "Space"] = "selectScope"] = function(cm) {
@@ -8579,7 +9967,8 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
       if (range.empty()) continue;
       var from = range.from().line, to = range.to().line;
       while (i < ranges.length - 1 && ranges[i + 1].from().line == to)
-        to = range[++i].to().line;
+        to = ranges[++i].to().line;
+      if (!ranges[i].to().ch) to--;
       toSort.push(from, to);
     }
     if (toSort.length) selected = true;
@@ -8600,7 +9989,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
             return a < b ? -1 : a == b ? 0 : 1;
           });
         cm.replaceRange(lines, start, end);
-        if (selected) ranges.push({anchor: start, head: end});
+        if (selected) ranges.push({anchor: start, head: Pos(to + 1, 0)});
       }
       if (selected) cm.setSelections(ranges, 0);
     });
@@ -8856,7 +10245,7 @@ CodeMirror.registerHelper("fold", "include", function(cm, start) {
   CodeMirror.normalizeKeyMap(map);
 });
 
-},{"../addon/edit/matchbrackets":45,"../addon/search/searchcursor":52,"../lib/codemirror":54}],54:[function(require,module,exports){
+},{"../addon/edit/matchbrackets":55,"../addon/search/searchcursor":62,"../lib/codemirror":64}],64:[function(require,module,exports){
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -9835,12 +11224,12 @@ function moveLogically(line, start, dir, byUnit) {
 var bidiOrdering = (function() {
   // Character types for codepoints 0 to 0xff
   var lowTypes = "bbbbbbbbbtstwsbbbbbbbbbbbbbbssstwNN%%%NNNNNN,N,N1111111111NNNNNNNLLLLLLLLLLLLLLLLLLLLLLLLLLNNNNNNLLLLLLLLLLLLLLLLLLLLLLLLLLNNNNbbbbbbsbbbbbbbbbbbbbbbbbbbbbbbbbb,N%%%%NNNNLNNNNN%%11NLNNN1LNNNNNLLLLLLLLLLLLLLLLLLLLLLLNLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLN"
-  // Character types for codepoints 0x600 to 0x6ff
-  var arabicTypes = "rrrrrrrrrrrr,rNNmmmmmmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmmmmmmmmmmmmmrrrrrrrnnnnnnnnnn%nnrrrmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmmmmmmmmmmmmmmmmmmNmmmm"
+  // Character types for codepoints 0x600 to 0x6f9
+  var arabicTypes = "nnnnnnNNr%%r,rNNmmmmmmmmmmmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmmmmmmmmmmmmmmmmmmmmnnnnnnnnnn%nnrrrmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmmmmmmnNmmmmmmrrmmNmmmmrr1111111111"
   function charType(code) {
     if (code <= 0xf7) { return lowTypes.charAt(code) }
     else if (0x590 <= code && code <= 0x5f4) { return "R" }
-    else if (0x600 <= code && code <= 0x6ed) { return arabicTypes.charAt(code - 0x600) }
+    else if (0x600 <= code && code <= 0x6f9) { return arabicTypes.charAt(code - 0x600) }
     else if (0x6ee <= code && code <= 0x8ac) { return "r" }
     else if (0x2000 <= code && code <= 0x200b) { return "w" }
     else if (code == 0x200c) { return "b" }
@@ -10604,6 +11993,9 @@ function buildLineContent(cm, lineView) {
                  col: 0, pos: 0, cm: cm,
                  trailingSpace: false,
                  splitSpaces: (ie || webkit) && cm.getOption("lineWrapping")}
+  // hide from accessibility tree
+  content.setAttribute("role", "presentation")
+  builder.pre.setAttribute("role", "presentation")
   lineView.measure = {}
 
   // Iterate over the logical lines that make up this visual line.
@@ -12146,7 +13538,7 @@ function measureForScrollbars(cm) {
   }
 }
 
-function NativeScrollbars(place, scroll, cm) {
+var NativeScrollbars = function(place, scroll, cm) {
   this.cm = cm
   var vert = this.vert = elt("div", [elt("div", null, null, "min-width: 1px")], "CodeMirror-vscrollbar")
   var horiz = this.horiz = elt("div", [elt("div", null, null, "height: 100%; min-height: 1px")], "CodeMirror-hscrollbar")
@@ -12162,91 +13554,92 @@ function NativeScrollbars(place, scroll, cm) {
   this.checkedZeroWidth = false
   // Need to set a minimum width to see the scrollbar on IE7 (but must not set it on IE8).
   if (ie && ie_version < 8) { this.horiz.style.minHeight = this.vert.style.minWidth = "18px" }
-}
+};
 
-NativeScrollbars.prototype = copyObj({
-  update: function(measure) {
-    var needsH = measure.scrollWidth > measure.clientWidth + 1
-    var needsV = measure.scrollHeight > measure.clientHeight + 1
-    var sWidth = measure.nativeBarWidth
+NativeScrollbars.prototype.update = function (measure) {
+  var needsH = measure.scrollWidth > measure.clientWidth + 1
+  var needsV = measure.scrollHeight > measure.clientHeight + 1
+  var sWidth = measure.nativeBarWidth
 
-    if (needsV) {
-      this.vert.style.display = "block"
-      this.vert.style.bottom = needsH ? sWidth + "px" : "0"
-      var totalHeight = measure.viewHeight - (needsH ? sWidth : 0)
-      // A bug in IE8 can cause this value to be negative, so guard it.
-      this.vert.firstChild.style.height =
-        Math.max(0, measure.scrollHeight - measure.clientHeight + totalHeight) + "px"
-    } else {
-      this.vert.style.display = ""
-      this.vert.firstChild.style.height = "0"
-    }
-
-    if (needsH) {
-      this.horiz.style.display = "block"
-      this.horiz.style.right = needsV ? sWidth + "px" : "0"
-      this.horiz.style.left = measure.barLeft + "px"
-      var totalWidth = measure.viewWidth - measure.barLeft - (needsV ? sWidth : 0)
-      this.horiz.firstChild.style.width =
-        (measure.scrollWidth - measure.clientWidth + totalWidth) + "px"
-    } else {
-      this.horiz.style.display = ""
-      this.horiz.firstChild.style.width = "0"
-    }
-
-    if (!this.checkedZeroWidth && measure.clientHeight > 0) {
-      if (sWidth == 0) { this.zeroWidthHack() }
-      this.checkedZeroWidth = true
-    }
-
-    return {right: needsV ? sWidth : 0, bottom: needsH ? sWidth : 0}
-  },
-  setScrollLeft: function(pos) {
-    if (this.horiz.scrollLeft != pos) { this.horiz.scrollLeft = pos }
-    if (this.disableHoriz) { this.enableZeroWidthBar(this.horiz, this.disableHoriz) }
-  },
-  setScrollTop: function(pos) {
-    if (this.vert.scrollTop != pos) { this.vert.scrollTop = pos }
-    if (this.disableVert) { this.enableZeroWidthBar(this.vert, this.disableVert) }
-  },
-  zeroWidthHack: function() {
-    var w = mac && !mac_geMountainLion ? "12px" : "18px"
-    this.horiz.style.height = this.vert.style.width = w
-    this.horiz.style.pointerEvents = this.vert.style.pointerEvents = "none"
-    this.disableHoriz = new Delayed
-    this.disableVert = new Delayed
-  },
-  enableZeroWidthBar: function(bar, delay) {
-    bar.style.pointerEvents = "auto"
-    function maybeDisable() {
-      // To find out whether the scrollbar is still visible, we
-      // check whether the element under the pixel in the bottom
-      // left corner of the scrollbar box is the scrollbar box
-      // itself (when the bar is still visible) or its filler child
-      // (when the bar is hidden). If it is still visible, we keep
-      // it enabled, if it's hidden, we disable pointer events.
-      var box = bar.getBoundingClientRect()
-      var elt = document.elementFromPoint(box.left + 1, box.bottom - 1)
-      if (elt != bar) { bar.style.pointerEvents = "none" }
-      else { delay.set(1000, maybeDisable) }
-    }
-    delay.set(1000, maybeDisable)
-  },
-  clear: function() {
-    var parent = this.horiz.parentNode
-    parent.removeChild(this.horiz)
-    parent.removeChild(this.vert)
+  if (needsV) {
+    this.vert.style.display = "block"
+    this.vert.style.bottom = needsH ? sWidth + "px" : "0"
+    var totalHeight = measure.viewHeight - (needsH ? sWidth : 0)
+    // A bug in IE8 can cause this value to be negative, so guard it.
+    this.vert.firstChild.style.height =
+      Math.max(0, measure.scrollHeight - measure.clientHeight + totalHeight) + "px"
+  } else {
+    this.vert.style.display = ""
+    this.vert.firstChild.style.height = "0"
   }
-}, NativeScrollbars.prototype)
 
-function NullScrollbars() {}
+  if (needsH) {
+    this.horiz.style.display = "block"
+    this.horiz.style.right = needsV ? sWidth + "px" : "0"
+    this.horiz.style.left = measure.barLeft + "px"
+    var totalWidth = measure.viewWidth - measure.barLeft - (needsV ? sWidth : 0)
+    this.horiz.firstChild.style.width =
+      (measure.scrollWidth - measure.clientWidth + totalWidth) + "px"
+  } else {
+    this.horiz.style.display = ""
+    this.horiz.firstChild.style.width = "0"
+  }
 
-NullScrollbars.prototype = copyObj({
-  update: function() { return {bottom: 0, right: 0} },
-  setScrollLeft: function() {},
-  setScrollTop: function() {},
-  clear: function() {}
-}, NullScrollbars.prototype)
+  if (!this.checkedZeroWidth && measure.clientHeight > 0) {
+    if (sWidth == 0) { this.zeroWidthHack() }
+    this.checkedZeroWidth = true
+  }
+
+  return {right: needsV ? sWidth : 0, bottom: needsH ? sWidth : 0}
+};
+
+NativeScrollbars.prototype.setScrollLeft = function (pos) {
+  if (this.horiz.scrollLeft != pos) { this.horiz.scrollLeft = pos }
+  if (this.disableHoriz) { this.enableZeroWidthBar(this.horiz, this.disableHoriz) }
+};
+
+NativeScrollbars.prototype.setScrollTop = function (pos) {
+  if (this.vert.scrollTop != pos) { this.vert.scrollTop = pos }
+  if (this.disableVert) { this.enableZeroWidthBar(this.vert, this.disableVert) }
+};
+
+NativeScrollbars.prototype.zeroWidthHack = function () {
+  var w = mac && !mac_geMountainLion ? "12px" : "18px"
+  this.horiz.style.height = this.vert.style.width = w
+  this.horiz.style.pointerEvents = this.vert.style.pointerEvents = "none"
+  this.disableHoriz = new Delayed
+  this.disableVert = new Delayed
+};
+
+NativeScrollbars.prototype.enableZeroWidthBar = function (bar, delay) {
+  bar.style.pointerEvents = "auto"
+  function maybeDisable() {
+    // To find out whether the scrollbar is still visible, we
+    // check whether the element under the pixel in the bottom
+    // left corner of the scrollbar box is the scrollbar box
+    // itself (when the bar is still visible) or its filler child
+    // (when the bar is hidden). If it is still visible, we keep
+    // it enabled, if it's hidden, we disable pointer events.
+    var box = bar.getBoundingClientRect()
+    var elt = document.elementFromPoint(box.left + 1, box.bottom - 1)
+    if (elt != bar) { bar.style.pointerEvents = "none" }
+    else { delay.set(1000, maybeDisable) }
+  }
+  delay.set(1000, maybeDisable)
+};
+
+NativeScrollbars.prototype.clear = function () {
+  var parent = this.horiz.parentNode
+  parent.removeChild(this.horiz)
+  parent.removeChild(this.vert)
+};
+
+var NullScrollbars = function () {};
+
+NullScrollbars.prototype.update = function () { return {bottom: 0, right: 0} };
+NullScrollbars.prototype.setScrollLeft = function () {};
+NullScrollbars.prototype.setScrollTop = function () {};
+NullScrollbars.prototype.clear = function () {};
 
 function updateScrollbars(cm, measure) {
   if (!measure) { measure = measureForScrollbars(cm) }
@@ -12825,7 +14218,7 @@ function highlightWorker(cm) {
 
 // DISPLAY DRAWING
 
-function DisplayUpdate(cm, viewport, force) {
+var DisplayUpdate = function(cm, viewport, force) {
   var display = cm.display
 
   this.viewport = viewport
@@ -12838,18 +14231,18 @@ function DisplayUpdate(cm, viewport, force) {
   this.force = force
   this.dims = getDimensions(cm)
   this.events = []
-}
+};
 
-DisplayUpdate.prototype.signal = function(emitter, type) {
+DisplayUpdate.prototype.signal = function (emitter, type) {
   if (hasHandler(emitter, type))
     { this.events.push(arguments) }
-}
-DisplayUpdate.prototype.finish = function() {
-  var this$1 = this;
+};
+DisplayUpdate.prototype.finish = function () {
+    var this$1 = this;
 
   for (var i = 0; i < this.events.length; i++)
     { signal.apply(null, this$1.events[i]) }
-}
+};
 
 function maybeClipScrollbars(cm) {
   var display = cm.display
@@ -14441,6 +15834,7 @@ function markText(doc, from, to, options, type) {
     // Showing up as a widget implies collapsed (widget replaces text)
     marker.collapsed = true
     marker.widgetNode = elt("span", [marker.replacedWith], "CodeMirror-widget")
+    marker.widgetNode.setAttribute("role", "presentation") // hide from accessibility tree
     if (!options.handleMouseEvents) { marker.widgetNode.setAttribute("cm-ignore-events", "true") }
     if (options.insertLeft) { marker.widgetNode.insertLeft = true }
   }
@@ -14788,7 +16182,6 @@ Doc.prototype = createObj(BranchChunk.prototype, {
   clearGutter: docMethodOp(function(gutterID) {
     var this$1 = this;
 
-    var i = this.first
     this.iter(function (line) {
       if (line.gutterMarkers && line.gutterMarkers[gutterID]) {
         changeLine(this$1, line, "gutter", function () {
@@ -14797,7 +16190,6 @@ Doc.prototype = createObj(BranchChunk.prototype, {
           return true
         })
       }
-      ++i
     })
   }),
 
@@ -15977,7 +17369,7 @@ function defineOptions(CodeMirror) {
     for (var i = newBreaks.length - 1; i >= 0; i--)
       { replaceRange(cm.doc, val, newBreaks[i], Pos(newBreaks[i].line, newBreaks[i].ch + val.length)) }
   })
-  option("specialChars", /[\u0000-\u001f\u007f\u00ad\u200b-\u200f\u2028\u2029\ufeff]/g, function (cm, val, old) {
+  option("specialChars", /[\u0000-\u001f\u007f\u00ad\u061c\u200b-\u200f\u2028\u2029\ufeff]/g, function (cm, val, old) {
     cm.state.specialChars = new RegExp(val.source + (val.test("\t") ? "" : "|\t"), "g")
     if (old != Init) { cm.refresh() }
   })
@@ -16067,7 +17459,7 @@ function defineOptions(CodeMirror) {
 function guttersChanged(cm) {
   updateGutters(cm)
   regChange(cm)
-  setTimeout(function () { return alignHorizontally(cm); }, 20)
+  alignHorizontally(cm)
 }
 
 function dragDropChanged(cm, value, old) {
@@ -16122,7 +17514,6 @@ function CodeMirror(place, options) {
   themeChanged(this)
   if (options.lineWrapping)
     { this.display.wrapper.className += " CodeMirror-wrap" }
-  if (options.autofocus && !mobile) { display.input.focus() }
   initScrollbars(this)
 
   this.state = {
@@ -16140,6 +17531,8 @@ function CodeMirror(place, options) {
     keySeq: null,  // Unfinished key sequence
     specialChars: null
   }
+
+  if (options.autofocus && !mobile) { display.input.focus() }
 
   // Override magic textarea content restore that IE sometimes does
   // on our hidden textarea on reload
@@ -16496,6 +17889,7 @@ function addEditorMethods(CodeMirror) {
       options[option] = value
       if (optionHandlers.hasOwnProperty(option))
         { operation(this, optionHandlers[option])(this, value, old) }
+      signal(this, "optionChange", this, option)
     },
 
     getOption: function(option) {return this.options[option]},
@@ -17003,331 +18397,333 @@ function findPosV(cm, pos, dir, unit) {
 
 // CONTENTEDITABLE INPUT STYLE
 
-function ContentEditableInput(cm) {
+var ContentEditableInput = function(cm) {
   this.cm = cm
   this.lastAnchorNode = this.lastAnchorOffset = this.lastFocusNode = this.lastFocusOffset = null
   this.polling = new Delayed()
   this.composing = null
   this.gracePeriod = false
   this.readDOMTimeout = null
-}
+};
 
-ContentEditableInput.prototype = copyObj({
-  init: function(display) {
+ContentEditableInput.prototype.init = function (display) {
     var this$1 = this;
 
-    var input = this, cm = input.cm
-    var div = input.div = display.lineDiv
-    disableBrowserMagic(div, cm.options.spellcheck)
+  var input = this, cm = input.cm
+  var div = input.div = display.lineDiv
+  disableBrowserMagic(div, cm.options.spellcheck)
 
-    on(div, "paste", function (e) {
-      if (signalDOMEvent(cm, e) || handlePaste(e, cm)) { return }
-      // IE doesn't fire input events, so we schedule a read for the pasted content in this way
-      if (ie_version <= 11) { setTimeout(operation(cm, function () {
-        if (!input.pollContent()) { regChange(cm) }
-      }), 20) }
-    })
+  on(div, "paste", function (e) {
+    if (signalDOMEvent(cm, e) || handlePaste(e, cm)) { return }
+    // IE doesn't fire input events, so we schedule a read for the pasted content in this way
+    if (ie_version <= 11) { setTimeout(operation(cm, function () {
+      if (!input.pollContent()) { regChange(cm) }
+    }), 20) }
+  })
 
-    on(div, "compositionstart", function (e) {
-      this$1.composing = {data: e.data}
-    })
-    on(div, "compositionupdate", function (e) {
-      if (!this$1.composing) { this$1.composing = {data: e.data} }
-    })
-    on(div, "compositionend", function (e) {
-      if (this$1.composing) {
-        if (e.data != this$1.composing.data) { this$1.readFromDOMSoon() }
-        this$1.composing = null
+  on(div, "compositionstart", function (e) {
+    this$1.composing = {data: e.data, done: false}
+  })
+  on(div, "compositionupdate", function (e) {
+    if (!this$1.composing) { this$1.composing = {data: e.data, done: false} }
+  })
+  on(div, "compositionend", function (e) {
+    if (this$1.composing) {
+      if (e.data != this$1.composing.data) { this$1.readFromDOMSoon() }
+      this$1.composing.done = true
+    }
+  })
+
+  on(div, "touchstart", function () { return input.forceCompositionEnd(); })
+
+  on(div, "input", function () {
+    if (!this$1.composing) { this$1.readFromDOMSoon() }
+  })
+
+  function onCopyCut(e) {
+    if (signalDOMEvent(cm, e)) { return }
+    if (cm.somethingSelected()) {
+      setLastCopied({lineWise: false, text: cm.getSelections()})
+      if (e.type == "cut") { cm.replaceSelection("", null, "cut") }
+    } else if (!cm.options.lineWiseCopyCut) {
+      return
+    } else {
+      var ranges = copyableRanges(cm)
+      setLastCopied({lineWise: true, text: ranges.text})
+      if (e.type == "cut") {
+        cm.operation(function () {
+          cm.setSelections(ranges.ranges, 0, sel_dontScroll)
+          cm.replaceSelection("", null, "cut")
+        })
       }
-    })
-
-    on(div, "touchstart", function () { return input.forceCompositionEnd(); })
-
-    on(div, "input", function () {
-      if (!this$1.composing) { this$1.readFromDOMSoon() }
-    })
-
-    function onCopyCut(e) {
-      if (signalDOMEvent(cm, e)) { return }
-      if (cm.somethingSelected()) {
-        setLastCopied({lineWise: false, text: cm.getSelections()})
-        if (e.type == "cut") { cm.replaceSelection("", null, "cut") }
-      } else if (!cm.options.lineWiseCopyCut) {
+    }
+    if (e.clipboardData) {
+      e.clipboardData.clearData()
+      var content = lastCopied.text.join("\n")
+      // iOS exposes the clipboard API, but seems to discard content inserted into it
+      e.clipboardData.setData("Text", content)
+      if (e.clipboardData.getData("Text") == content) {
+        e.preventDefault()
         return
-      } else {
-        var ranges = copyableRanges(cm)
-        setLastCopied({lineWise: true, text: ranges.text})
-        if (e.type == "cut") {
-          cm.operation(function () {
-            cm.setSelections(ranges.ranges, 0, sel_dontScroll)
-            cm.replaceSelection("", null, "cut")
-          })
-        }
       }
-      if (e.clipboardData) {
-        e.clipboardData.clearData()
-        var content = lastCopied.text.join("\n")
-        // iOS exposes the clipboard API, but seems to discard content inserted into it
-        e.clipboardData.setData("Text", content)
-        if (e.clipboardData.getData("Text") == content) {
-          e.preventDefault()
-          return
-        }
-      }
-      // Old-fashioned briefly-focus-a-textarea hack
-      var kludge = hiddenTextarea(), te = kludge.firstChild
-      cm.display.lineSpace.insertBefore(kludge, cm.display.lineSpace.firstChild)
-      te.value = lastCopied.text.join("\n")
-      var hadFocus = document.activeElement
-      selectInput(te)
-      setTimeout(function () {
-        cm.display.lineSpace.removeChild(kludge)
-        hadFocus.focus()
-        if (hadFocus == div) { input.showPrimarySelection() }
-      }, 50)
     }
-    on(div, "copy", onCopyCut)
-    on(div, "cut", onCopyCut)
-  },
+    // Old-fashioned briefly-focus-a-textarea hack
+    var kludge = hiddenTextarea(), te = kludge.firstChild
+    cm.display.lineSpace.insertBefore(kludge, cm.display.lineSpace.firstChild)
+    te.value = lastCopied.text.join("\n")
+    var hadFocus = document.activeElement
+    selectInput(te)
+    setTimeout(function () {
+      cm.display.lineSpace.removeChild(kludge)
+      hadFocus.focus()
+      if (hadFocus == div) { input.showPrimarySelection() }
+    }, 50)
+  }
+  on(div, "copy", onCopyCut)
+  on(div, "cut", onCopyCut)
+};
 
-  prepareSelection: function() {
-    var result = prepareSelection(this.cm, false)
-    result.focus = this.cm.state.focused
-    return result
-  },
+ContentEditableInput.prototype.prepareSelection = function () {
+  var result = prepareSelection(this.cm, false)
+  result.focus = this.cm.state.focused
+  return result
+};
 
-  showSelection: function(info, takeFocus) {
-    if (!info || !this.cm.display.view.length) { return }
-    if (info.focus || takeFocus) { this.showPrimarySelection() }
-    this.showMultipleSelections(info)
-  },
+ContentEditableInput.prototype.showSelection = function (info, takeFocus) {
+  if (!info || !this.cm.display.view.length) { return }
+  if (info.focus || takeFocus) { this.showPrimarySelection() }
+  this.showMultipleSelections(info)
+};
 
-  showPrimarySelection: function() {
-    var sel = window.getSelection(), prim = this.cm.doc.sel.primary()
-    var curAnchor = domToPos(this.cm, sel.anchorNode, sel.anchorOffset)
-    var curFocus = domToPos(this.cm, sel.focusNode, sel.focusOffset)
-    if (curAnchor && !curAnchor.bad && curFocus && !curFocus.bad &&
-        cmp(minPos(curAnchor, curFocus), prim.from()) == 0 &&
-        cmp(maxPos(curAnchor, curFocus), prim.to()) == 0)
-      { return }
+ContentEditableInput.prototype.showPrimarySelection = function () {
+  var sel = window.getSelection(), prim = this.cm.doc.sel.primary()
+  var curAnchor = domToPos(this.cm, sel.anchorNode, sel.anchorOffset)
+  var curFocus = domToPos(this.cm, sel.focusNode, sel.focusOffset)
+  if (curAnchor && !curAnchor.bad && curFocus && !curFocus.bad &&
+      cmp(minPos(curAnchor, curFocus), prim.from()) == 0 &&
+      cmp(maxPos(curAnchor, curFocus), prim.to()) == 0)
+    { return }
 
-    var start = posToDOM(this.cm, prim.from())
-    var end = posToDOM(this.cm, prim.to())
-    if (!start && !end) { return }
+  var start = posToDOM(this.cm, prim.from())
+  var end = posToDOM(this.cm, prim.to())
+  if (!start && !end) { return }
 
-    var view = this.cm.display.view
-    var old = sel.rangeCount && sel.getRangeAt(0)
-    if (!start) {
-      start = {node: view[0].measure.map[2], offset: 0}
-    } else if (!end) { // FIXME dangerously hacky
-      var measure = view[view.length - 1].measure
-      var map = measure.maps ? measure.maps[measure.maps.length - 1] : measure.map
-      end = {node: map[map.length - 1], offset: map[map.length - 2] - map[map.length - 3]}
-    }
+  var view = this.cm.display.view
+  var old = sel.rangeCount && sel.getRangeAt(0)
+  if (!start) {
+    start = {node: view[0].measure.map[2], offset: 0}
+  } else if (!end) { // FIXME dangerously hacky
+    var measure = view[view.length - 1].measure
+    var map = measure.maps ? measure.maps[measure.maps.length - 1] : measure.map
+    end = {node: map[map.length - 1], offset: map[map.length - 2] - map[map.length - 3]}
+  }
 
-    var rng
-    try { rng = range(start.node, start.offset, end.offset, end.node) }
-    catch(e) {} // Our model of the DOM might be outdated, in which case the range we try to set can be impossible
-    if (rng) {
-      if (!gecko && this.cm.state.focused) {
-        sel.collapse(start.node, start.offset)
-        if (!rng.collapsed) {
-          sel.removeAllRanges()
-          sel.addRange(rng)
-        }
-      } else {
+  var rng
+  try { rng = range(start.node, start.offset, end.offset, end.node) }
+  catch(e) {} // Our model of the DOM might be outdated, in which case the range we try to set can be impossible
+  if (rng) {
+    if (!gecko && this.cm.state.focused) {
+      sel.collapse(start.node, start.offset)
+      if (!rng.collapsed) {
         sel.removeAllRanges()
         sel.addRange(rng)
       }
-      if (old && sel.anchorNode == null) { sel.addRange(old) }
-      else if (gecko) { this.startGracePeriod() }
+    } else {
+      sel.removeAllRanges()
+      sel.addRange(rng)
     }
-    this.rememberSelection()
-  },
+    if (old && sel.anchorNode == null) { sel.addRange(old) }
+    else if (gecko) { this.startGracePeriod() }
+  }
+  this.rememberSelection()
+};
 
-  startGracePeriod: function() {
+ContentEditableInput.prototype.startGracePeriod = function () {
     var this$1 = this;
 
-    clearTimeout(this.gracePeriod)
-    this.gracePeriod = setTimeout(function () {
-      this$1.gracePeriod = false
-      if (this$1.selectionChanged())
-        { this$1.cm.operation(function () { return this$1.cm.curOp.selectionChanged = true; }) }
-    }, 20)
-  },
+  clearTimeout(this.gracePeriod)
+  this.gracePeriod = setTimeout(function () {
+    this$1.gracePeriod = false
+    if (this$1.selectionChanged())
+      { this$1.cm.operation(function () { return this$1.cm.curOp.selectionChanged = true; }) }
+  }, 20)
+};
 
-  showMultipleSelections: function(info) {
-    removeChildrenAndAdd(this.cm.display.cursorDiv, info.cursors)
-    removeChildrenAndAdd(this.cm.display.selectionDiv, info.selection)
-  },
+ContentEditableInput.prototype.showMultipleSelections = function (info) {
+  removeChildrenAndAdd(this.cm.display.cursorDiv, info.cursors)
+  removeChildrenAndAdd(this.cm.display.selectionDiv, info.selection)
+};
 
-  rememberSelection: function() {
-    var sel = window.getSelection()
-    this.lastAnchorNode = sel.anchorNode; this.lastAnchorOffset = sel.anchorOffset
-    this.lastFocusNode = sel.focusNode; this.lastFocusOffset = sel.focusOffset
-  },
+ContentEditableInput.prototype.rememberSelection = function () {
+  var sel = window.getSelection()
+  this.lastAnchorNode = sel.anchorNode; this.lastAnchorOffset = sel.anchorOffset
+  this.lastFocusNode = sel.focusNode; this.lastFocusOffset = sel.focusOffset
+};
 
-  selectionInEditor: function() {
-    var sel = window.getSelection()
-    if (!sel.rangeCount) { return false }
-    var node = sel.getRangeAt(0).commonAncestorContainer
-    return contains(this.div, node)
-  },
+ContentEditableInput.prototype.selectionInEditor = function () {
+  var sel = window.getSelection()
+  if (!sel.rangeCount) { return false }
+  var node = sel.getRangeAt(0).commonAncestorContainer
+  return contains(this.div, node)
+};
 
-  focus: function() {
-    if (this.cm.options.readOnly != "nocursor") {
-      if (!this.selectionInEditor())
-        { this.showSelection(this.prepareSelection(), true) }
-      this.div.focus()
-    }
-  },
-  blur: function() { this.div.blur() },
-  getField: function() { return this.div },
-
-  supportsTouch: function() { return true },
-
-  receivedFocus: function() {
-    var input = this
-    if (this.selectionInEditor())
-      { this.pollSelection() }
-    else
-      { runInOp(this.cm, function () { return input.cm.curOp.selectionChanged = true; }) }
-
-    function poll() {
-      if (input.cm.state.focused) {
-        input.pollSelection()
-        input.polling.set(input.cm.options.pollInterval, poll)
-      }
-    }
-    this.polling.set(this.cm.options.pollInterval, poll)
-  },
-
-  selectionChanged: function() {
-    var sel = window.getSelection()
-    return sel.anchorNode != this.lastAnchorNode || sel.anchorOffset != this.lastAnchorOffset ||
-      sel.focusNode != this.lastFocusNode || sel.focusOffset != this.lastFocusOffset
-  },
-
-  pollSelection: function() {
-    if (!this.composing && this.readDOMTimeout == null && !this.gracePeriod && this.selectionChanged()) {
-      var sel = window.getSelection(), cm = this.cm
-      this.rememberSelection()
-      var anchor = domToPos(cm, sel.anchorNode, sel.anchorOffset)
-      var head = domToPos(cm, sel.focusNode, sel.focusOffset)
-      if (anchor && head) { runInOp(cm, function () {
-        setSelection(cm.doc, simpleSelection(anchor, head), sel_dontScroll)
-        if (anchor.bad || head.bad) { cm.curOp.selectionChanged = true }
-      }) }
-    }
-  },
-
-  pollContent: function() {
-    if (this.readDOMTimeout != null) {
-      clearTimeout(this.readDOMTimeout)
-      this.readDOMTimeout = null
-    }
-
-    var cm = this.cm, display = cm.display, sel = cm.doc.sel.primary()
-    var from = sel.from(), to = sel.to()
-    if (from.ch == 0 && from.line > cm.firstLine())
-      { from = Pos(from.line - 1, getLine(cm.doc, from.line - 1).length) }
-    if (to.ch == getLine(cm.doc, to.line).text.length && to.line < cm.lastLine())
-      { to = Pos(to.line + 1, 0) }
-    if (from.line < display.viewFrom || to.line > display.viewTo - 1) { return false }
-
-    var fromIndex, fromLine, fromNode
-    if (from.line == display.viewFrom || (fromIndex = findViewIndex(cm, from.line)) == 0) {
-      fromLine = lineNo(display.view[0].line)
-      fromNode = display.view[0].node
-    } else {
-      fromLine = lineNo(display.view[fromIndex].line)
-      fromNode = display.view[fromIndex - 1].node.nextSibling
-    }
-    var toIndex = findViewIndex(cm, to.line)
-    var toLine, toNode
-    if (toIndex == display.view.length - 1) {
-      toLine = display.viewTo - 1
-      toNode = display.lineDiv.lastChild
-    } else {
-      toLine = lineNo(display.view[toIndex + 1].line) - 1
-      toNode = display.view[toIndex + 1].node.previousSibling
-    }
-
-    if (!fromNode) { return false }
-    var newText = cm.doc.splitLines(domTextBetween(cm, fromNode, toNode, fromLine, toLine))
-    var oldText = getBetween(cm.doc, Pos(fromLine, 0), Pos(toLine, getLine(cm.doc, toLine).text.length))
-    while (newText.length > 1 && oldText.length > 1) {
-      if (lst(newText) == lst(oldText)) { newText.pop(); oldText.pop(); toLine-- }
-      else if (newText[0] == oldText[0]) { newText.shift(); oldText.shift(); fromLine++ }
-      else { break }
-    }
-
-    var cutFront = 0, cutEnd = 0
-    var newTop = newText[0], oldTop = oldText[0], maxCutFront = Math.min(newTop.length, oldTop.length)
-    while (cutFront < maxCutFront && newTop.charCodeAt(cutFront) == oldTop.charCodeAt(cutFront))
-      { ++cutFront }
-    var newBot = lst(newText), oldBot = lst(oldText)
-    var maxCutEnd = Math.min(newBot.length - (newText.length == 1 ? cutFront : 0),
-                             oldBot.length - (oldText.length == 1 ? cutFront : 0))
-    while (cutEnd < maxCutEnd &&
-           newBot.charCodeAt(newBot.length - cutEnd - 1) == oldBot.charCodeAt(oldBot.length - cutEnd - 1))
-      { ++cutEnd }
-
-    newText[newText.length - 1] = newBot.slice(0, newBot.length - cutEnd).replace(/^\u200b+/, "")
-    newText[0] = newText[0].slice(cutFront).replace(/\u200b+$/, "")
-
-    var chFrom = Pos(fromLine, cutFront)
-    var chTo = Pos(toLine, oldText.length ? lst(oldText).length - cutEnd : 0)
-    if (newText.length > 1 || newText[0] || cmp(chFrom, chTo)) {
-      replaceRange(cm.doc, newText, chFrom, chTo, "+input")
-      return true
-    }
-  },
-
-  ensurePolled: function() {
-    this.forceCompositionEnd()
-  },
-  reset: function() {
-    this.forceCompositionEnd()
-  },
-  forceCompositionEnd: function() {
-    if (!this.composing) { return }
-    this.composing = null
-    if (!this.pollContent()) { regChange(this.cm) }
-    this.div.blur()
+ContentEditableInput.prototype.focus = function () {
+  if (this.cm.options.readOnly != "nocursor") {
+    if (!this.selectionInEditor())
+      { this.showSelection(this.prepareSelection(), true) }
     this.div.focus()
-  },
-  readFromDOMSoon: function() {
+  }
+};
+ContentEditableInput.prototype.blur = function () { this.div.blur() };
+ContentEditableInput.prototype.getField = function () { return this.div };
+
+ContentEditableInput.prototype.supportsTouch = function () { return true };
+
+ContentEditableInput.prototype.receivedFocus = function () {
+  var input = this
+  if (this.selectionInEditor())
+    { this.pollSelection() }
+  else
+    { runInOp(this.cm, function () { return input.cm.curOp.selectionChanged = true; }) }
+
+  function poll() {
+    if (input.cm.state.focused) {
+      input.pollSelection()
+      input.polling.set(input.cm.options.pollInterval, poll)
+    }
+  }
+  this.polling.set(this.cm.options.pollInterval, poll)
+};
+
+ContentEditableInput.prototype.selectionChanged = function () {
+  var sel = window.getSelection()
+  return sel.anchorNode != this.lastAnchorNode || sel.anchorOffset != this.lastAnchorOffset ||
+    sel.focusNode != this.lastFocusNode || sel.focusOffset != this.lastFocusOffset
+};
+
+ContentEditableInput.prototype.pollSelection = function () {
+  if (!this.composing && this.readDOMTimeout == null && !this.gracePeriod && this.selectionChanged()) {
+    var sel = window.getSelection(), cm = this.cm
+    this.rememberSelection()
+    var anchor = domToPos(cm, sel.anchorNode, sel.anchorOffset)
+    var head = domToPos(cm, sel.focusNode, sel.focusOffset)
+    if (anchor && head) { runInOp(cm, function () {
+      setSelection(cm.doc, simpleSelection(anchor, head), sel_dontScroll)
+      if (anchor.bad || head.bad) { cm.curOp.selectionChanged = true }
+    }) }
+  }
+};
+
+ContentEditableInput.prototype.pollContent = function () {
+  if (this.readDOMTimeout != null) {
+    clearTimeout(this.readDOMTimeout)
+    this.readDOMTimeout = null
+  }
+
+  var cm = this.cm, display = cm.display, sel = cm.doc.sel.primary()
+  var from = sel.from(), to = sel.to()
+  if (from.ch == 0 && from.line > cm.firstLine())
+    { from = Pos(from.line - 1, getLine(cm.doc, from.line - 1).length) }
+  if (to.ch == getLine(cm.doc, to.line).text.length && to.line < cm.lastLine())
+    { to = Pos(to.line + 1, 0) }
+  if (from.line < display.viewFrom || to.line > display.viewTo - 1) { return false }
+
+  var fromIndex, fromLine, fromNode
+  if (from.line == display.viewFrom || (fromIndex = findViewIndex(cm, from.line)) == 0) {
+    fromLine = lineNo(display.view[0].line)
+    fromNode = display.view[0].node
+  } else {
+    fromLine = lineNo(display.view[fromIndex].line)
+    fromNode = display.view[fromIndex - 1].node.nextSibling
+  }
+  var toIndex = findViewIndex(cm, to.line)
+  var toLine, toNode
+  if (toIndex == display.view.length - 1) {
+    toLine = display.viewTo - 1
+    toNode = display.lineDiv.lastChild
+  } else {
+    toLine = lineNo(display.view[toIndex + 1].line) - 1
+    toNode = display.view[toIndex + 1].node.previousSibling
+  }
+
+  if (!fromNode) { return false }
+  var newText = cm.doc.splitLines(domTextBetween(cm, fromNode, toNode, fromLine, toLine))
+  var oldText = getBetween(cm.doc, Pos(fromLine, 0), Pos(toLine, getLine(cm.doc, toLine).text.length))
+  while (newText.length > 1 && oldText.length > 1) {
+    if (lst(newText) == lst(oldText)) { newText.pop(); oldText.pop(); toLine-- }
+    else if (newText[0] == oldText[0]) { newText.shift(); oldText.shift(); fromLine++ }
+    else { break }
+  }
+
+  var cutFront = 0, cutEnd = 0
+  var newTop = newText[0], oldTop = oldText[0], maxCutFront = Math.min(newTop.length, oldTop.length)
+  while (cutFront < maxCutFront && newTop.charCodeAt(cutFront) == oldTop.charCodeAt(cutFront))
+    { ++cutFront }
+  var newBot = lst(newText), oldBot = lst(oldText)
+  var maxCutEnd = Math.min(newBot.length - (newText.length == 1 ? cutFront : 0),
+                           oldBot.length - (oldText.length == 1 ? cutFront : 0))
+  while (cutEnd < maxCutEnd &&
+         newBot.charCodeAt(newBot.length - cutEnd - 1) == oldBot.charCodeAt(oldBot.length - cutEnd - 1))
+    { ++cutEnd }
+
+  newText[newText.length - 1] = newBot.slice(0, newBot.length - cutEnd).replace(/^\u200b+/, "")
+  newText[0] = newText[0].slice(cutFront).replace(/\u200b+$/, "")
+
+  var chFrom = Pos(fromLine, cutFront)
+  var chTo = Pos(toLine, oldText.length ? lst(oldText).length - cutEnd : 0)
+  if (newText.length > 1 || newText[0] || cmp(chFrom, chTo)) {
+    replaceRange(cm.doc, newText, chFrom, chTo, "+input")
+    return true
+  }
+};
+
+ContentEditableInput.prototype.ensurePolled = function () {
+  this.forceCompositionEnd()
+};
+ContentEditableInput.prototype.reset = function () {
+  this.forceCompositionEnd()
+};
+ContentEditableInput.prototype.forceCompositionEnd = function () {
+  if (!this.composing) { return }
+  clearTimeout(this.readDOMTimeout)
+  this.composing = null
+  if (!this.pollContent()) { regChange(this.cm) }
+  this.div.blur()
+  this.div.focus()
+};
+ContentEditableInput.prototype.readFromDOMSoon = function () {
     var this$1 = this;
 
-    if (this.readDOMTimeout != null) { return }
-    this.readDOMTimeout = setTimeout(function () {
-      this$1.readDOMTimeout = null
-      if (this$1.composing) { return }
-      if (this$1.cm.isReadOnly() || !this$1.pollContent())
-        { runInOp(this$1.cm, function () { return regChange(this$1.cm); }) }
-    }, 80)
-  },
+  if (this.readDOMTimeout != null) { return }
+  this.readDOMTimeout = setTimeout(function () {
+    this$1.readDOMTimeout = null
+    if (this$1.composing) {
+      if (this$1.composing.done) { this$1.composing = null }
+      else { return }
+    }
+    if (this$1.cm.isReadOnly() || !this$1.pollContent())
+      { runInOp(this$1.cm, function () { return regChange(this$1.cm); }) }
+  }, 80)
+};
 
-  setUneditable: function(node) {
-    node.contentEditable = "false"
-  },
+ContentEditableInput.prototype.setUneditable = function (node) {
+  node.contentEditable = "false"
+};
 
-  onKeyPress: function(e) {
-    e.preventDefault()
-    if (!this.cm.isReadOnly())
-      { operation(this.cm, applyTextInput)(this.cm, String.fromCharCode(e.charCode == null ? e.keyCode : e.charCode), 0) }
-  },
+ContentEditableInput.prototype.onKeyPress = function (e) {
+  e.preventDefault()
+  if (!this.cm.isReadOnly())
+    { operation(this.cm, applyTextInput)(this.cm, String.fromCharCode(e.charCode == null ? e.keyCode : e.charCode), 0) }
+};
 
-  readOnlyChanged: function(val) {
-    this.div.contentEditable = String(val != "nocursor")
-  },
+ContentEditableInput.prototype.readOnlyChanged = function (val) {
+  this.div.contentEditable = String(val != "nocursor")
+};
 
-  onContextMenu: nothing,
-  resetPosition: nothing,
+ContentEditableInput.prototype.onContextMenu = function () {};
+ContentEditableInput.prototype.resetPosition = function () {};
 
-  needsContentAttribute: true
-  }, ContentEditableInput.prototype)
+ContentEditableInput.prototype.needsContentAttribute = true
 
 function posToDOM(cm, pos) {
   var view = findViewForLine(cm, pos.line)
@@ -17464,7 +18860,7 @@ function locateNodeInLineView(lineView, node, offset) {
 
 // TEXTAREA INPUT STYLE
 
-function TextareaInput(cm) {
+var TextareaInput = function(cm) {
   this.cm = cm
   // See input.poll and input.reset
   this.prevInput = ""
@@ -17481,335 +18877,333 @@ function TextareaInput(cm) {
   // Used to work around IE issue with selection being forgotten when focus moves away from textarea
   this.hasSelection = false
   this.composing = null
-}
+};
 
-TextareaInput.prototype = copyObj({
-  init: function(display) {
+TextareaInput.prototype.init = function (display) {
     var this$1 = this;
 
-    var input = this, cm = this.cm
+  var input = this, cm = this.cm
 
-    // Wraps and hides input textarea
-    var div = this.wrapper = hiddenTextarea()
-    // The semihidden textarea that is focused when the editor is
-    // focused, and receives input.
-    var te = this.textarea = div.firstChild
-    display.wrapper.insertBefore(div, display.wrapper.firstChild)
+  // Wraps and hides input textarea
+  var div = this.wrapper = hiddenTextarea()
+  // The semihidden textarea that is focused when the editor is
+  // focused, and receives input.
+  var te = this.textarea = div.firstChild
+  display.wrapper.insertBefore(div, display.wrapper.firstChild)
 
-    // Needed to hide big blue blinking cursor on Mobile Safari (doesn't seem to work in iOS 8 anymore)
-    if (ios) { te.style.width = "0px" }
+  // Needed to hide big blue blinking cursor on Mobile Safari (doesn't seem to work in iOS 8 anymore)
+  if (ios) { te.style.width = "0px" }
 
-    on(te, "input", function () {
-      if (ie && ie_version >= 9 && this$1.hasSelection) { this$1.hasSelection = null }
-      input.poll()
-    })
+  on(te, "input", function () {
+    if (ie && ie_version >= 9 && this$1.hasSelection) { this$1.hasSelection = null }
+    input.poll()
+  })
 
-    on(te, "paste", function (e) {
-      if (signalDOMEvent(cm, e) || handlePaste(e, cm)) { return }
+  on(te, "paste", function (e) {
+    if (signalDOMEvent(cm, e) || handlePaste(e, cm)) { return }
 
-      cm.state.pasteIncoming = true
-      input.fastPoll()
-    })
+    cm.state.pasteIncoming = true
+    input.fastPoll()
+  })
 
-    function prepareCopyCut(e) {
-      if (signalDOMEvent(cm, e)) { return }
-      if (cm.somethingSelected()) {
-        setLastCopied({lineWise: false, text: cm.getSelections()})
-        if (input.inaccurateSelection) {
-          input.prevInput = ""
-          input.inaccurateSelection = false
-          te.value = lastCopied.text.join("\n")
-          selectInput(te)
-        }
-      } else if (!cm.options.lineWiseCopyCut) {
-        return
-      } else {
-        var ranges = copyableRanges(cm)
-        setLastCopied({lineWise: true, text: ranges.text})
-        if (e.type == "cut") {
-          cm.setSelections(ranges.ranges, null, sel_dontScroll)
-        } else {
-          input.prevInput = ""
-          te.value = ranges.text.join("\n")
-          selectInput(te)
-        }
-      }
-      if (e.type == "cut") { cm.state.cutIncoming = true }
-    }
-    on(te, "cut", prepareCopyCut)
-    on(te, "copy", prepareCopyCut)
-
-    on(display.scroller, "paste", function (e) {
-      if (eventInWidget(display, e) || signalDOMEvent(cm, e)) { return }
-      cm.state.pasteIncoming = true
-      input.focus()
-    })
-
-    // Prevent normal selection in the editor (we handle our own)
-    on(display.lineSpace, "selectstart", function (e) {
-      if (!eventInWidget(display, e)) { e_preventDefault(e) }
-    })
-
-    on(te, "compositionstart", function () {
-      var start = cm.getCursor("from")
-      if (input.composing) { input.composing.range.clear() }
-      input.composing = {
-        start: start,
-        range: cm.markText(start, cm.getCursor("to"), {className: "CodeMirror-composing"})
-      }
-    })
-    on(te, "compositionend", function () {
-      if (input.composing) {
-        input.poll()
-        input.composing.range.clear()
-        input.composing = null
-      }
-    })
-  },
-
-  prepareSelection: function() {
-    // Redraw the selection and/or cursor
-    var cm = this.cm, display = cm.display, doc = cm.doc
-    var result = prepareSelection(cm)
-
-    // Move the hidden textarea near the cursor to prevent scrolling artifacts
-    if (cm.options.moveInputWithCursor) {
-      var headPos = cursorCoords(cm, doc.sel.primary().head, "div")
-      var wrapOff = display.wrapper.getBoundingClientRect(), lineOff = display.lineDiv.getBoundingClientRect()
-      result.teTop = Math.max(0, Math.min(display.wrapper.clientHeight - 10,
-                                          headPos.top + lineOff.top - wrapOff.top))
-      result.teLeft = Math.max(0, Math.min(display.wrapper.clientWidth - 10,
-                                           headPos.left + lineOff.left - wrapOff.left))
-    }
-
-    return result
-  },
-
-  showSelection: function(drawn) {
-    var cm = this.cm, display = cm.display
-    removeChildrenAndAdd(display.cursorDiv, drawn.cursors)
-    removeChildrenAndAdd(display.selectionDiv, drawn.selection)
-    if (drawn.teTop != null) {
-      this.wrapper.style.top = drawn.teTop + "px"
-      this.wrapper.style.left = drawn.teLeft + "px"
-    }
-  },
-
-  // Reset the input to correspond to the selection (or to be empty,
-  // when not typing and nothing is selected)
-  reset: function(typing) {
-    if (this.contextMenuPending) { return }
-    var minimal, selected, cm = this.cm, doc = cm.doc
+  function prepareCopyCut(e) {
+    if (signalDOMEvent(cm, e)) { return }
     if (cm.somethingSelected()) {
-      this.prevInput = ""
-      var range = doc.sel.primary()
-      minimal = hasCopyEvent &&
-        (range.to().line - range.from().line > 100 || (selected = cm.getSelection()).length > 1000)
-      var content = minimal ? "-" : selected || cm.getSelection()
-      this.textarea.value = content
-      if (cm.state.focused) { selectInput(this.textarea) }
-      if (ie && ie_version >= 9) { this.hasSelection = content }
-    } else if (!typing) {
-      this.prevInput = this.textarea.value = ""
-      if (ie && ie_version >= 9) { this.hasSelection = null }
-    }
-    this.inaccurateSelection = minimal
-  },
-
-  getField: function() { return this.textarea },
-
-  supportsTouch: function() { return false },
-
-  focus: function() {
-    if (this.cm.options.readOnly != "nocursor" && (!mobile || activeElt() != this.textarea)) {
-      try { this.textarea.focus() }
-      catch (e) {} // IE8 will throw if the textarea is display: none or not in DOM
-    }
-  },
-
-  blur: function() { this.textarea.blur() },
-
-  resetPosition: function() {
-    this.wrapper.style.top = this.wrapper.style.left = 0
-  },
-
-  receivedFocus: function() { this.slowPoll() },
-
-  // Poll for input changes, using the normal rate of polling. This
-  // runs as long as the editor is focused.
-  slowPoll: function() {
-    var this$1 = this;
-
-    if (this.pollingFast) { return }
-    this.polling.set(this.cm.options.pollInterval, function () {
-      this$1.poll()
-      if (this$1.cm.state.focused) { this$1.slowPoll() }
-    })
-  },
-
-  // When an event has just come in that is likely to add or change
-  // something in the input textarea, we poll faster, to ensure that
-  // the change appears on the screen quickly.
-  fastPoll: function() {
-    var missed = false, input = this
-    input.pollingFast = true
-    function p() {
-      var changed = input.poll()
-      if (!changed && !missed) {missed = true; input.polling.set(60, p)}
-      else {input.pollingFast = false; input.slowPoll()}
-    }
-    input.polling.set(20, p)
-  },
-
-  // Read input from the textarea, and update the document to match.
-  // When something is selected, it is present in the textarea, and
-  // selected (unless it is huge, in which case a placeholder is
-  // used). When nothing is selected, the cursor sits after previously
-  // seen text (can be empty), which is stored in prevInput (we must
-  // not reset the textarea when typing, because that breaks IME).
-  poll: function() {
-    var this$1 = this;
-
-    var cm = this.cm, input = this.textarea, prevInput = this.prevInput
-    // Since this is called a *lot*, try to bail out as cheaply as
-    // possible when it is clear that nothing happened. hasSelection
-    // will be the case when there is a lot of text in the textarea,
-    // in which case reading its value would be expensive.
-    if (this.contextMenuPending || !cm.state.focused ||
-        (hasSelection(input) && !prevInput && !this.composing) ||
-        cm.isReadOnly() || cm.options.disableInput || cm.state.keySeq)
-      { return false }
-
-    var text = input.value
-    // If nothing changed, bail.
-    if (text == prevInput && !cm.somethingSelected()) { return false }
-    // Work around nonsensical selection resetting in IE9/10, and
-    // inexplicable appearance of private area unicode characters on
-    // some key combos in Mac (#2689).
-    if (ie && ie_version >= 9 && this.hasSelection === text ||
-        mac && /[\uf700-\uf7ff]/.test(text)) {
-      cm.display.input.reset()
-      return false
-    }
-
-    if (cm.doc.sel == cm.display.selForContextMenu) {
-      var first = text.charCodeAt(0)
-      if (first == 0x200b && !prevInput) { prevInput = "\u200b" }
-      if (first == 0x21da) { this.reset(); return this.cm.execCommand("undo") }
-    }
-    // Find the part of the input that is actually new
-    var same = 0, l = Math.min(prevInput.length, text.length)
-    while (same < l && prevInput.charCodeAt(same) == text.charCodeAt(same)) { ++same }
-
-    runInOp(cm, function () {
-      applyTextInput(cm, text.slice(same), prevInput.length - same,
-                     null, this$1.composing ? "*compose" : null)
-
-      // Don't leave long text in the textarea, since it makes further polling slow
-      if (text.length > 1000 || text.indexOf("\n") > -1) { input.value = this$1.prevInput = "" }
-      else { this$1.prevInput = text }
-
-      if (this$1.composing) {
-        this$1.composing.range.clear()
-        this$1.composing.range = cm.markText(this$1.composing.start, cm.getCursor("to"),
-                                           {className: "CodeMirror-composing"})
+      setLastCopied({lineWise: false, text: cm.getSelections()})
+      if (input.inaccurateSelection) {
+        input.prevInput = ""
+        input.inaccurateSelection = false
+        te.value = lastCopied.text.join("\n")
+        selectInput(te)
       }
-    })
-    return true
-  },
-
-  ensurePolled: function() {
-    if (this.pollingFast && this.poll()) { this.pollingFast = false }
-  },
-
-  onKeyPress: function() {
-    if (ie && ie_version >= 9) { this.hasSelection = null }
-    this.fastPoll()
-  },
-
-  onContextMenu: function(e) {
-    var input = this, cm = input.cm, display = cm.display, te = input.textarea
-    var pos = posFromMouse(cm, e), scrollPos = display.scroller.scrollTop
-    if (!pos || presto) { return } // Opera is difficult.
-
-    // Reset the current text selection only if the click is done outside of the selection
-    // and 'resetSelectionOnContextMenu' option is true.
-    var reset = cm.options.resetSelectionOnContextMenu
-    if (reset && cm.doc.sel.contains(pos) == -1)
-      { operation(cm, setSelection)(cm.doc, simpleSelection(pos), sel_dontScroll) }
-
-    var oldCSS = te.style.cssText, oldWrapperCSS = input.wrapper.style.cssText
-    input.wrapper.style.cssText = "position: absolute"
-    var wrapperBox = input.wrapper.getBoundingClientRect()
-    te.style.cssText = "position: absolute; width: 30px; height: 30px;\n      top: " + (e.clientY - wrapperBox.top - 5) + "px; left: " + (e.clientX - wrapperBox.left - 5) + "px;\n      z-index: 1000; background: " + (ie ? "rgba(255, 255, 255, .05)" : "transparent") + ";\n      outline: none; border-width: 0; outline: none; overflow: hidden; opacity: .05; filter: alpha(opacity=5);"
-    var oldScrollY
-    if (webkit) { oldScrollY = window.scrollY } // Work around Chrome issue (#2712)
-    display.input.focus()
-    if (webkit) { window.scrollTo(null, oldScrollY) }
-    display.input.reset()
-    // Adds "Select all" to context menu in FF
-    if (!cm.somethingSelected()) { te.value = input.prevInput = " " }
-    input.contextMenuPending = true
-    display.selForContextMenu = cm.doc.sel
-    clearTimeout(display.detectingSelectAll)
-
-    // Select-all will be greyed out if there's nothing to select, so
-    // this adds a zero-width space so that we can later check whether
-    // it got selected.
-    function prepareSelectAllHack() {
-      if (te.selectionStart != null) {
-        var selected = cm.somethingSelected()
-        var extval = "\u200b" + (selected ? te.value : "")
-        te.value = "\u21da" // Used to catch context-menu undo
-        te.value = extval
-        input.prevInput = selected ? "" : "\u200b"
-        te.selectionStart = 1; te.selectionEnd = extval.length
-        // Re-set this, in case some other handler touched the
-        // selection in the meantime.
-        display.selForContextMenu = cm.doc.sel
-      }
-    }
-    function rehide() {
-      input.contextMenuPending = false
-      input.wrapper.style.cssText = oldWrapperCSS
-      te.style.cssText = oldCSS
-      if (ie && ie_version < 9) { display.scrollbars.setScrollTop(display.scroller.scrollTop = scrollPos) }
-
-      // Try to detect the user choosing select-all
-      if (te.selectionStart != null) {
-        if (!ie || (ie && ie_version < 9)) { prepareSelectAllHack() }
-        var i = 0, poll = function () {
-          if (display.selForContextMenu == cm.doc.sel && te.selectionStart == 0 &&
-              te.selectionEnd > 0 && input.prevInput == "\u200b")
-            { operation(cm, selectAll)(cm) }
-          else if (i++ < 10) { display.detectingSelectAll = setTimeout(poll, 500) }
-          else { display.input.reset() }
-        }
-        display.detectingSelectAll = setTimeout(poll, 200)
-      }
-    }
-
-    if (ie && ie_version >= 9) { prepareSelectAllHack() }
-    if (captureRightClick) {
-      e_stop(e)
-      var mouseup = function () {
-        off(window, "mouseup", mouseup)
-        setTimeout(rehide, 20)
-      }
-      on(window, "mouseup", mouseup)
+    } else if (!cm.options.lineWiseCopyCut) {
+      return
     } else {
-      setTimeout(rehide, 50)
+      var ranges = copyableRanges(cm)
+      setLastCopied({lineWise: true, text: ranges.text})
+      if (e.type == "cut") {
+        cm.setSelections(ranges.ranges, null, sel_dontScroll)
+      } else {
+        input.prevInput = ""
+        te.value = ranges.text.join("\n")
+        selectInput(te)
+      }
     }
-  },
+    if (e.type == "cut") { cm.state.cutIncoming = true }
+  }
+  on(te, "cut", prepareCopyCut)
+  on(te, "copy", prepareCopyCut)
 
-  readOnlyChanged: function(val) {
-    if (!val) { this.reset() }
-  },
+  on(display.scroller, "paste", function (e) {
+    if (eventInWidget(display, e) || signalDOMEvent(cm, e)) { return }
+    cm.state.pasteIncoming = true
+    input.focus()
+  })
 
-  setUneditable: nothing,
+  // Prevent normal selection in the editor (we handle our own)
+  on(display.lineSpace, "selectstart", function (e) {
+    if (!eventInWidget(display, e)) { e_preventDefault(e) }
+  })
 
-  needsContentAttribute: false
-}, TextareaInput.prototype)
+  on(te, "compositionstart", function () {
+    var start = cm.getCursor("from")
+    if (input.composing) { input.composing.range.clear() }
+    input.composing = {
+      start: start,
+      range: cm.markText(start, cm.getCursor("to"), {className: "CodeMirror-composing"})
+    }
+  })
+  on(te, "compositionend", function () {
+    if (input.composing) {
+      input.poll()
+      input.composing.range.clear()
+      input.composing = null
+    }
+  })
+};
+
+TextareaInput.prototype.prepareSelection = function () {
+  // Redraw the selection and/or cursor
+  var cm = this.cm, display = cm.display, doc = cm.doc
+  var result = prepareSelection(cm)
+
+  // Move the hidden textarea near the cursor to prevent scrolling artifacts
+  if (cm.options.moveInputWithCursor) {
+    var headPos = cursorCoords(cm, doc.sel.primary().head, "div")
+    var wrapOff = display.wrapper.getBoundingClientRect(), lineOff = display.lineDiv.getBoundingClientRect()
+    result.teTop = Math.max(0, Math.min(display.wrapper.clientHeight - 10,
+                                        headPos.top + lineOff.top - wrapOff.top))
+    result.teLeft = Math.max(0, Math.min(display.wrapper.clientWidth - 10,
+                                         headPos.left + lineOff.left - wrapOff.left))
+  }
+
+  return result
+};
+
+TextareaInput.prototype.showSelection = function (drawn) {
+  var cm = this.cm, display = cm.display
+  removeChildrenAndAdd(display.cursorDiv, drawn.cursors)
+  removeChildrenAndAdd(display.selectionDiv, drawn.selection)
+  if (drawn.teTop != null) {
+    this.wrapper.style.top = drawn.teTop + "px"
+    this.wrapper.style.left = drawn.teLeft + "px"
+  }
+};
+
+// Reset the input to correspond to the selection (or to be empty,
+// when not typing and nothing is selected)
+TextareaInput.prototype.reset = function (typing) {
+  if (this.contextMenuPending) { return }
+  var minimal, selected, cm = this.cm, doc = cm.doc
+  if (cm.somethingSelected()) {
+    this.prevInput = ""
+    var range = doc.sel.primary()
+    minimal = hasCopyEvent &&
+      (range.to().line - range.from().line > 100 || (selected = cm.getSelection()).length > 1000)
+    var content = minimal ? "-" : selected || cm.getSelection()
+    this.textarea.value = content
+    if (cm.state.focused) { selectInput(this.textarea) }
+    if (ie && ie_version >= 9) { this.hasSelection = content }
+  } else if (!typing) {
+    this.prevInput = this.textarea.value = ""
+    if (ie && ie_version >= 9) { this.hasSelection = null }
+  }
+  this.inaccurateSelection = minimal
+};
+
+TextareaInput.prototype.getField = function () { return this.textarea };
+
+TextareaInput.prototype.supportsTouch = function () { return false };
+
+TextareaInput.prototype.focus = function () {
+  if (this.cm.options.readOnly != "nocursor" && (!mobile || activeElt() != this.textarea)) {
+    try { this.textarea.focus() }
+    catch (e) {} // IE8 will throw if the textarea is display: none or not in DOM
+  }
+};
+
+TextareaInput.prototype.blur = function () { this.textarea.blur() };
+
+TextareaInput.prototype.resetPosition = function () {
+  this.wrapper.style.top = this.wrapper.style.left = 0
+};
+
+TextareaInput.prototype.receivedFocus = function () { this.slowPoll() };
+
+// Poll for input changes, using the normal rate of polling. This
+// runs as long as the editor is focused.
+TextareaInput.prototype.slowPoll = function () {
+    var this$1 = this;
+
+  if (this.pollingFast) { return }
+  this.polling.set(this.cm.options.pollInterval, function () {
+    this$1.poll()
+    if (this$1.cm.state.focused) { this$1.slowPoll() }
+  })
+};
+
+// When an event has just come in that is likely to add or change
+// something in the input textarea, we poll faster, to ensure that
+// the change appears on the screen quickly.
+TextareaInput.prototype.fastPoll = function () {
+  var missed = false, input = this
+  input.pollingFast = true
+  function p() {
+    var changed = input.poll()
+    if (!changed && !missed) {missed = true; input.polling.set(60, p)}
+    else {input.pollingFast = false; input.slowPoll()}
+  }
+  input.polling.set(20, p)
+};
+
+// Read input from the textarea, and update the document to match.
+// When something is selected, it is present in the textarea, and
+// selected (unless it is huge, in which case a placeholder is
+// used). When nothing is selected, the cursor sits after previously
+// seen text (can be empty), which is stored in prevInput (we must
+// not reset the textarea when typing, because that breaks IME).
+TextareaInput.prototype.poll = function () {
+    var this$1 = this;
+
+  var cm = this.cm, input = this.textarea, prevInput = this.prevInput
+  // Since this is called a *lot*, try to bail out as cheaply as
+  // possible when it is clear that nothing happened. hasSelection
+  // will be the case when there is a lot of text in the textarea,
+  // in which case reading its value would be expensive.
+  if (this.contextMenuPending || !cm.state.focused ||
+      (hasSelection(input) && !prevInput && !this.composing) ||
+      cm.isReadOnly() || cm.options.disableInput || cm.state.keySeq)
+    { return false }
+
+  var text = input.value
+  // If nothing changed, bail.
+  if (text == prevInput && !cm.somethingSelected()) { return false }
+  // Work around nonsensical selection resetting in IE9/10, and
+  // inexplicable appearance of private area unicode characters on
+  // some key combos in Mac (#2689).
+  if (ie && ie_version >= 9 && this.hasSelection === text ||
+      mac && /[\uf700-\uf7ff]/.test(text)) {
+    cm.display.input.reset()
+    return false
+  }
+
+  if (cm.doc.sel == cm.display.selForContextMenu) {
+    var first = text.charCodeAt(0)
+    if (first == 0x200b && !prevInput) { prevInput = "\u200b" }
+    if (first == 0x21da) { this.reset(); return this.cm.execCommand("undo") }
+  }
+  // Find the part of the input that is actually new
+  var same = 0, l = Math.min(prevInput.length, text.length)
+  while (same < l && prevInput.charCodeAt(same) == text.charCodeAt(same)) { ++same }
+
+  runInOp(cm, function () {
+    applyTextInput(cm, text.slice(same), prevInput.length - same,
+                   null, this$1.composing ? "*compose" : null)
+
+    // Don't leave long text in the textarea, since it makes further polling slow
+    if (text.length > 1000 || text.indexOf("\n") > -1) { input.value = this$1.prevInput = "" }
+    else { this$1.prevInput = text }
+
+    if (this$1.composing) {
+      this$1.composing.range.clear()
+      this$1.composing.range = cm.markText(this$1.composing.start, cm.getCursor("to"),
+                                         {className: "CodeMirror-composing"})
+    }
+  })
+  return true
+};
+
+TextareaInput.prototype.ensurePolled = function () {
+  if (this.pollingFast && this.poll()) { this.pollingFast = false }
+};
+
+TextareaInput.prototype.onKeyPress = function () {
+  if (ie && ie_version >= 9) { this.hasSelection = null }
+  this.fastPoll()
+};
+
+TextareaInput.prototype.onContextMenu = function (e) {
+  var input = this, cm = input.cm, display = cm.display, te = input.textarea
+  var pos = posFromMouse(cm, e), scrollPos = display.scroller.scrollTop
+  if (!pos || presto) { return } // Opera is difficult.
+
+  // Reset the current text selection only if the click is done outside of the selection
+  // and 'resetSelectionOnContextMenu' option is true.
+  var reset = cm.options.resetSelectionOnContextMenu
+  if (reset && cm.doc.sel.contains(pos) == -1)
+    { operation(cm, setSelection)(cm.doc, simpleSelection(pos), sel_dontScroll) }
+
+  var oldCSS = te.style.cssText, oldWrapperCSS = input.wrapper.style.cssText
+  input.wrapper.style.cssText = "position: absolute"
+  var wrapperBox = input.wrapper.getBoundingClientRect()
+  te.style.cssText = "position: absolute; width: 30px; height: 30px;\n      top: " + (e.clientY - wrapperBox.top - 5) + "px; left: " + (e.clientX - wrapperBox.left - 5) + "px;\n      z-index: 1000; background: " + (ie ? "rgba(255, 255, 255, .05)" : "transparent") + ";\n      outline: none; border-width: 0; outline: none; overflow: hidden; opacity: .05; filter: alpha(opacity=5);"
+  var oldScrollY
+  if (webkit) { oldScrollY = window.scrollY } // Work around Chrome issue (#2712)
+  display.input.focus()
+  if (webkit) { window.scrollTo(null, oldScrollY) }
+  display.input.reset()
+  // Adds "Select all" to context menu in FF
+  if (!cm.somethingSelected()) { te.value = input.prevInput = " " }
+  input.contextMenuPending = true
+  display.selForContextMenu = cm.doc.sel
+  clearTimeout(display.detectingSelectAll)
+
+  // Select-all will be greyed out if there's nothing to select, so
+  // this adds a zero-width space so that we can later check whether
+  // it got selected.
+  function prepareSelectAllHack() {
+    if (te.selectionStart != null) {
+      var selected = cm.somethingSelected()
+      var extval = "\u200b" + (selected ? te.value : "")
+      te.value = "\u21da" // Used to catch context-menu undo
+      te.value = extval
+      input.prevInput = selected ? "" : "\u200b"
+      te.selectionStart = 1; te.selectionEnd = extval.length
+      // Re-set this, in case some other handler touched the
+      // selection in the meantime.
+      display.selForContextMenu = cm.doc.sel
+    }
+  }
+  function rehide() {
+    input.contextMenuPending = false
+    input.wrapper.style.cssText = oldWrapperCSS
+    te.style.cssText = oldCSS
+    if (ie && ie_version < 9) { display.scrollbars.setScrollTop(display.scroller.scrollTop = scrollPos) }
+
+    // Try to detect the user choosing select-all
+    if (te.selectionStart != null) {
+      if (!ie || (ie && ie_version < 9)) { prepareSelectAllHack() }
+      var i = 0, poll = function () {
+        if (display.selForContextMenu == cm.doc.sel && te.selectionStart == 0 &&
+            te.selectionEnd > 0 && input.prevInput == "\u200b")
+          { operation(cm, selectAll)(cm) }
+        else if (i++ < 10) { display.detectingSelectAll = setTimeout(poll, 500) }
+        else { display.input.reset() }
+      }
+      display.detectingSelectAll = setTimeout(poll, 200)
+    }
+  }
+
+  if (ie && ie_version >= 9) { prepareSelectAllHack() }
+  if (captureRightClick) {
+    e_stop(e)
+    var mouseup = function () {
+      off(window, "mouseup", mouseup)
+      setTimeout(rehide, 20)
+    }
+    on(window, "mouseup", mouseup)
+  } else {
+    setTimeout(rehide, 50)
+  }
+};
+
+TextareaInput.prototype.readOnlyChanged = function (val) {
+  if (!val) { this.reset() }
+};
+
+TextareaInput.prototype.setUneditable = function () {};
+
+TextareaInput.prototype.needsContentAttribute = false
 
 function fromTextArea(textarea, options) {
   options = options ? copyObj(options) : {}
@@ -17960,12 +19354,12 @@ CodeMirror.fromTextArea = fromTextArea
 
 addLegacyProps(CodeMirror)
 
-CodeMirror.version = "5.21.0"
+CodeMirror.version = "5.23.0"
 
 return CodeMirror;
 
 })));
-},{}],55:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -17973,7 +19367,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.GraphQLError = GraphQLError;
 
-var _language = require('../language');
+var _location = require('../language/location');
 
 /**
  * A GraphQLError describes an Error found during the parse, validate, or
@@ -18023,7 +19417,7 @@ message, nodes, source, positions, path, originalError) {
   var _source2 = _source; // seems here Flow need a const to resolve type.
   if (_source2 && _positions) {
     _locations = _positions.map(function (pos) {
-      return (0, _language.getLocation)(_source2, pos);
+      return (0, _location.getLocation)(_source2, pos);
     });
   }
 
@@ -18081,7 +19475,7 @@ GraphQLError.prototype = Object.create(Error.prototype, {
   constructor: { value: GraphQLError },
   name: { value: 'GraphQLError' }
 });
-},{"../language":73}],56:[function(require,module,exports){
+},{"../language/location":86}],66:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18093,7 +19487,7 @@ var _invariant = require('../jsutils/invariant');
 
 var _invariant2 = _interopRequireDefault(_invariant);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Given a GraphQLError, format it according to the rules described by the
@@ -18115,7 +19509,7 @@ function formatError(error) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"../jsutils/invariant":66}],57:[function(require,module,exports){
+},{"../jsutils/invariant":76}],67:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18157,7 +19551,7 @@ Object.defineProperty(exports, 'formatError', {
     return _formatError.formatError;
   }
 });
-},{"./GraphQLError":55,"./formatError":56,"./locatedError":58,"./syntaxError":59}],58:[function(require,module,exports){
+},{"./GraphQLError":65,"./formatError":66,"./locatedError":68,"./syntaxError":69}],68:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18190,7 +19584,7 @@ function locatedError(originalError, nodes, path) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"./GraphQLError":55}],59:[function(require,module,exports){
+},{"./GraphQLError":65}],69:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18239,7 +19633,7 @@ function highlightSourceAtLocation(source, location) {
 function lpad(len, str) {
   return Array(len - str.length + 1).join(' ') + str;
 }
-},{"../language/location":76,"./GraphQLError":55}],60:[function(require,module,exports){
+},{"../language/location":86,"./GraphQLError":65}],70:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18283,7 +19677,7 @@ var _directives = require('../type/directives');
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Implements the "Evaluating requests" section of the GraphQL specification.
@@ -18341,6 +19735,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function execute(schema, document, rootValue, contextValue, variableValues, operationName) {
   (0, _invariant2.default)(schema, 'Must provide schema');
+  (0, _invariant2.default)(document, 'Must provide document');
   (0, _invariant2.default)(schema instanceof _schema.GraphQLSchema, 'Schema must be an instance of GraphQLSchema. Also ensure that there are ' + 'not multiple versions of GraphQL installed in your node_modules directory.');
 
   // Variables, if provided, must be an object.
@@ -18890,10 +20285,19 @@ function completeLeafValue(returnType, result) {
 function completeAbstractValue(exeContext, returnType, fieldNodes, info, path, result) {
   var runtimeType = returnType.resolveType ? returnType.resolveType(result, exeContext.contextValue, info) : defaultResolveTypeFn(result, exeContext.contextValue, info, returnType);
 
-  // If resolveType returns a string, we assume it's a GraphQLObjectType name.
-  if (typeof runtimeType === 'string') {
-    runtimeType = exeContext.schema.getType(runtimeType);
+  if (isThenable(runtimeType)) {
+    // Cast to Promise
+    var runtimeTypePromise = runtimeType;
+    return runtimeTypePromise.then(function (resolvedRuntimeType) {
+      return completeObjectValue(exeContext, ensureValidRuntimeType(resolvedRuntimeType, exeContext, returnType, fieldNodes, info, result), fieldNodes, info, path, result);
+    });
   }
+
+  return completeObjectValue(exeContext, ensureValidRuntimeType(runtimeType, exeContext, returnType, fieldNodes, info, result), fieldNodes, info, path, result);
+}
+
+function ensureValidRuntimeType(runtimeTypeOrName, exeContext, returnType, fieldNodes, info, result) {
+  var runtimeType = typeof runtimeTypeOrName === 'string' ? exeContext.schema.getType(runtimeTypeOrName) : runtimeTypeOrName;
 
   if (!(runtimeType instanceof _definition.GraphQLObjectType)) {
     throw new _error.GraphQLError('Abstract type ' + returnType.name + ' must resolve to an Object type at ' + ('runtime for field ' + info.parentType.name + '.' + info.fieldName + ' with ') + ('value "' + String(result) + '", received "' + String(runtimeType) + '".'), fieldNodes);
@@ -18903,7 +20307,7 @@ function completeAbstractValue(exeContext, returnType, fieldNodes, info, path, r
     throw new _error.GraphQLError('Runtime Object type "' + runtimeType.name + '" is not a possible type ' + ('for "' + returnType.name + '".'), fieldNodes);
   }
 
-  return completeObjectValue(exeContext, runtimeType, fieldNodes, info, path, result);
+  return runtimeType;
 }
 
 /**
@@ -18913,10 +20317,31 @@ function completeObjectValue(exeContext, returnType, fieldNodes, info, path, res
   // If there is an isTypeOf predicate function, call it with the
   // current result. If isTypeOf returns false, then raise an error rather
   // than continuing execution.
-  if (returnType.isTypeOf && !returnType.isTypeOf(result, exeContext.contextValue, info)) {
-    throw new _error.GraphQLError('Expected value of type "' + returnType.name + '" but got: ' + String(result) + '.', fieldNodes);
+  if (returnType.isTypeOf) {
+    var isTypeOf = returnType.isTypeOf(result, exeContext.contextValue, info);
+
+    if (isThenable(isTypeOf)) {
+      return isTypeOf.then(function (isTypeOfResult) {
+        if (!isTypeOfResult) {
+          throw invalidReturnTypeError(returnType, result, fieldNodes);
+        }
+        return collectAndExecuteSubfields(exeContext, returnType, fieldNodes, info, path, result);
+      });
+    }
+
+    if (!isTypeOf) {
+      throw invalidReturnTypeError(returnType, result, fieldNodes);
+    }
   }
 
+  return collectAndExecuteSubfields(exeContext, returnType, fieldNodes, info, path, result);
+}
+
+function invalidReturnTypeError(returnType, result, fieldNodes) {
+  return new _error.GraphQLError('Expected value of type "' + returnType.name + '" but got: ' + String(result) + '.', fieldNodes);
+}
+
+function collectAndExecuteSubfields(exeContext, returnType, fieldNodes, info, path, result) {
   // Collect sub-fields to execute to complete this value.
   var subFieldNodes = Object.create(null);
   var visitedFragmentNames = Object.create(null);
@@ -18937,11 +20362,30 @@ function completeObjectValue(exeContext, returnType, fieldNodes, info, path, res
  */
 function defaultResolveTypeFn(value, context, info, abstractType) {
   var possibleTypes = info.schema.getPossibleTypes(abstractType);
+  var promisedIsTypeOfResults = [];
+
   for (var i = 0; i < possibleTypes.length; i++) {
     var type = possibleTypes[i];
-    if (type.isTypeOf && type.isTypeOf(value, context, info)) {
-      return type;
+
+    if (type.isTypeOf) {
+      var isTypeOfResult = type.isTypeOf(value, context, info);
+
+      if (isThenable(isTypeOfResult)) {
+        promisedIsTypeOfResults[i] = isTypeOfResult;
+      } else if (isTypeOfResult) {
+        return type;
+      }
     }
+  }
+
+  if (promisedIsTypeOfResults.length) {
+    return Promise.all(promisedIsTypeOfResults).then(function (isTypeOfResults) {
+      for (var _i = 0; _i < isTypeOfResults.length; _i++) {
+        if (isTypeOfResults[_i]) {
+          return possibleTypes[_i];
+        }
+      }
+    });
   }
 }
 
@@ -18951,14 +20395,12 @@ function defaultResolveTypeFn(value, context, info, abstractType) {
  * and returns it as the result, or if it's a function, returns the result
  * of calling that function while passing along args and context.
  */
-var defaultFieldResolver = exports.defaultFieldResolver = function defaultFieldResolver(source, args, context, _ref) {
-  var fieldName = _ref.fieldName;
-
+var defaultFieldResolver = exports.defaultFieldResolver = function defaultFieldResolver(source, args, context, info) {
   // ensure source is a value for which property access is acceptable.
   if (typeof source === 'object' || typeof source === 'function') {
-    var property = source[fieldName];
+    var property = source[info.fieldName];
     if (typeof property === 'function') {
-      return source[fieldName](args, context);
+      return source[info.fieldName](args, context, info);
     }
     return property;
   }
@@ -18991,7 +20433,7 @@ function getFieldDef(schema, parentType, fieldName) {
   }
   return parentType.getFields()[fieldName];
 }
-},{"../error":57,"../jsutils/find":65,"../jsutils/invariant":66,"../jsutils/isNullish":68,"../language/kinds":74,"../type/definition":81,"../type/directives":82,"../type/introspection":84,"../type/schema":86,"../utilities/typeFromAST":103,"./values":62,"iterall":133}],61:[function(require,module,exports){
+},{"../error":67,"../jsutils/find":75,"../jsutils/invariant":76,"../jsutils/isNullish":78,"../language/kinds":84,"../type/definition":91,"../type/directives":92,"../type/introspection":94,"../type/schema":96,"../utilities/typeFromAST":114,"./values":72,"iterall":144}],71:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -19018,7 +20460,7 @@ Object.defineProperty(exports, 'responsePathAsArray', {
     return _execute.responsePathAsArray;
   }
 });
-},{"./execute":60}],62:[function(require,module,exports){
+},{"./execute":70}],72:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -19065,7 +20507,7 @@ var _definition = require('../type/definition');
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Prepares an object map of variableValues of the correct type based on the
@@ -19255,7 +20697,7 @@ function coerceValue(type, value) {
 
   return parsed;
 }
-},{"../error":57,"../jsutils/invariant":66,"../jsutils/isInvalid":67,"../jsutils/isNullish":68,"../jsutils/keyMap":69,"../language/kinds":74,"../language/printer":78,"../type/definition":81,"../utilities/isValidJSValue":98,"../utilities/isValidLiteralValue":99,"../utilities/typeFromAST":103,"../utilities/valueFromAST":104,"iterall":133}],63:[function(require,module,exports){
+},{"../error":67,"../jsutils/invariant":76,"../jsutils/isInvalid":77,"../jsutils/isNullish":78,"../jsutils/keyMap":79,"../language/kinds":84,"../language/printer":88,"../type/definition":91,"../utilities/isValidJSValue":109,"../utilities/isValidLiteralValue":110,"../utilities/typeFromAST":114,"../utilities/valueFromAST":115,"iterall":144}],73:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -19319,7 +20761,7 @@ function graphql(schema, requestString, rootValue, contextValue, variableValues,
     return { errors: [error] };
   });
 }
-},{"./execution/execute":60,"./language/parser":77,"./language/source":79,"./validation/validate":132}],64:[function(require,module,exports){
+},{"./execution/execute":70,"./language/parser":87,"./language/source":89,"./validation/validate":143}],74:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -19571,6 +21013,12 @@ Object.defineProperty(exports, 'isAbstractType', {
     return _type.isAbstractType;
   }
 });
+Object.defineProperty(exports, 'isNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _type.isNamedType;
+  }
+});
 Object.defineProperty(exports, 'assertType', {
   enumerable: true,
   get: function get() {
@@ -19605,6 +21053,12 @@ Object.defineProperty(exports, 'assertAbstractType', {
   enumerable: true,
   get: function get() {
     return _type.assertAbstractType;
+  }
+});
+Object.defineProperty(exports, 'assertNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertNamedType;
   }
 });
 Object.defineProperty(exports, 'getNullableType', {
@@ -19880,7 +21334,13 @@ Object.defineProperty(exports, 'findBreakingChanges', {
     return _utilities.findBreakingChanges;
   }
 });
-},{"./error":57,"./execution":61,"./graphql":63,"./language":73,"./type":83,"./utilities":96,"./validation":105}],65:[function(require,module,exports){
+Object.defineProperty(exports, 'findDeprecatedUsages', {
+  enumerable: true,
+  get: function get() {
+    return _utilities.findDeprecatedUsages;
+  }
+});
+},{"./error":67,"./execution":71,"./graphql":73,"./language":83,"./type":93,"./utilities":107,"./validation":116}],75:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -19904,7 +21364,7 @@ function find(list, predicate) {
     }
   }
 }
-},{}],66:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -19926,7 +21386,7 @@ function invariant(condition, message) {
     throw new Error(message);
   }
 }
-},{}],67:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -19949,7 +21409,7 @@ exports.default = isInvalid;
 function isInvalid(value) {
   return value === undefined || value !== value;
 }
-},{}],68:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -19972,7 +21432,7 @@ exports.default = isNullish;
 function isNullish(value) {
   return value === null || value === undefined || value !== value;
 }
-},{}],69:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -20017,7 +21477,7 @@ function keyMap(list, keyFn) {
     return map[keyFn(item)] = item, map;
   }, {});
 }
-},{}],70:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -20056,7 +21516,7 @@ function keyValMap(list, keyFn, valFn) {
     return map[keyFn(item)] = valFn(item), map;
   }, {});
 }
-},{}],71:[function(require,module,exports){
+},{}],81:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -20086,7 +21546,7 @@ function quotedOrList(items) {
     return list + (selected.length > 2 ? ', ' : ' ') + (index === selected.length - 1 ? 'or ' : '') + quoted;
   });
 }
-},{}],72:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -20166,7 +21626,7 @@ function lexicalDistance(a, b) {
 
   return d[aLength][bLength];
 }
-},{}],73:[function(require,module,exports){
+},{}],83:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -20271,7 +21731,7 @@ var Kind = _interopRequireWildcard(_kinds);
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 exports.Kind = Kind;
-},{"./kinds":74,"./lexer":75,"./location":76,"./parser":77,"./printer":78,"./source":79,"./visitor":80}],74:[function(require,module,exports){
+},{"./kinds":84,"./lexer":85,"./location":86,"./parser":87,"./printer":88,"./source":89,"./visitor":90}],84:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -20353,7 +21813,7 @@ var TYPE_EXTENSION_DEFINITION = exports.TYPE_EXTENSION_DEFINITION = 'TypeExtensi
 // Directive Definitions
 
 var DIRECTIVE_DEFINITION = exports.DIRECTIVE_DEFINITION = 'DirectiveDefinition';
-},{}],75:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -20856,7 +22316,7 @@ function readName(source, position, line, col, prev) {
   }
   return new Tok(NAME, position, end, line, col, prev, slice.call(body, position, end));
 }
-},{"../error":57}],76:[function(require,module,exports){
+},{"../error":67}],86:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -20894,7 +22354,7 @@ function getLocation(source, position) {
 /**
  * Represents a location in a Source.
  */
-},{}],77:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -21915,7 +23375,7 @@ function many(lexer, openKind, parseFn, closeKind) {
   }
   return nodes;
 }
-},{"../error":57,"./kinds":74,"./lexer":75,"./source":79}],78:[function(require,module,exports){
+},{"../error":67,"./kinds":84,"./lexer":85,"./source":89}],88:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -22198,7 +23658,7 @@ function wrap(start, maybeString, end) {
 function indent(maybeString) {
   return maybeString && maybeString.replace(/\n/g, '\n  ');
 }
-},{"./visitor":80}],79:[function(require,module,exports){
+},{"./visitor":90}],89:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -22228,7 +23688,7 @@ var Source = exports.Source = function Source(body, name) {
   this.body = body;
   this.name = name || 'GraphQL';
 };
-},{}],80:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -22619,7 +24079,7 @@ function getVisitFn(visitor, kind, isLeaving) {
     }
   }
 }
-},{}],81:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -22642,6 +24102,8 @@ exports.assertCompositeType = assertCompositeType;
 exports.isAbstractType = isAbstractType;
 exports.assertAbstractType = assertAbstractType;
 exports.getNullableType = getNullableType;
+exports.isNamedType = isNamedType;
+exports.assertNamedType = assertNamedType;
 exports.getNamedType = getNamedType;
 
 var _invariant = require('../jsutils/invariant');
@@ -22656,7 +24118,7 @@ var _kinds = require('../language/kinds');
 
 var _assertValidName = require('../utilities/assertValidName');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -22755,6 +24217,15 @@ function getNullableType(type) {
 /**
  * These named types do not include modifiers like List or NonNull.
  */
+function isNamedType(type) {
+  return type instanceof GraphQLScalarType || type instanceof GraphQLObjectType || type instanceof GraphQLInterfaceType || type instanceof GraphQLUnionType || type instanceof GraphQLEnumType || type instanceof GraphQLInputObjectType;
+}
+
+function assertNamedType(type) {
+  (0, _invariant2.default)(isNamedType(type), 'Expected ' + String(type) + ' to be a GraphQL named type.');
+  return type;
+}
+
 function getNamedType(type) {
   var unmodifiedType = type;
   while (unmodifiedType instanceof GraphQLList || unmodifiedType instanceof GraphQLNonNull) {
@@ -22795,7 +24266,6 @@ var GraphQLScalarType = exports.GraphQLScalarType = function () {
   function GraphQLScalarType(config) {
     _classCallCheck(this, GraphQLScalarType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -22883,8 +24353,7 @@ var GraphQLObjectType = exports.GraphQLObjectType = function () {
   function GraphQLObjectType(config) {
     _classCallCheck(this, GraphQLObjectType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
-    (0, _assertValidName.assertValidName)(config.name);
+    (0, _assertValidName.assertValidName)(config.name, config.isIntrospection);
     this.name = config.name;
     this.description = config.description;
     if (config.isTypeOf) {
@@ -22946,6 +24415,7 @@ function defineFieldMap(type, fieldsThunk) {
       name: fieldName
     });
     (0, _invariant2.default)(isOutputType(field.type), type.name + '.' + fieldName + ' field type must be Output Type but ' + ('got: ' + String(field.type) + '.'));
+    (0, _invariant2.default)(isValidResolver(field.resolve), type.name + '.' + fieldName + ' field resolver must be a function if ' + ('provided, but got: ' + String(field.resolve) + '.'));
     var argsConfig = fieldConfig.args;
     if (!argsConfig) {
       field.args = [];
@@ -22972,6 +24442,11 @@ function isPlainObj(obj) {
   return obj && typeof obj === 'object' && !Array.isArray(obj);
 }
 
+// If a resolver is defined, it must be a function.
+function isValidResolver(resolver) {
+  return resolver == null || typeof resolver === 'function';
+}
+
 /**
  * Interface Type Definition
  *
@@ -22994,7 +24469,6 @@ var GraphQLInterfaceType = exports.GraphQLInterfaceType = function () {
   function GraphQLInterfaceType(config) {
     _classCallCheck(this, GraphQLInterfaceType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -23048,7 +24522,6 @@ var GraphQLUnionType = exports.GraphQLUnionType = function () {
   function GraphQLUnionType(config) {
     _classCallCheck(this, GraphQLUnionType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -23115,7 +24588,7 @@ var GraphQLEnumType /* <T> */ = exports.GraphQLEnumType = function () {
     _classCallCheck(this, GraphQLEnumType);
 
     this.name = config.name;
-    (0, _assertValidName.assertValidName)(config.name);
+    (0, _assertValidName.assertValidName)(config.name, config.isIntrospection);
     this.description = config.description;
     this._values = defineEnumValues(this, config.values);
     this._enumConfig = config;
@@ -23123,6 +24596,10 @@ var GraphQLEnumType /* <T> */ = exports.GraphQLEnumType = function () {
 
   GraphQLEnumType.prototype.getValues = function getValues() {
     return this._values;
+  };
+
+  GraphQLEnumType.prototype.getValue = function getValue(name) {
+    return this._getNameLookup()[name];
   };
 
   GraphQLEnumType.prototype.serialize = function serialize(value /* T */) {
@@ -23235,7 +24712,6 @@ var GraphQLInputObjectType = exports.GraphQLInputObjectType = function () {
   function GraphQLInputObjectType(config) {
     _classCallCheck(this, GraphQLInputObjectType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -23260,6 +24736,7 @@ var GraphQLInputObjectType = exports.GraphQLInputObjectType = function () {
         name: fieldName
       });
       (0, _invariant2.default)(isInputType(field.type), _this3.name + '.' + fieldName + ' field type must be Input Type but ' + ('got: ' + String(field.type) + '.'));
+      (0, _invariant2.default)(field.resolve == null, _this3.name + '.' + fieldName + ' field type has a resolve property, but ' + 'Input Types cannot define resolvers.');
       resultFieldMap[fieldName] = field;
     });
     return resultFieldMap;
@@ -23355,7 +24832,7 @@ var GraphQLNonNull = exports.GraphQLNonNull = function () {
 
 
 GraphQLNonNull.prototype.toJSON = GraphQLNonNull.prototype.inspect = GraphQLNonNull.prototype.toString;
-},{"../jsutils/invariant":66,"../jsutils/isNullish":68,"../language/kinds":74,"../utilities/assertValidName":88}],82:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../jsutils/isNullish":78,"../language/kinds":84,"../utilities/assertValidName":98}],92:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -23373,7 +24850,7 @@ var _invariant2 = _interopRequireDefault(_invariant);
 
 var _assertValidName = require('../utilities/assertValidName');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -23451,7 +24928,7 @@ var GraphQLIncludeDirective = exports.GraphQLIncludeDirective = new GraphQLDirec
   description: 'Directs the executor to include this field or fragment only when ' + 'the `if` argument is true.',
   locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
   args: {
-    if: {
+    'if': {
       type: new _definition.GraphQLNonNull(_scalars.GraphQLBoolean),
       description: 'Included when true.'
     }
@@ -23466,7 +24943,7 @@ var GraphQLSkipDirective = exports.GraphQLSkipDirective = new GraphQLDirective({
   description: 'Directs the executor to skip this field or fragment when the `if` ' + 'argument is true.',
   locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
   args: {
-    if: {
+    'if': {
       type: new _definition.GraphQLNonNull(_scalars.GraphQLBoolean),
       description: 'Skipped when true.'
     }
@@ -23498,7 +24975,7 @@ var GraphQLDeprecatedDirective = exports.GraphQLDeprecatedDirective = new GraphQ
  * The full list of specified directives.
  */
 var specifiedDirectives = exports.specifiedDirectives = [GraphQLIncludeDirective, GraphQLSkipDirective, GraphQLDeprecatedDirective];
-},{"../jsutils/invariant":66,"../utilities/assertValidName":88,"./definition":81,"./scalars":85}],83:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../utilities/assertValidName":98,"./definition":91,"./scalars":95}],93:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -23552,6 +25029,12 @@ Object.defineProperty(exports, 'isAbstractType', {
     return _definition.isAbstractType;
   }
 });
+Object.defineProperty(exports, 'isNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.isNamedType;
+  }
+});
 Object.defineProperty(exports, 'assertType', {
   enumerable: true,
   get: function get() {
@@ -23586,6 +25069,12 @@ Object.defineProperty(exports, 'assertAbstractType', {
   enumerable: true,
   get: function get() {
     return _definition.assertAbstractType;
+  }
+});
+Object.defineProperty(exports, 'assertNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertNamedType;
   }
 });
 Object.defineProperty(exports, 'getNullableType', {
@@ -23801,7 +25290,7 @@ Object.defineProperty(exports, 'TypeNameMetaFieldDef', {
     return _introspection.TypeNameMetaFieldDef;
   }
 });
-},{"./definition":81,"./directives":82,"./introspection":84,"./scalars":85,"./schema":86}],84:[function(require,module,exports){
+},{"./definition":91,"./directives":92,"./introspection":94,"./scalars":95,"./schema":96}],94:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -23823,7 +25312,7 @@ var _scalars = require('./scalars');
 
 var _directives = require('./directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -23836,6 +25325,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var __Schema = exports.__Schema = new _definition.GraphQLObjectType({
   name: '__Schema',
+  isIntrospection: true,
   description: 'A GraphQL Schema defines the capabilities of a GraphQL server. It ' + 'exposes all available types and directives on the server, as well as ' + 'the entry points for query, mutation, and subscription operations.',
   fields: function fields() {
     return {
@@ -23883,6 +25373,7 @@ var __Schema = exports.__Schema = new _definition.GraphQLObjectType({
 
 var __Directive = exports.__Directive = new _definition.GraphQLObjectType({
   name: '__Directive',
+  isIntrospection: true,
   description: 'A Directive provides a way to describe alternate runtime execution and ' + 'type validation behavior in a GraphQL document.' + '\n\nIn some cases, you need to provide options to alter GraphQL\'s ' + 'execution behavior in ways field arguments will not suffice, such as ' + 'conditionally including or skipping a field. Directives provide this by ' + 'describing additional information to the executor.',
   fields: function fields() {
     return {
@@ -23926,6 +25417,7 @@ var __Directive = exports.__Directive = new _definition.GraphQLObjectType({
 
 var __DirectiveLocation = exports.__DirectiveLocation = new _definition.GraphQLEnumType({
   name: '__DirectiveLocation',
+  isIntrospection: true,
   description: 'A Directive can be adjacent to many parts of the GraphQL language, a ' + '__DirectiveLocation describes one such possible adjacencies.',
   values: {
     QUERY: {
@@ -24005,6 +25497,7 @@ var __DirectiveLocation = exports.__DirectiveLocation = new _definition.GraphQLE
 
 var __Type = exports.__Type = new _definition.GraphQLObjectType({
   name: '__Type',
+  isIntrospection: true,
   description: 'The fundamental unit of any GraphQL Schema is the type. There are ' + 'many kinds of types in GraphQL as represented by the `__TypeKind` enum.' + '\n\nDepending on the kind of a type, certain fields describe ' + 'information about that type. Scalar types provide no information ' + 'beyond a name and description, while Enum types provide their values. ' + 'Object and Interface types provide the fields they describe. Abstract ' + 'types, Union and Interface, provide the Object types possible ' + 'at runtime. List and NonNull types compose other types.',
   fields: function fields() {
     return {
@@ -24123,6 +25616,7 @@ var __Type = exports.__Type = new _definition.GraphQLObjectType({
 
 var __Field = exports.__Field = new _definition.GraphQLObjectType({
   name: '__Field',
+  isIntrospection: true,
   description: 'Object and Interface types are described by a list of Fields, each of ' + 'which has a name, potentially a list of arguments, and a return type.',
   fields: function fields() {
     return {
@@ -24145,6 +25639,7 @@ var __Field = exports.__Field = new _definition.GraphQLObjectType({
 
 var __InputValue = exports.__InputValue = new _definition.GraphQLObjectType({
   name: '__InputValue',
+  isIntrospection: true,
   description: 'Arguments provided to Fields or Directives and the input fields of an ' + 'InputObject are represented as Input Values which describe their type ' + 'and optionally a default value.',
   fields: function fields() {
     return {
@@ -24164,6 +25659,7 @@ var __InputValue = exports.__InputValue = new _definition.GraphQLObjectType({
 
 var __EnumValue = exports.__EnumValue = new _definition.GraphQLObjectType({
   name: '__EnumValue',
+  isIntrospection: true,
   description: 'One possible value for a given Enum. Enum values are unique values, not ' + 'a placeholder for a string or numeric value. However an Enum value is ' + 'returned in a JSON response as a string.',
   fields: function fields() {
     return {
@@ -24190,6 +25686,7 @@ var TypeKind = exports.TypeKind = {
 
 var __TypeKind = exports.__TypeKind = new _definition.GraphQLEnumType({
   name: '__TypeKind',
+  isIntrospection: true,
   description: 'An enum describing what kind of type a given `__Type` is.',
   values: {
     SCALAR: {
@@ -24265,7 +25762,7 @@ var TypeNameMetaFieldDef = exports.TypeNameMetaFieldDef = {
     return parentType.name;
   }
 };
-},{"../jsutils/isInvalid":67,"../language/printer":78,"../utilities/astFromValue":89,"./definition":81,"./directives":82,"./scalars":85}],85:[function(require,module,exports){
+},{"../jsutils/isInvalid":77,"../language/printer":88,"../utilities/astFromValue":99,"./definition":91,"./directives":92,"./scalars":95}],95:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -24376,7 +25873,7 @@ var GraphQLID = exports.GraphQLID = new _definition.GraphQLScalarType({
     return ast.kind === Kind.STRING || ast.kind === Kind.INT ? ast.value : null;
   }
 });
-},{"../language/kinds":74,"./definition":81}],86:[function(require,module,exports){
+},{"../language/kinds":84,"./definition":91}],96:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -24400,7 +25897,7 @@ var _invariant2 = _interopRequireDefault(_invariant);
 
 var _typeComparators = require('../utilities/typeComparators');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -24654,7 +26151,7 @@ function assertObjectImplementsInterface(schema, object, iface) {
     });
   });
 }
-},{"../jsutils/find":65,"../jsutils/invariant":66,"../utilities/typeComparators":102,"./definition":81,"./directives":82,"./introspection":84}],87:[function(require,module,exports){
+},{"../jsutils/find":75,"../jsutils/invariant":76,"../utilities/typeComparators":113,"./definition":91,"./directives":92,"./introspection":94}],97:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -24676,7 +26173,7 @@ var _find = require('../jsutils/find');
 
 var _find2 = _interopRequireDefault(_find);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
@@ -24709,6 +26206,7 @@ var TypeInfo = exports.TypeInfo = function () {
     this._fieldDefStack = [];
     this._directive = null;
     this._argument = null;
+    this._enumValue = null;
     this._getFieldDef = getFieldDefFn || getFieldDef;
   }
 
@@ -24742,6 +26240,10 @@ var TypeInfo = exports.TypeInfo = function () {
 
   TypeInfo.prototype.getArgument = function getArgument() {
     return this._argument;
+  };
+
+  TypeInfo.prototype.getEnumValue = function getEnumValue() {
+    return this._enumValue;
   };
 
   // Flow does not yet handle this case.
@@ -24820,6 +26322,14 @@ var TypeInfo = exports.TypeInfo = function () {
         }
         this._inputTypeStack.push(fieldType);
         break;
+      case Kind.ENUM:
+        var enumType = (0, _definition.getNamedType)(this.getInputType());
+        var enumValue = void 0;
+        if (enumType instanceof _definition.GraphQLEnumType) {
+          enumValue = enumType.getValue(node.value);
+        }
+        this._enumValue = enumValue;
+        break;
     }
   };
 
@@ -24851,6 +26361,9 @@ var TypeInfo = exports.TypeInfo = function () {
       case Kind.OBJECT_FIELD:
         this._inputTypeStack.pop();
         break;
+      case Kind.ENUM:
+        this._enumValue = null;
+        break;
     }
   };
 
@@ -24879,23 +26392,13 @@ function getFieldDef(schema, parentType, fieldNode) {
     return parentType.getFields()[name];
   }
 }
-},{"../jsutils/find":65,"../language/kinds":74,"../type/definition":81,"../type/introspection":84,"./typeFromAST":103}],88:[function(require,module,exports){
+},{"../jsutils/find":75,"../language/kinds":84,"../type/definition":91,"../type/introspection":94,"./typeFromAST":114}],98:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.assertValidName = assertValidName;
-
-var _invariant = require('../jsutils/invariant');
-
-var _invariant2 = _interopRequireDefault(_invariant);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-var NAME_RX = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
-
-// Helper to assert that provided names are valid.
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -24906,10 +26409,32 @@ var NAME_RX = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-function assertValidName(name) {
-  (0, _invariant2.default)(NAME_RX.test(name), 'Names must match /^[_a-zA-Z][_a-zA-Z0-9]*$/ but "' + name + '" does not.');
+var NAME_RX = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
+
+// Ensures console warnings are only issued once.
+var hasWarnedAboutDunder = false;
+
+/**
+ * Upholds the spec rules about naming.
+ */
+function assertValidName(name, isIntrospection) {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Must be named. Unexpected name: ' + name + '.');
+  }
+  if (!isIntrospection && name.slice(0, 2) === '__' && !hasWarnedAboutDunder) {
+    hasWarnedAboutDunder = true;
+    /* eslint-disable no-console */
+    if (console && console.error) {
+      var error = new Error('Name "' + name + '" must not begin with "__", which is reserved by ' + 'GraphQL introspection.');
+      console.error(error.stack || String(error));
+    }
+    /* eslint-enable no-console */
+  }
+  if (!NAME_RX.test(name)) {
+    throw new Error('Names must match /^[_a-zA-Z][_a-zA-Z0-9]*$/ but "' + name + '" does not.');
+  }
 }
-},{"../jsutils/invariant":66}],89:[function(require,module,exports){
+},{}],99:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -24937,7 +26462,7 @@ var _definition = require('../type/definition');
 
 var _scalars = require('../type/scalars');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Produces a GraphQL Value AST given a JavaScript value.
@@ -25089,7 +26614,7 @@ function astFromValue(value, type) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"../jsutils/invariant":66,"../jsutils/isInvalid":67,"../jsutils/isNullish":68,"../language/kinds":74,"../type/definition":81,"../type/scalars":85,"iterall":133}],90:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../jsutils/isInvalid":77,"../jsutils/isNullish":78,"../language/kinds":84,"../type/definition":91,"../type/scalars":95,"iterall":144}],100:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -25131,7 +26656,7 @@ var _directives = require('../type/directives');
 
 var _introspection = require('../type/introspection');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function buildWrappedType(innerType, inputTypeNode) {
   if (inputTypeNode.kind === _kinds.LIST_TYPE) {
@@ -25345,7 +26870,7 @@ function buildASTSchema(ast) {
 
   function produceInterfaceType(typeNode) {
     var type = produceType(typeNode);
-    (0, _invariant2.default)(type instanceof _definition.GraphQLInterfaceType, 'Expected Object type.');
+    (0, _invariant2.default)(type instanceof _definition.GraphQLInterfaceType, 'Expected Interface type.');
     return type;
   }
 
@@ -25567,7 +27092,7 @@ function leadingSpaces(str) {
 function cannotExecuteSchema() {
   throw new Error('Generated Schema cannot use Interface or Union types for execution.');
 }
-},{"../execution/values":62,"../jsutils/find":65,"../jsutils/invariant":66,"../jsutils/keyValMap":70,"../language/kinds":74,"../language/lexer":75,"../language/parser":77,"../type/definition":81,"../type/directives":82,"../type/introspection":84,"../type/scalars":85,"../type/schema":86,"./valueFromAST":104}],91:[function(require,module,exports){
+},{"../execution/values":72,"../jsutils/find":75,"../jsutils/invariant":76,"../jsutils/keyValMap":80,"../language/kinds":84,"../language/lexer":85,"../language/parser":87,"../type/definition":91,"../type/directives":92,"../type/introspection":94,"../type/scalars":95,"../type/schema":96,"./valueFromAST":115}],101:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -25601,7 +27126,7 @@ var _scalars = require('../type/scalars');
 
 var _directives = require('../type/directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Build a GraphQLSchema for use by client tools.
@@ -25877,7 +27402,7 @@ function buildClientSchema(introspection) {
 function cannotExecuteClientSchema() {
   throw new Error('Client Schema cannot use Interface or Union types for execution.');
 }
-},{"../jsutils/invariant":66,"../jsutils/keyMap":69,"../jsutils/keyValMap":70,"../language/parser":77,"../type/definition":81,"../type/directives":82,"../type/introspection":84,"../type/scalars":85,"../type/schema":86,"./valueFromAST":104}],92:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../jsutils/keyMap":79,"../jsutils/keyValMap":80,"../language/parser":87,"../type/definition":91,"../type/directives":92,"../type/introspection":94,"../type/scalars":95,"../type/schema":96,"./valueFromAST":115}],102:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -25912,7 +27437,7 @@ function concatAST(asts) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{}],93:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -25950,7 +27475,7 @@ var _scalars = require('../type/scalars');
 
 var _kinds = require('../language/kinds');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Produces a new schema given an existing schema and a document which may
@@ -26442,7 +27967,7 @@ function extendSchema(schema, documentAST) {
 function cannotExecuteExtendedSchema() {
   throw new Error('Extended Schema cannot use Interface or Union types for execution.');
 }
-},{"../error/GraphQLError":55,"../jsutils/invariant":66,"../jsutils/keyMap":69,"../jsutils/keyValMap":70,"../language/kinds":74,"../type/definition":81,"../type/directives":82,"../type/introspection":84,"../type/scalars":85,"../type/schema":86,"./buildASTSchema":90,"./valueFromAST":104}],94:[function(require,module,exports){
+},{"../error/GraphQLError":65,"../jsutils/invariant":76,"../jsutils/keyMap":79,"../jsutils/keyValMap":80,"../language/kinds":84,"../type/definition":91,"../type/directives":92,"../type/introspection":94,"../type/scalars":95,"../type/schema":96,"./buildASTSchema":100,"./valueFromAST":115}],104:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -26656,7 +28181,67 @@ function findValuesRemovedFromEnums(oldSchema, newSchema) {
   });
   return valuesRemovedFromEnums;
 }
-},{"../type/definition":81,"../type/schema":86}],95:[function(require,module,exports){
+},{"../type/definition":91,"../type/schema":96}],105:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.findDeprecatedUsages = findDeprecatedUsages;
+
+var _GraphQLError = require('../error/GraphQLError');
+
+var _visitor = require('../language/visitor');
+
+var _definition = require('../type/definition');
+
+var _schema = require('../type/schema');
+
+var _TypeInfo = require('./TypeInfo');
+
+/**
+ * A validation rule which reports deprecated usages.
+ *
+ * Returns a list of GraphQLError instances describing each deprecated use.
+ */
+function findDeprecatedUsages(schema, ast) {
+  var errors = [];
+  var typeInfo = new _TypeInfo.TypeInfo(schema);
+
+  (0, _visitor.visit)(ast, (0, _visitor.visitWithTypeInfo)(typeInfo, {
+    Field: function Field(node) {
+      var fieldDef = typeInfo.getFieldDef();
+      if (fieldDef && fieldDef.isDeprecated) {
+        var parentType = typeInfo.getParentType();
+        if (parentType) {
+          var reason = fieldDef.deprecationReason;
+          errors.push(new _GraphQLError.GraphQLError('The field ' + parentType.name + '.' + fieldDef.name + ' is deprecated.' + (reason ? ' ' + reason : ''), [node]));
+        }
+      }
+    },
+    EnumValue: function EnumValue(node) {
+      var enumVal = typeInfo.getEnumValue();
+      if (enumVal && enumVal.isDeprecated) {
+        var type = (0, _definition.getNamedType)(typeInfo.getInputType());
+        if (type) {
+          var reason = enumVal.deprecationReason;
+          errors.push(new _GraphQLError.GraphQLError('The enum value ' + type.name + '.' + enumVal.name + ' is deprecated.' + (reason ? ' ' + reason : ''), [node]));
+        }
+      }
+    }
+  }));
+
+  return errors;
+}
+/**
+ *  Copyright (c) Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+},{"../error/GraphQLError":65,"../language/visitor":90,"../type/definition":91,"../type/schema":96,"./TypeInfo":97}],106:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -26699,7 +28284,7 @@ function getOperationAST(documentAST, operationName) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"../language/kinds":74}],96:[function(require,module,exports){
+},{"../language/kinds":84}],107:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -26888,7 +28473,16 @@ Object.defineProperty(exports, 'findBreakingChanges', {
     return _findBreakingChanges.findBreakingChanges;
   }
 });
-},{"./TypeInfo":87,"./assertValidName":88,"./astFromValue":89,"./buildASTSchema":90,"./buildClientSchema":91,"./concatAST":92,"./extendSchema":93,"./findBreakingChanges":94,"./getOperationAST":95,"./introspectionQuery":97,"./isValidJSValue":98,"./isValidLiteralValue":99,"./schemaPrinter":100,"./separateOperations":101,"./typeComparators":102,"./typeFromAST":103,"./valueFromAST":104}],97:[function(require,module,exports){
+
+var _findDeprecatedUsages = require('./findDeprecatedUsages');
+
+Object.defineProperty(exports, 'findDeprecatedUsages', {
+  enumerable: true,
+  get: function get() {
+    return _findDeprecatedUsages.findDeprecatedUsages;
+  }
+});
+},{"./TypeInfo":97,"./assertValidName":98,"./astFromValue":99,"./buildASTSchema":100,"./buildClientSchema":101,"./concatAST":102,"./extendSchema":103,"./findBreakingChanges":104,"./findDeprecatedUsages":105,"./getOperationAST":106,"./introspectionQuery":108,"./isValidJSValue":109,"./isValidLiteralValue":110,"./schemaPrinter":111,"./separateOperations":112,"./typeComparators":113,"./typeFromAST":114,"./valueFromAST":115}],108:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -26903,7 +28497,7 @@ var introspectionQuery = exports.introspectionQuery = '\n  query IntrospectionQu
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{}],98:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -26923,7 +28517,7 @@ var _isNullish2 = _interopRequireDefault(_isNullish);
 
 var _definition = require('../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Given a JavaScript value and a GraphQL type, determine if the value will be
@@ -27021,14 +28615,18 @@ function isValidJSValue(value, type) {
 
   // Scalar/Enum input checks to ensure the type can parse the value to
   // a non-null value.
-  var parseResult = type.parseValue(value);
-  if ((0, _isNullish2.default)(parseResult)) {
-    return ['Expected type "' + type.name + '", found ' + JSON.stringify(value) + '.'];
+  try {
+    var parseResult = type.parseValue(value);
+    if ((0, _isNullish2.default)(parseResult)) {
+      return ['Expected type "' + type.name + '", found ' + JSON.stringify(value) + '.'];
+    }
+  } catch (error) {
+    return ['Expected type "' + type.name + '", found ' + JSON.stringify(value) + ': ' + error.message];
   }
 
   return [];
 }
-},{"../jsutils/invariant":66,"../jsutils/isNullish":68,"../type/definition":81,"iterall":133}],99:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../jsutils/isNullish":78,"../type/definition":91,"iterall":144}],110:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27054,7 +28652,7 @@ var _isNullish = require('../jsutils/isNullish');
 
 var _isNullish2 = _interopRequireDefault(_isNullish);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Utility for validators which determines if a value literal node is valid
@@ -27164,7 +28762,7 @@ function isValidLiteralValue(type, valueNode) {
 
   return [];
 }
-},{"../jsutils/invariant":66,"../jsutils/isNullish":68,"../jsutils/keyMap":69,"../language/kinds":74,"../language/printer":78,"../type/definition":81}],100:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../jsutils/isNullish":78,"../jsutils/keyMap":79,"../language/kinds":84,"../language/printer":88,"../type/definition":91}],111:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27196,7 +28794,7 @@ var _scalars = require('../type/scalars');
 
 var _directives = require('../type/directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -27449,7 +29047,7 @@ function breakLine(line, len) {
   }
   return sublines;
 }
-},{"../jsutils/invariant":66,"../jsutils/isInvalid":67,"../jsutils/isNullish":68,"../language/printer":78,"../type/definition":81,"../type/directives":82,"../type/scalars":85,"../utilities/astFromValue":89}],101:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../jsutils/isInvalid":77,"../jsutils/isNullish":78,"../language/printer":88,"../type/definition":91,"../type/directives":92,"../type/scalars":95,"../utilities/astFromValue":99}],112:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27531,7 +29129,7 @@ function collectTransitiveDependencies(collected, depGraph, fromName) {
     });
   }
 }
-},{"../language/visitor":80}],102:[function(require,module,exports){
+},{"../language/visitor":90}],113:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27656,7 +29254,7 @@ function doTypesOverlap(schema, typeA, typeB) {
   // Otherwise the types do not overlap.
   return false;
 }
-},{"../type/definition":81}],103:[function(require,module,exports){
+},{"../type/definition":91}],114:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27672,7 +29270,7 @@ var _kinds = require('../language/kinds');
 
 var _definition = require('../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function typeFromAST(schema, typeNode) {
   var innerType = void 0;
@@ -27695,7 +29293,7 @@ function typeFromAST(schema, typeNode) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"../jsutils/invariant":66,"../language/kinds":74,"../type/definition":81}],104:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../language/kinds":84,"../type/definition":91}],115:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27727,7 +29325,7 @@ var _definition = require('../type/definition');
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Produces a JavaScript value given a GraphQL Value AST.
@@ -27868,7 +29466,7 @@ function valueFromAST(valueNode, type, variables) {
 function isMissingVariable(valueNode, variables) {
   return valueNode.kind === Kind.VARIABLE && (!variables || (0, _isInvalid2.default)(variables[valueNode.name.value]));
 }
-},{"../jsutils/invariant":66,"../jsutils/isInvalid":67,"../jsutils/isNullish":68,"../jsutils/keyMap":69,"../language/kinds":74,"../type/definition":81}],105:[function(require,module,exports){
+},{"../jsutils/invariant":76,"../jsutils/isInvalid":77,"../jsutils/isNullish":78,"../jsutils/keyMap":79,"../language/kinds":84,"../type/definition":91}],116:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27898,7 +29496,7 @@ Object.defineProperty(exports, 'specifiedRules', {
     return _specifiedRules.specifiedRules;
   }
 });
-},{"./specifiedRules":131,"./validate":132}],106:[function(require,module,exports){
+},{"./specifiedRules":142,"./validate":143}],117:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -27947,7 +29545,7 @@ function ArgumentsOfCorrectType(context) {
     }
   };
 }
-},{"../../error":57,"../../language/printer":78,"../../utilities/isValidLiteralValue":99}],107:[function(require,module,exports){
+},{"../../error":67,"../../language/printer":88,"../../utilities/isValidLiteralValue":110}],118:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28014,7 +29612,7 @@ function DefaultValuesOfCorrectType(context) {
     }
   };
 }
-},{"../../error":57,"../../language/printer":78,"../../type/definition":81,"../../utilities/isValidLiteralValue":99}],108:[function(require,module,exports){
+},{"../../error":67,"../../language/printer":88,"../../type/definition":91,"../../utilities/isValidLiteralValue":110}],119:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28035,7 +29633,7 @@ var _quotedOrList2 = _interopRequireDefault(_quotedOrList);
 
 var _definition = require('../../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function undefinedFieldMessage(fieldName, type, suggestedTypeNames, suggestedFieldNames) {
   var message = 'Cannot query field "' + fieldName + '" on type "' + type + '".';
@@ -28143,7 +29741,7 @@ function getSuggestedFieldNames(schema, type, fieldName) {
   // Otherwise, must be a Union type, which does not define fields.
   return [];
 }
-},{"../../error":57,"../../jsutils/quotedOrList":71,"../../jsutils/suggestionList":72,"../../type/definition":81}],109:[function(require,module,exports){
+},{"../../error":67,"../../jsutils/quotedOrList":81,"../../jsutils/suggestionList":82,"../../type/definition":91}],120:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28199,7 +29797,7 @@ function FragmentsOnCompositeTypes(context) {
     }
   };
 }
-},{"../../error":57,"../../language/printer":78,"../../type/definition":81}],110:[function(require,module,exports){
+},{"../../error":67,"../../language/printer":88,"../../type/definition":91}],121:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28229,7 +29827,7 @@ var _quotedOrList2 = _interopRequireDefault(_quotedOrList);
 
 var _kinds = require('../../language/kinds');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function unknownArgMessage(argName, fieldName, type, suggestedArgs) {
   var message = 'Unknown argument "' + argName + '" on field "' + fieldName + '" of ' + ('type "' + String(type) + '".');
@@ -28295,7 +29893,7 @@ function KnownArgumentNames(context) {
     }
   };
 }
-},{"../../error":57,"../../jsutils/find":65,"../../jsutils/invariant":66,"../../jsutils/quotedOrList":71,"../../jsutils/suggestionList":72,"../../language/kinds":74}],111:[function(require,module,exports){
+},{"../../error":67,"../../jsutils/find":75,"../../jsutils/invariant":76,"../../jsutils/quotedOrList":81,"../../jsutils/suggestionList":82,"../../language/kinds":84}],122:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28315,7 +29913,7 @@ var _kinds = require('../../language/kinds');
 
 var _directives = require('../../type/directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function unknownDirectiveMessage(directiveName) {
   return 'Unknown directive "' + directiveName + '".';
@@ -28403,7 +30001,7 @@ function getDirectiveLocationForASTPath(ancestors) {
       return parentNode.kind === _kinds.INPUT_OBJECT_TYPE_DEFINITION ? _directives.DirectiveLocation.INPUT_FIELD_DEFINITION : _directives.DirectiveLocation.ARGUMENT_DEFINITION;
   }
 }
-},{"../../error":57,"../../jsutils/find":65,"../../language/kinds":74,"../../type/directives":82}],112:[function(require,module,exports){
+},{"../../error":67,"../../jsutils/find":75,"../../language/kinds":84,"../../type/directives":92}],123:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28444,7 +30042,7 @@ function KnownFragmentNames(context) {
     }
   };
 }
-},{"../../error":57}],113:[function(require,module,exports){
+},{"../../error":67}],124:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28463,7 +30061,7 @@ var _quotedOrList = require('../../jsutils/quotedOrList');
 
 var _quotedOrList2 = _interopRequireDefault(_quotedOrList);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -28515,7 +30113,7 @@ function KnownTypeNames(context) {
     }
   };
 }
-},{"../../error":57,"../../jsutils/quotedOrList":71,"../../jsutils/suggestionList":72}],114:[function(require,module,exports){
+},{"../../error":67,"../../jsutils/quotedOrList":81,"../../jsutils/suggestionList":82}],125:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28563,7 +30161,7 @@ function LoneAnonymousOperation(context) {
     }
   };
 }
-},{"../../error":57,"../../language/kinds":74}],115:[function(require,module,exports){
+},{"../../error":67,"../../language/kinds":84}],126:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28650,7 +30248,7 @@ function NoFragmentCycles(context) {
     spreadPathIndexByName[fragmentName] = undefined;
   }
 }
-},{"../../error":57}],116:[function(require,module,exports){
+},{"../../error":67}],127:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28706,7 +30304,7 @@ function NoUndefinedVariables(context) {
     }
   };
 }
-},{"../../error":57}],117:[function(require,module,exports){
+},{"../../error":67}],128:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28769,7 +30367,7 @@ function NoUnusedFragments(context) {
     }
   };
 }
-},{"../../error":57}],118:[function(require,module,exports){
+},{"../../error":67}],129:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28831,7 +30429,7 @@ function NoUnusedVariables(context) {
     }
   };
 }
-},{"../../error":57}],119:[function(require,module,exports){
+},{"../../error":67}],130:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -28854,7 +30452,7 @@ var _definition = require('../../type/definition');
 
 var _typeFromAST = require('../../utilities/typeFromAST');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -29385,7 +30983,7 @@ function _pairSetAdd(data, a, b, areMutuallyExclusive) {
   }
   map[b] = areMutuallyExclusive;
 }
-},{"../../error":57,"../../jsutils/find":65,"../../language/kinds":74,"../../language/printer":78,"../../type/definition":81,"../../utilities/typeFromAST":103}],120:[function(require,module,exports){
+},{"../../error":67,"../../jsutils/find":75,"../../language/kinds":84,"../../language/printer":88,"../../type/definition":91,"../../utilities/typeFromAST":114}],131:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29449,7 +31047,7 @@ function getFragmentType(context, name) {
   var frag = context.getFragment(name);
   return frag && (0, _typeFromAST.typeFromAST)(context.getSchema(), frag.typeCondition);
 }
-},{"../../error":57,"../../utilities/typeComparators":102,"../../utilities/typeFromAST":103}],121:[function(require,module,exports){
+},{"../../error":67,"../../utilities/typeComparators":113,"../../utilities/typeFromAST":114}],132:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29467,7 +31065,7 @@ var _keyMap2 = _interopRequireDefault(_keyMap);
 
 var _definition = require('../../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -29537,7 +31135,7 @@ function ProvidedNonNullArguments(context) {
     }
   };
 }
-},{"../../error":57,"../../jsutils/keyMap":69,"../../type/definition":81}],122:[function(require,module,exports){
+},{"../../error":67,"../../jsutils/keyMap":79,"../../type/definition":91}],133:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29589,7 +31187,7 @@ function ScalarLeafs(context) {
     }
   };
 }
-},{"../../error":57,"../../type/definition":81}],123:[function(require,module,exports){
+},{"../../error":67,"../../type/definition":91}],134:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29639,7 +31237,7 @@ function UniqueArgumentNames(context) {
     }
   };
 }
-},{"../../error":57}],124:[function(require,module,exports){
+},{"../../error":67}],135:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29691,7 +31289,7 @@ function UniqueDirectivesPerLocation(context) {
     }
   };
 }
-},{"../../error":57}],125:[function(require,module,exports){
+},{"../../error":67}],136:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29737,7 +31335,7 @@ function UniqueFragmentNames(context) {
     }
   };
 }
-},{"../../error":57}],126:[function(require,module,exports){
+},{"../../error":67}],137:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29792,7 +31390,7 @@ function UniqueInputFieldNames(context) {
     }
   };
 }
-},{"../../error":57}],127:[function(require,module,exports){
+},{"../../error":67}],138:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29841,7 +31439,7 @@ function UniqueOperationNames(context) {
     }
   };
 }
-},{"../../error":57}],128:[function(require,module,exports){
+},{"../../error":67}],139:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29887,7 +31485,7 @@ function UniqueVariableNames(context) {
     }
   };
 }
-},{"../../error":57}],129:[function(require,module,exports){
+},{"../../error":67}],140:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -29937,7 +31535,7 @@ function VariablesAreInputTypes(context) {
     }
   };
 }
-},{"../../error":57,"../../language/printer":78,"../../type/definition":81,"../../utilities/typeFromAST":103}],130:[function(require,module,exports){
+},{"../../error":67,"../../language/printer":88,"../../type/definition":91,"../../utilities/typeFromAST":114}],141:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -30013,7 +31611,7 @@ function VariablesInAllowedPosition(context) {
 function effectiveType(varType, varDef) {
   return !varDef.defaultValue || varType instanceof _definition.GraphQLNonNull ? varType : new _definition.GraphQLNonNull(varType);
 }
-},{"../../error":57,"../../type/definition":81,"../../utilities/typeComparators":102,"../../utilities/typeFromAST":103}],131:[function(require,module,exports){
+},{"../../error":67,"../../type/definition":91,"../../utilities/typeComparators":113,"../../utilities/typeFromAST":114}],142:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -30157,7 +31755,7 @@ var specifiedRules = exports.specifiedRules = [_UniqueOperationNames.UniqueOpera
  */
 
 // Spec Section: "Operation Name Uniqueness"
-},{"./rules/ArgumentsOfCorrectType":106,"./rules/DefaultValuesOfCorrectType":107,"./rules/FieldsOnCorrectType":108,"./rules/FragmentsOnCompositeTypes":109,"./rules/KnownArgumentNames":110,"./rules/KnownDirectives":111,"./rules/KnownFragmentNames":112,"./rules/KnownTypeNames":113,"./rules/LoneAnonymousOperation":114,"./rules/NoFragmentCycles":115,"./rules/NoUndefinedVariables":116,"./rules/NoUnusedFragments":117,"./rules/NoUnusedVariables":118,"./rules/OverlappingFieldsCanBeMerged":119,"./rules/PossibleFragmentSpreads":120,"./rules/ProvidedNonNullArguments":121,"./rules/ScalarLeafs":122,"./rules/UniqueArgumentNames":123,"./rules/UniqueDirectivesPerLocation":124,"./rules/UniqueFragmentNames":125,"./rules/UniqueInputFieldNames":126,"./rules/UniqueOperationNames":127,"./rules/UniqueVariableNames":128,"./rules/VariablesAreInputTypes":129,"./rules/VariablesInAllowedPosition":130}],132:[function(require,module,exports){
+},{"./rules/ArgumentsOfCorrectType":117,"./rules/DefaultValuesOfCorrectType":118,"./rules/FieldsOnCorrectType":119,"./rules/FragmentsOnCompositeTypes":120,"./rules/KnownArgumentNames":121,"./rules/KnownDirectives":122,"./rules/KnownFragmentNames":123,"./rules/KnownTypeNames":124,"./rules/LoneAnonymousOperation":125,"./rules/NoFragmentCycles":126,"./rules/NoUndefinedVariables":127,"./rules/NoUnusedFragments":128,"./rules/NoUnusedVariables":129,"./rules/OverlappingFieldsCanBeMerged":130,"./rules/PossibleFragmentSpreads":131,"./rules/ProvidedNonNullArguments":132,"./rules/ScalarLeafs":133,"./rules/UniqueArgumentNames":134,"./rules/UniqueDirectivesPerLocation":135,"./rules/UniqueFragmentNames":136,"./rules/UniqueInputFieldNames":137,"./rules/UniqueOperationNames":138,"./rules/UniqueVariableNames":139,"./rules/VariablesAreInputTypes":140,"./rules/VariablesInAllowedPosition":141}],143:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -30187,7 +31785,7 @@ var _specifiedRules = require('./specifiedRules');
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -30393,7 +31991,7 @@ var ValidationContext = exports.ValidationContext = function () {
 
   return ValidationContext;
 }();
-},{"../error":57,"../jsutils/invariant":66,"../language/kinds":74,"../language/visitor":80,"../type/schema":86,"../utilities/TypeInfo":87,"./specifiedRules":131}],133:[function(require,module,exports){
+},{"../error":67,"../jsutils/invariant":76,"../language/kinds":84,"../language/visitor":90,"../type/schema":96,"../utilities/TypeInfo":97,"./specifiedRules":142}],144:[function(require,module,exports){
 /**
  * Copyright (c) 2016, Lee Byron
  * All rights reserved.
@@ -30754,7 +32352,7 @@ ArrayLikeIterator.prototype.next = function () {
   return { value: this._o[this._i++], done: false }
 }
 
-},{}],134:[function(require,module,exports){
+},{}],145:[function(require,module,exports){
 (function (global){
 /**
  * marked - a markdown parser
@@ -32044,5 +33642,5 @@ if (typeof module !== 'undefined' && typeof exports === 'object') {
 }());
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}]},{},[15])(15)
+},{}]},{},[19])(19)
 });

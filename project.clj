@@ -14,5 +14,12 @@
   :jvm-opts ["-Xmx500m"]
   :plugins [[lein-codox "0.10.2"]
             [test2junit "1.2.5"]]
+  :hooks [com.walmartlabs.shell-build]
+  :shell-build {:command "./build"
+                :dir "resources/graphiql"}
+  :jar-exclusions [#"graphiql/node_.*"
+                   #"graphiql/build"
+                   #"graphiql/package.json"
+                   #".*/\.DS_Store"]
   :codox {:source-uri "https://github.com/walmartlabs/pedestal-lacinia/blob/master/{filepath}#L{line}"
           :metadata {:doc/format :markdown}})

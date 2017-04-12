@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+npm install && \
+    cp ./node_modules/graphiql/graphiql.js . && \
+    cp ./node_modules/graphiql/graphiql.css .

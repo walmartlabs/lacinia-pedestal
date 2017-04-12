@@ -1,0 +1,10 @@
+{
+  "name": "graphiql-packaged",
+  "version": "1.0.0",
+  "dependencies": {
+    "graphiql": "0.9.3",
+    "graphql": "^0.9.3",
+    "react": "^15.5.0",
+    "react-dom": "^15.5.0"
+  }
+}
