@@ -26,7 +26,7 @@ The steps for processing a GraphQL query are broken into multiple steps:
 
 Each of these steps is its own Pedestal interceptor.
 
-### Response Status
+#### Response Status
 
 Response status is normally 200.
 
@@ -51,9 +51,15 @@ error map.
 
 The :error key is `dissoc`'ed from the error maps in the response.
 
+### GraphiQL
+
+The GraphiQL packaged inside the library is built using `nvm`, from
+version `0.9.3`.
 
 ## License
 
 Copyright © 2017 Walmart
 
 Distributed under the Apache Software License 2.0.
+
+GraphiQL has its own [license](https://raw.githubusercontent.com/graphql/graphiql/master/LICENSE).
