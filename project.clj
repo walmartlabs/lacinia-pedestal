@@ -22,4 +22,5 @@
                    #"graphiql/package.json"
                    #".*/\.DS_Store"]
   :codox {:source-uri "https://github.com/walmartlabs/pedestal-lacinia/blob/master/{filepath}#L{line}"
-          :metadata {:doc/format :markdown}})
+          :metadata {:doc/format :markdown}}
+  :main com.walmartlabs.lacinia.main)
