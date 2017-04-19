@@ -3,6 +3,8 @@
 A library that adds the Pedestal underpinnings needed when exposing
 [Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
 
+[API Documentation](http://walmartlabs.github.io/pedestal-lacinia/)
+
 ## Usage
 
 For a basic Pedestal server, simply supply a compiled Lacinia schema to
