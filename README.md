@@ -1,6 +1,9 @@
 # com.walmartlabs/pedestal-lacinia
 
-A library that adds the Pedestal underpinnings needed when exposing
+[![Clojars Project](https://img.shields.io/clojars/v/com.walmartlabs/pedestal-lacinia.svg)](https://clojars.org/com.walmartlabs/pedestal-lacinia)
+
+A library that adds the
+[Pedestal](https://github.com/pedestal/pedestal) underpinnings needed when exposing
 [Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
 
 [API Documentation](http://walmartlabs.github.io/pedestal-lacinia/)
@@ -55,15 +58,15 @@ An error map with a :status key is used to set the overall response
 status.
 The :status value is expected to be numeric.
 
-Typically, you would use this when a field resolver uses an external
-resource (a database, or another web service) and that resource
+Typically, you would make use of this feature when a field resolver utilizes an external
+resource (such as a database, or another web service) and that resource
 fails; the field resolver can determine an appropriate HTTP status
 and include it with an error map.
 
 The response status is the maximum of any :status value of any
 error map.
 
-The :error key is `dissoc`'ed from the error maps in the response.
+The :error key is `dissoc`'ed from any error maps in the response.
 
 ### GraphiQL
 
