@@ -67,7 +67,7 @@ The :error key is `dissoc`'ed from the error maps in the response.
 
 ### GraphiQL
 
-The GraphiQL packaged inside the library is built using `nvm`, from
+The GraphiQL packaged inside the library is built using `npm`, from
 version `0.9.3`.
 
 ## License
