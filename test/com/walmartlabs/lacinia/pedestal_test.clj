@@ -40,6 +40,23 @@
   [path]
   (client/get (str "http://localhost:8888" path) {:throw-exceptions false}))
 
+(defn send-json-request
+  ([method json]
+   (send-json-request method json "application/json"))
+  ([method json content-type]
+   (-> {:method method
+        :url "http://localhost:8888/graphql"
+        :throw-exceptions false
+        :body (cheshire/generate-string json)
+        :headers {"Content-Type" content-type}}
+       client/request
+       (update :body
+               #(try
+                  (cheshire/parse-string % true)
+                  (catch Exception t
+                    %))))))
+
+
 (defn ^:private send-request
   "Sends a GraphQL request to the server and returns the response."
   ([query]
@@ -58,7 +75,7 @@
          (assoc-in [:headers "Content-Type"] "application/graphql")
 
          ;; :post-bad is like :post, but without setting the content type
-         (#{:post :post-bad} method)
+         (= method :post)
          (assoc :body query
                 :method :post)
 
@@ -87,9 +104,33 @@
            (:body response)))))
 
 (deftest includes-content-type-check-on-post
-  (let [response (send-request :post-bad "{ echo(value: \"hello\") { value method }}")]
-    (is (= {:body {:message "Request content type must be application/graphql."}
+  (let [response
+        (send-json-request :post
+                           {:query "{ echo(value: \"hello\") { value method }}"}
+                           "text/plain")]
+    (is (= {:body {:message "Request content type must be application/graphql or application/json."}
             :status 400}
+           (select-keys response [:status :body])))))
+
+(deftest can-handle-json
+  (let [response
+        (send-json-request :post
+                           {:query "{ echo(value: \"hello\") { value method }}"})]
+    (is (= 200 (:status response)))
+    (is (= {:data {:echo {:method "post"
+                          :value "hello"}}}
+           (:body response)))))
+
+
+(deftest can-handle-vars-json
+  (let [response
+        (send-json-request :post
+                           {:query "query ($v: String) {
+                                      echo(value: $v) { value }
+                            }"
+                            :variables {:v "Calculon"}})]
+    (is (= {:body {:data {:echo {:value "Calculon"}}}
+            :status 200}
            (select-keys response [:status :body])))))
 
 (deftest status-set-by-error

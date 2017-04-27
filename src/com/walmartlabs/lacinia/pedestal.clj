@@ -20,6 +20,16 @@
     :headers {}
     :body body}))
 
+
+(defn extract-query-for-type [request]
+  (case (get-in request [:headers "content-type"])
+    "application/json"
+    (:query (cheshire/parse-string (:body request) true))
+
+    "application/graphql"
+    (:body request)))
+
+
 (defn extract-query
   "For GraphQL queries, returns the query document ready to be parsed.
 
@@ -34,8 +44,7 @@
     (get-in request [:query-params :query])
 
     :post
-    (slurp (:body request))
-
+    (extract-query-for-type request)
     nil))
 
 (defn variable-map
@@ -43,8 +52,13 @@
 
   Returns the variables map (with keyword keys) or nil not found."
   [request]
-  (when-let [vars (get-in request [:query-params :variables])]
-    (cheshire/parse-string vars true)))
+  (case (get-in request [:headers "content-type"])
+    "application/graphql"
+    (when-let [vars (get-in request [:query-params :variables])]
+      (cheshire/parse-string vars true))
+    "application/json"
+    (:variables (cheshire/parse-string  (:body request) true))
+    nil))
 
 (def json-response-interceptor
   "An interceptor that sees if the response body is a map and, if so,
@@ -59,18 +73,24 @@
                       (update-in [:response :body] cheshire/generate-string))
                   context)))}))
 
-(def require-graphql-content-interceptor
+(def require-content-type-interceptor
   "An interceptor that verifies that the incoming content type is \"application/graphql\".
 
   This should only appear in the interceptor stack for the POST method."
   (interceptor
-    {:name ::require-graphql-content
+    {:name ::require-content-type
      :enter (fn [context]
-              (if (= "application/graphql"
+              (if (#{"application/graphql" "application/json"}
                      (get-in context [:request :headers "content-type"]))
                 context
                 (assoc context :response
-                       (bad-request {:message "Request content type must be application/graphql."}))))}))
+                       (bad-request {:message "Request content type must be application/graphql or application/json."}))))}))
+
+(def body-data-interceptor
+  (interceptor
+   {:name ::body-data
+    :enter (fn [context]
+             (update-in context [:request :body] slurp))}))
 
 (def graphql-data-interceptor
   "Extracts the raw data (query and variables) from the request and validates that at least the query
@@ -81,8 +101,8 @@
     {:name ::graphql-data
      :enter (fn [context]
               (let [request (:request context)
-                    vars (variable-map request)
-                    q (extract-query request)]
+                    q (extract-query request)
+                    vars (variable-map request)]
                 (assoc context :request
                        (assoc request
                               :graphql-vars vars
@@ -201,7 +221,8 @@
         executor (query-executor-handler (:app-context options))]
     (cond-> #{["/graphql" :post
                [json-response-interceptor
-                require-graphql-content-interceptor
+                require-content-type-interceptor
+                body-data-interceptor
                 graphql-data-interceptor
                 missing-query-interceptor
                 query-parser
