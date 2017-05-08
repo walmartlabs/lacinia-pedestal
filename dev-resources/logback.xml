@@ -10,4 +10,8 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
+
+    <!-- Switch to DEBUG to see each interceptor execute: -->
+    <logger name="io.pedestal.interceptor" level="warn"/>
+
 </configuration>
