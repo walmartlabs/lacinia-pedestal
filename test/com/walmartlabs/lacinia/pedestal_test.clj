@@ -95,7 +95,7 @@
 (deftest status-set-by-error
   (let [response (send-request "{ echo(value: \"Baked.\", error: 420) { value }}")]
     (is (= {:body {:data {:echo {:value "Baked."}}
-                   :errors [{:arguments {:error 420
+                   :errors [{:arguments {:error "420"
                                          :value "Baked."}
                              :locations [{:column 0
                                           :line 1}]
