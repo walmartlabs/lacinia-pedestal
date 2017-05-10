@@ -25,7 +25,8 @@ The steps for processing a GraphQL query are broken into multiple stages:
 - Extracting the query string and query variables from the request
 - Verifying that a query was included in the request
 - Converting the query string to a parsed query
-- Executing the parsed query
+- Defining the application context for executing the query
+- Executing the parsed query (possibly, asynchronously)
 - Setting the response status
 - Encoding the response body as JSON
 
