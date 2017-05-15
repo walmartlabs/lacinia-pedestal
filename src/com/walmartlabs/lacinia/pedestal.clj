@@ -20,45 +20,27 @@
     :headers {}
     :body body}))
 
+(defmulti extract-query
+  (fn [request]
+    (get-in request [:headers "content-type"])))
 
-(defn extract-query-for-type [request]
-  (case (get-in request [:headers "content-type"])
-    "application/json"
-    (:query (cheshire/parse-string (:body request) true))
+(defmethod extract-query "application/json" [request]
+  (let [query (:query (cheshire/parse-string (:body request) true))
+        variables (:variables (cheshire/parse-string (:body request) true))]
+    {:graphql-query query
+     :graphql-vars variables}))
 
-    "application/graphql"
-    (:body request)))
+(defmethod extract-query  "application/graphql" [request]
+  (let [query (:body request)
+        variables (when-let [vars (get-in request [:query-params :variables])]
+                    (cheshire/parse-string vars true))]
+    {:graphql-query query
+     :graphql-vars variables}))
 
+(defmethod extract-query :default [request]
+  (let [query (get-in request [:query-params :query])]
+    {:graphql-query query}))
 
-(defn extract-query
-  "For GraphQL queries, returns the query document ready to be parsed.
-
-  For the GET method, this is expected to be a query parameter named `query`.
-
-  For the POST method, this is the body of the request.
-
-  For other methods, returns nil."
-  [request]
-  (case (:request-method request)
-    :get
-    (get-in request [:query-params :query])
-
-    :post
-    (extract-query-for-type request)
-    nil))
-
-(defn variable-map
-  "Converts the `variables` query parameter into Clojure data by parsing as JSON.
-
-  Returns the variables map (with keyword keys) or nil not found."
-  [request]
-  (case (get-in request [:headers "content-type"])
-    "application/graphql"
-    (when-let [vars (get-in request [:query-params :variables])]
-      (cheshire/parse-string vars true))
-    "application/json"
-    (:variables (cheshire/parse-string  (:body request) true))
-    nil))
 
 (def json-response-interceptor
   "An interceptor that sees if the response body is a map and, if so,
@@ -72,19 +54,6 @@
                       (assoc-in [:response :headers "Content-Type"] "application/json")
                       (update-in [:response :body] cheshire/generate-string))
                   context)))}))
-
-(def require-content-type-interceptor
-  "An interceptor that verifies that the incoming content type is \"application/graphql\".
-
-  This should only appear in the interceptor stack for the POST method."
-  (interceptor
-    {:name ::require-content-type
-     :enter (fn [context]
-              (if (#{"application/graphql" "application/json"}
-                     (get-in context [:request :headers "content-type"]))
-                context
-                (assoc context :response
-                       (bad-request {:message "Request content type must be application/graphql or application/json."}))))}))
 
 (def body-data-interceptor
   (interceptor
@@ -101,12 +70,21 @@
     {:name ::graphql-data
      :enter (fn [context]
               (let [request (:request context)
-                    q (extract-query request)
-                    vars (variable-map request)]
+                    q (extract-query request)]
                 (assoc context :request
-                       (assoc request
-                              :graphql-vars vars
-                              :graphql-query q))))}))
+                       (merge request q))))}))
+
+
+(defn query-not-found-error [request]
+  (let [request-method (get request :request-method)
+        content-type (get-in request [:headers "content-type"])
+        body (get request :body)]
+    (cond
+      (= request-method :get) "Query parameter 'query' is missing or blank."
+      (nil? body) "Request body is empty."
+      (nil? content-type) "Content type is not set, try \"application/json\" or applcation/grapqhl"
+      :else "Could not find query")))
+
 
 (def missing-query-interceptor
   "Rejects the request when there's no GraphQL query (via the [[graphql-data-interceptor]])."
@@ -115,9 +93,7 @@
      :enter (fn [context]
               (if (-> context :request :graphql-query str/blank?)
                 (assoc context :response
-                       (bad-request (if (-> context :request :request-method (= :get))
-                                      "Query parameter 'query' is missing or blank."
-                                      "Request body is empty.")))
+                       (bad-request (query-not-found-error (:request context))))
                 context))}))
 
 (defn query-parser-interceptor
@@ -221,7 +197,6 @@
         executor (query-executor-handler (:app-context options))]
     (cond-> #{["/graphql" :post
                [json-response-interceptor
-                require-content-type-interceptor
                 body-data-interceptor
                 graphql-data-interceptor
                 missing-query-interceptor
