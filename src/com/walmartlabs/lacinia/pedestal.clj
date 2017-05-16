@@ -25,10 +25,13 @@
     (get-in request [:headers "content-type"])))
 
 (defmethod extract-query "application/json" [request]
-  (let [query (:query (cheshire/parse-string (:body request) true))
-        variables (:variables (cheshire/parse-string (:body request) true))]
+  (let [body (cheshire/parse-string (:body request) true)
+        query (:query body)
+        variables (:variables body)
+        operation-name (:operationName body)]
     {:graphql-query query
-     :graphql-vars variables}))
+     :graphql-vars variables
+     :graphql-operation-name operation-name}))
 
 (defmethod extract-query  "application/graphql" [request]
   (let [query (:body request)
@@ -82,8 +85,7 @@
     (cond
       (= request-method :get) "Query parameter 'query' is missing or blank."
       (nil? body) "Request body is empty."
-      (nil? content-type) "Content type is not set, try \"application/json\" or applcation/grapqhl"
-      :else "Could not find query")))
+      :else {:message "Request content type must be application/graphql or application/json."})))
 
 
 (def missing-query-interceptor
@@ -108,7 +110,8 @@
      :enter (fn [context]
               (try
                 (let [q (get-in context [:request :graphql-query])
-                      parsed-query (parse-query schema q)]
+                      operation-name (get-in context [:request :graphql-operation-name])
+                      parsed-query (parse-query schema q operation-name)]
                   (assoc-in context [:request :parsed-lacinia-query] parsed-query))
                 (catch Exception e
                   (assoc context :response

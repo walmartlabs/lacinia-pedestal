@@ -133,6 +133,18 @@
             :status 200}
            (select-keys response [:status :body])))))
 
+(deftest can-handle-operation-name-json
+  (let [response
+        (send-json-request :post
+                           {:query "query stuff($v: String) {
+                                      echo(value: $v) { value }
+                            }"
+                            :variables {:v "Calculon"}
+                            :operationName "stuff"})]
+    (is (= {:body {:data {:echo {:value "Calculon"}}}
+            :status 200}
+           (select-keys response [:status :body])))))
+
 (deftest status-set-by-error
   (let [response (send-request "{ echo(value: \"Baked.\", error: 420) { value }}")]
     (is (= {:body {:data {:echo {:value "Baked."}}
