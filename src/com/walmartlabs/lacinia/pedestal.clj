@@ -1,15 +1,16 @@
 (ns com.walmartlabs.lacinia.pedestal
   "Defines Pedestal interceptors and supporting code."
   (:require
+    [clojure.core.async :refer [chan put!]]
     [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.parser :refer [parse-query]]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
-    [clojure.java.io :as io]
     [io.pedestal.http :as http]
     [io.pedestal.http.route :as route]
-    [ring.util.response :as response]))
+    [ring.util.response :as response]
+    [com.walmartlabs.lacinia.resolve :as resolve]))
 
 (defn bad-request
   "Generates a bad request Ring response."
@@ -138,35 +139,68 @@
                                   (map #(dissoc % :status) errors))))
                   context)))}))
 
-(defn query-executor-handler
+(defn inject-app-context-interceptor
+  "Adds a :lacinia-app-context key to the request, used when executing the query.
+
+  The provided app-context map is augmented with the request map, as key :request."
+  {:added "0.2.0"}
+  [app-context]
+  (interceptor
+    {:name ::inject-app-context
+     :enter (fn [context]
+              (assoc-in context [:request :lacinia-app-context]
+                        (assoc app-context :request (:request context))))}))
+
+(defn ^:private apply-result-to-context
+  [context result]
+  ;; When :data is missing, then a failure occured during parsing or preparing
+  ;; the request, which indicates a bad request, rather than some failure
+  ;; during execution.
+  (let [status (if (contains? result :data)
+                 200
+                 400)
+        response {:status status
+                  :headers {}
+                  :body result}]
+    (assoc context :response response)))
+
+(def query-executor-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
   execute the query and return the main response.
 
   The handler adds the Ring request map as the :request key to the provided
   app-context before executing the query.
 
-  This comes after [[query-parser-interceptor]]
+  This comes after [[query-parser-interceptor]], [[inject-app-context-interceptor]],
   and [[status-conversion-interceptor]] in the interceptor chain."
-  [app-context]
   (interceptor
     {:name ::query-executor
      :enter (fn [context]
               (let [request (:request context)
                     {q :parsed-lacinia-query
-                     vars :graphql-vars} request
-                    result (lacinia/execute-parsed-query q
-                                                         vars
-                                                         (assoc app-context :request request))
-                    ;; When :data is missing, then a failure occured during parsing or preparing
-                    ;; the request, which indicates a bad request, rather than some failure
-                    ;; during execution.
-                    status (if (contains? result :data)
-                             200
-                             400)
-                    response {:status status
-                              :headers {}
-                              :body result}]
-                (assoc context :response response)))}))
+                     vars :graphql-vars
+                     app-context :lacinia-app-context} request
+                    result (lacinia/execute-parsed-query q vars app-context)]
+                (apply-result-to-context context result)))}))
+
+(def ^ {:added "0.2.0"} async-query-executor-handler
+  "Async variant of [[query-executor-handler]] which returns a channel that conveys the
+  updated context."
+  (interceptor
+    {:name ::async-query-executor
+     :enter (fn [context]
+              (let [request (:request context)
+                    {q :parsed-lacinia-query
+                     vars :graphql-vars
+                     app-context :lacinia-app-context} request
+                    ch (chan 1)
+                    resolver-result (lacinia/execute-parsed-query-async q vars app-context)]
+                (resolve/on-deliver! resolver-result
+                                     (fn [result _]
+                                       (->> result
+                                            (apply-result-to-context context)
+                                            (put! ch))))
+                ch))}))
 
 (defn graphql-routes
   "Creates default routes for handling GET and POST requests (at `/graphql`) and
@@ -183,12 +217,16 @@
   * [[missing-query-interceptor]]
   * [[query-parser-interceptor]]
   * [[status-conversion-interceptor]]
-  * [[query-executor-handler]]
+  * [[inject-app-context-interceptor]]
+  * [[query-executor-handler]] or [[async-query-executor-handler]]
 
   Options:
 
   :graphiql (default false)
   : If true, enables routes for the GraphiQL IDE.
+
+  :async (default false)
+  : If true, the query will execute asynchronously.
 
   :app-context
   : The base application context provided to Lacinia when executing a query."
@@ -197,7 +235,10 @@
                         (fn [request]
                           (response/redirect "/index.html")))
         query-parser (query-parser-interceptor compiled-schema)
-        executor (query-executor-handler (:app-context options))]
+        inject-app-context (inject-app-context-interceptor (:app-context options))
+        executor (if (:async options)
+                   async-query-executor-handler
+                   query-executor-handler)]
     (cond-> #{["/graphql" :post
                [json-response-interceptor
                 body-data-interceptor
@@ -205,6 +246,7 @@
                 missing-query-interceptor
                 query-parser
                 status-conversion-interceptor
+                inject-app-context
                 executor]
                :route-name ::graphql-post]
               ["/graphql" :get
@@ -213,6 +255,7 @@
                 missing-query-interceptor
                 query-parser
                 status-conversion-interceptor
+                inject-app-context
                 executor]
                :route-name ::graphql-get]}
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
