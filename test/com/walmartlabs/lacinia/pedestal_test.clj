@@ -5,7 +5,9 @@
     [clj-http.client :as client]
     [clojure.string :as str]
     [com.walmartlabs.lacinia.test-utils :refer [sample-schema-fixture
-                                                send-request]]))
+                                                send-request
+                                                send-json-request]]))
+
 
 (use-fixtures :once (sample-schema-fixture {:graphiql true}))
 
@@ -26,9 +28,45 @@
            (:body response)))))
 
 (deftest includes-content-type-check-on-post
-  (let [response (send-request :post-bad "{ echo(value: \"hello\") { value method }}")]
-    (is (= {:body {:message "Request content type must be application/graphql."}
+  (let [response
+        (send-json-request :post
+                           {:query "{ echo(value: \"hello\") { value method }}"}
+                           "text/plain")]
+    (is (= {:body {:message "Request content type must be application/graphql or application/json."}
             :status 400}
+           (select-keys response [:status :body])))))
+
+(deftest can-handle-json
+  (let [response
+        (send-json-request :post
+                           {:query "{ echo(value: \"hello\") { value method }}"})]
+    (is (= 200 (:status response)))
+    (is (= {:data {:echo {:method "post"
+                          :value "hello"}}}
+           (:body response)))))
+
+
+(deftest can-handle-vars-json
+  (let [response
+        (send-json-request :post
+                           {:query "query ($v: String) {
+                                      echo(value: $v) { value }
+                            }"
+                            :variables {:v "Calculon"}})]
+    (is (= {:body {:data {:echo {:value "Calculon"}}}
+            :status 200}
+           (select-keys response [:status :body])))))
+
+(deftest can-handle-operation-name-json
+  (let [response
+        (send-json-request :post
+                           {:query "query stuff($v: String) {
+                                      echo(value: $v) { value }
+                            }"
+                            :variables {:v "Calculon"}
+                            :operationName "stuff"})]
+    (is (= {:body {:data {:echo {:value "Calculon"}}}
+            :status 200}
            (select-keys response [:status :body])))))
 
 (deftest status-set-by-error

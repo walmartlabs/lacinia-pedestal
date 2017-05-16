@@ -68,3 +68,19 @@
                         (cheshire/parse-string % true)
                         (catch Exception t
                           %))))))
+
+
+(defn send-json-request
+  ([method json]
+   (send-json-request method json "application/json"))
+  ([method json content-type]
+   (-> {:method method
+        :url "http://localhost:8888/graphql"
+        :throw-exceptions false
+        :body (cheshire/generate-string json)
+        :headers {"Content-Type" content-type}}
+       client/request
+       (update :body
+               #(try
+                  (cheshire/parse-string % true)
+                  (catch Exception t %))))))
