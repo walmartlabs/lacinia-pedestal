@@ -86,7 +86,8 @@
                 (assoc context :request
                        (merge request q))))}))
 
-(defn query-not-found-error [request]
+(defn ^:private query-not-found-error
+  [request]
   (let [request-method (get request :request-method)
         content-type (get-in request [:headers "content-type"])
         body (get request :body)]
