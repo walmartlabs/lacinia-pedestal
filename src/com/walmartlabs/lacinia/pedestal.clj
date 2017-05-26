@@ -289,8 +289,7 @@
   [compiled-schema options]
   (->
     {:env (:env options :dev)
-     ::http/routes (-> (graphql-routes compiled-schema options)
-                       route/expand-routes)
+     ::http/routes (route/expand-routes (graphql-routes compiled-schema options))
      ::http/port (:port options 8888)
      ::http/type :jetty
      ::http/join? false}
