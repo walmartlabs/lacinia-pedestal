@@ -1,6 +1,9 @@
 ## 0.2.0 -- UNRELEASED
 
-Updated to Lacinia 0.16.0.
+The library and GitHub project have been renamed from `pedestal-lacinia` to
+`lacinia-pedestal`.
+
+Updated to Lacinia 0.17.0.
 
 Added an option to execute the GraphQL request asynchronously; when enabled,
 the handler returns a channel that conveys the Pedestal context containing
@@ -8,6 +11,9 @@ the response, once the query has finished executing.
 
 Introduced function `com.walmartlabs.lacinia.pedestal/inject-app-context-interceptor` and
 converted `query-executor-handler` from a function to constant.
+
+A new namespace, `com.walmartlabs.lacinia.async`, includes functions to adapt
+field resolvers that return clojure.core.async channels to Lacinia.
 
 ## 0.1.1 -- 19 Apr 2017
 

@@ -22,6 +22,16 @@
     :body body}))
 
 (defmulti extract-query
+  "Based on the content type of the query, adds up to three keys to the request:
+
+  :graphql-query
+  : The query itself, as a string (parsing the query happens later)
+
+  :graphql-vars
+  : A map of variables used when executing the query.
+
+  :graphql-operation-name
+  : The specific operation requested (for queries that define multiple named operations)."
   (fn [request]
     (get-in request [:headers "content-type"])))
 
@@ -60,16 +70,14 @@
                   context)))}))
 
 (def body-data-interceptor
+  "Converts the POSTed body from a string into a string."
   (interceptor
    {:name ::body-data
     :enter (fn [context]
              (update-in context [:request :body] slurp))}))
 
 (def graphql-data-interceptor
-  "Extracts the raw data (query and variables) from the request and validates that at least the query
-  is present.
-
-  Adds two new request keys:  :graphql-query and :graphql-vars."
+  "Extracts the raw data (query and variables) from the request using [[extract-query]]."
   (interceptor
     {:name ::graphql-data
      :enter (fn [context]
@@ -77,7 +85,6 @@
                     q (extract-query request)]
                 (assoc context :request
                        (merge request q))))}))
-
 
 (defn query-not-found-error [request]
   (let [request-method (get request :request-method)
@@ -90,7 +97,9 @@
 
 
 (def missing-query-interceptor
-  "Rejects the request when there's no GraphQL query (via the [[graphql-data-interceptor]])."
+  "Rejects the request when there's no GraphQL query in the request map.
+
+   This must come after [[graphql-data-interceptor]], which is responsible for adding the query to the request map."
   (interceptor
     {:name ::missing-query
      :enter (fn [context]
@@ -104,7 +113,7 @@
 
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
-   Adds a new reuest key, :parsed-lacinia-query."
+   Adds a new request key, :parsed-lacinia-query."
   [schema]
   (interceptor
     {:name ::query-parser
@@ -183,7 +192,7 @@
                     result (lacinia/execute-parsed-query q vars app-context)]
                 (apply-result-to-context context result)))}))
 
-(def ^ {:added "0.2.0"} async-query-executor-handler
+(def ^{:added "0.2.0"} async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
   updated context."
   (interceptor
