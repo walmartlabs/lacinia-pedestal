@@ -274,6 +274,8 @@
   "Creates and returns a Pedestal service map, ready to be started.
   This uses a server type of :jetty.
 
+  The options are used here, and also passed to [[graphql-routes]].
+
   Options:
 
   :graphql (default: false)
