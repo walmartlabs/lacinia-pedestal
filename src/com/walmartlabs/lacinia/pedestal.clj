@@ -70,7 +70,7 @@
                   context)))}))
 
 (def body-data-interceptor
-  "Converts the POSTed body from a string into a string."
+  "Converts the POSTed body from a input stream into a string."
   (interceptor
    {:name ::body-data
     :enter (fn [context]
