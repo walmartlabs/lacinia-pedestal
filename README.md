@@ -15,13 +15,17 @@ the `com.walmartlabs.lacinia.pedestal/pedestal-service` function to
 generate a service, then invoke `io.pedestal.http/start`.
 
 ```clojure
-(ns graphql-demo.service
-  (:gen-class)
+(ns graphql-demo.server
+  (:gen-class) ; for -main method in uberjar
   (:require [io.pedestal.http :as server]
             [com.walmartlabs.lacinia.pedestal :as lacinia]
-            [graphql-demo.schema :as schema]))
+            [com.walmartlabs.lacinia.schema :as schema]))
 
-(def service (lacinia/pedestal-service schema/my-compiled-schema {:graphiql true}))
+(def hello-schema (schema/compile
+                   {:queries {:hello 
+                              {:type 'String :resolve (constantly "world")}}}))
+
+(def service (lacinia/pedestal-service hello-schema {:graphiql true}))
 
 ;; This is an adapted service map, that can be started and stopped
 ;; From the REPL you can call server/start and server/stop on this service
@@ -38,7 +42,6 @@ generate a service, then invoke `io.pedestal.http/start`.
   [& args]
   (println "\nCreating your server...")
   (server/start runnable-service))
-
 ```
 
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
