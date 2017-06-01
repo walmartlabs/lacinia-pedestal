@@ -15,6 +15,9 @@ the `com.walmartlabs.lacinia.pedestal/pedestal-service` function to
 generate a service, then invoke `io.pedestal.http/start`.
 
 ```clojure
+;; This example is based off of the code generated from the template
+;;  `lein new pedestal-service graphql-demo`
+
 (ns graphql-demo.server
   (:gen-class) ; for -main method in uberjar
   (:require [io.pedestal.http :as server]
@@ -47,6 +50,8 @@ generate a service, then invoke `io.pedestal.http/start`.
 ```
 
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
+
+`curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d '{ hello }'`
 
 When the `:graphiql` option is true, then a
 [GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
