@@ -1,4 +1,4 @@
-## 0.2.0 -- UNRELEASED
+## 0.2.0 -- 1 Jun 2017
 
 The library and GitHub project have been renamed from `pedestal-lacinia` to
 `lacinia-pedestal`.
