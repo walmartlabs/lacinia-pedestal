@@ -22,8 +22,10 @@ generate a service, then invoke `io.pedestal.http/start`.
             [com.walmartlabs.lacinia.schema :as schema]))
 
 (def hello-schema (schema/compile
-                   {:queries {:hello 
-                              {:type 'String :resolve (constantly "world")}}}))
+                   {:queries {:hello
+                              ;; String is quoted here; in EDN the quotation is not required
+                              {:type 'String 
+                               :resolve (constantly "world")}}}))
 
 (def service (lacinia/pedestal-service hello-schema {:graphiql true}))
 
