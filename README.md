@@ -11,7 +11,7 @@ A library that adds the
 ## Usage
 
 For a basic Pedestal server, simply supply a compiled Lacinia schema to
-the `com.walmart.lacinia.pedestal/pedestal-service` function to
+the `com.walmartlabs.lacinia.pedestal/pedestal-service` function to
 generate a service, then invoke `io.pedestal.http/start`.
 
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
