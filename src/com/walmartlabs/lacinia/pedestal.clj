@@ -266,7 +266,7 @@
 
   Options:
 
-  :graphql (default: false)
+  :graphiql (default: false)
   : If given, then enables resources to support the GraphiQL IDE
 
   :port (default: 8888)
