@@ -47,7 +47,7 @@ Lacinia will handle GET and POST requests at the `/graphql` endpoint.
 ```
 $ curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d '{ hello }'
 {"data":{"hello":"world"}}
-`
+```
 
 When the `:graphiql` option is true, then a
 [GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
