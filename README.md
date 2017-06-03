@@ -19,7 +19,6 @@ generate a service, then invoke `io.pedestal.http/start`.
 ;;  `lein new pedestal-service graphql-demo`
 
 (ns graphql-demo.server
-  (:gen-class) ; for -main method in uberjar
   (:require [io.pedestal.http :as server]
             [com.walmartlabs.lacinia.pedestal :as lacinia]
             [com.walmartlabs.lacinia.schema :as schema]))
@@ -36,12 +35,6 @@ generate a service, then invoke `io.pedestal.http/start`.
 ;; From the REPL you can call server/start and server/stop on this service
 (defonce runnable-service (server/create-server service))
 
-(defn run-dev
-  "The entry-point for 'lein run-dev'"
-  [& args]
-  (println "\nCreating your [DEV] server...")
-  (server/start service))
-
 (defn -main
   "The entry-point for 'lein run'"
   [& args]
@@ -51,7 +44,10 @@ generate a service, then invoke `io.pedestal.http/start`.
 
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
 
-`curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d '{ hello }'`
+```
+$ curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d '{ hello }'
+{"data":{"hello":"world"}}
+`
 
 When the `:graphiql` option is true, then a
 [GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
