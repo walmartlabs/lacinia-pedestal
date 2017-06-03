@@ -11,10 +11,43 @@ A library that adds the
 ## Usage
 
 For a basic Pedestal server, simply supply a compiled Lacinia schema to
-the `com.walmart.lacinia.pedestal/pedestal-service` function to
+the `com.walmartlabs.lacinia.pedestal/pedestal-service` function to
 generate a service, then invoke `io.pedestal.http/start`.
 
+```clojure
+;; This example is based off of the code generated from the template
+;;  `lein new pedestal-service graphql-demo`
+
+(ns graphql-demo.server
+  (:require [io.pedestal.http :as server]
+            [com.walmartlabs.lacinia.pedestal :as lacinia]
+            [com.walmartlabs.lacinia.schema :as schema]))
+
+(def hello-schema (schema/compile
+                   {:queries {:hello
+                              ;; String is quoted here; in EDN the quotation is not required
+                              {:type 'String 
+                               :resolve (constantly "world")}}}))
+
+(def service (lacinia/pedestal-service hello-schema {:graphiql true}))
+
+;; This is an adapted service map, that can be started and stopped
+;; From the REPL you can call server/start and server/stop on this service
+(defonce runnable-service (server/create-server service))
+
+(defn -main
+  "The entry-point for 'lein run'"
+  [& args]
+  (println "\nCreating your server...")
+  (server/start runnable-service))
+```
+
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
+
+```
+$ curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d '{ hello }'
+{"data":{"hello":"world"}}
+`
 
 When the `:graphiql` option is true, then a
 [GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
