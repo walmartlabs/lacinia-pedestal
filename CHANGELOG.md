@@ -1,3 +1,9 @@
+## 0.3.0 -- UNRELEASED
+
+Added support for subscriptions.
+
+The default interceptor stack has been reordered, slightly.
+
 ## 0.2.0 -- 1 Jun 2017
 
 The library and GitHub project have been renamed from `pedestal-lacinia` to
@@ -22,3 +28,5 @@ Update dependency on Lacinia to latest, 0.15.0.
 ## 0.1.0 -- 19 Apr 2017
 
 First release.
+
+

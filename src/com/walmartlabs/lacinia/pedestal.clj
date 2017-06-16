@@ -3,14 +3,18 @@
   (:require
     [clojure.core.async :refer [chan put!]]
     [com.walmartlabs.lacinia :as lacinia]
-    [com.walmartlabs.lacinia.parser :refer [parse-query]]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
     [io.pedestal.http :as http]
     [io.pedestal.http.route :as route]
     [ring.util.response :as response]
-    [com.walmartlabs.lacinia.resolve :as resolve]))
+    [com.walmartlabs.lacinia.resolve :as resolve]
+    [com.walmartlabs.lacinia.parser :as parser]
+    [com.walmartlabs.lacinia.util :as util]
+    [com.walmartlabs.lacinia.validator :as validator]
+    [com.walmartlabs.lacinia.executor :as executor]
+    [com.walmartlabs.lacinia.constants :as constants]))
 
 (defn bad-request
   "Generates a bad request Ring response."
@@ -109,26 +113,35 @@
                        (bad-request (query-not-found-error (:request context))))
                 context))}))
 
+(defn ^:private as-errors
+  [exception]
+  {:errors [(util/as-error-map exception)]})
+
 (defn query-parser-interceptor
   "Given an schema, returns an interceptor that parses the query.
 
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
-   Adds a new request key, :parsed-lacinia-query."
+   Adds a new request key, :parsed-lacinia-query, containing the parsed and prepared
+   query."
   [schema]
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
               (try
-                (let [q (get-in context [:request :graphql-query])
-                      operation-name (get-in context [:request :graphql-operation-name])
-                      parsed-query (parse-query schema q operation-name)]
-                  (assoc-in context [:request :parsed-lacinia-query] parsed-query))
+                (let [request (:request context)
+                      {q :graphql-query
+                       vars :graphql-vars
+                       operation-name :graphql-operation-name} request
+                      parsed-query (parser/parse-query schema q operation-name)
+                      prepared (parser/prepare-with-query-variables parsed-query vars)
+                      errors (validator/validate schema prepared {})]
+                  (if (seq errors)
+                    (assoc context :response (bad-request {:errors errors}))
+                    (assoc-in context [:request :parsed-lacinia-query] prepared)))
                 (catch Exception e
                   (assoc context :response
-                         (bad-request
-                           {:errors [(assoc (ex-data e)
-                                            :message (.getMessage e))]})))))}))
+                         (bad-request (as-errors e))))))}))
 
 (def status-conversion-interceptor
   "Checks to see if any error map in the :errors key of the response
@@ -163,7 +176,7 @@
 
 (defn ^:private apply-result-to-context
   [context result]
-  ;; When :data is missing, then a failure occured during parsing or preparing
+  ;; When :data is missing, then a failure occurred during parsing or preparing
   ;; the request, which indicates a bad request, rather than some failure
   ;; during execution.
   (let [status (if (contains? result :data)
@@ -173,6 +186,14 @@
                   :headers {}
                   :body result}]
     (assoc context :response response)))
+
+(defn ^:private execute-query
+  [context]
+  (let [request (:request context)
+        {q :parsed-lacinia-query
+         app-context :lacinia-app-context} request]
+    (executor/execute-query (assoc app-context
+                                   constants/parsed-query-key q))))
 
 (def query-executor-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
@@ -186,12 +207,12 @@
   (interceptor
     {:name ::query-executor
      :enter (fn [context]
-              (let [request (:request context)
-                    {q :parsed-lacinia-query
-                     vars :graphql-vars
-                     app-context :lacinia-app-context} request
-                    result (lacinia/execute-parsed-query q vars app-context)]
-                (apply-result-to-context context result)))}))
+              (let [resolver-result (execute-query context)
+                    *result (promise)]
+                (resolve/on-deliver! resolver-result
+                                     (fn [result _]
+                                       (deliver *result result)))
+                (apply-result-to-context context @*result)))}))
 
 (def ^{:added "0.2.0"} async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
@@ -199,12 +220,8 @@
   (interceptor
     {:name ::async-query-executor
      :enter (fn [context]
-              (let [request (:request context)
-                    {q :parsed-lacinia-query
-                     vars :graphql-vars
-                     app-context :lacinia-app-context} request
-                    ch (chan 1)
-                    resolver-result (lacinia/execute-parsed-query-async q vars app-context)]
+              (let [ch (chan 1)
+                    resolver-result (execute-query context)]
                 (resolve/on-deliver! resolver-result
                                      (fn [result _]
                                        (->> result
@@ -224,9 +241,9 @@
   * [[json-response-interceptor]]
   * [[require-graphql-content-interceptor]] (for method POST)
   * [[graphql-data-interceptor]]
+  * [[status-conversion-interceptor]]
   * [[missing-query-interceptor]]
   * [[query-parser-interceptor]]
-  * [[status-conversion-interceptor]]
   * [[inject-app-context-interceptor]]
   * [[query-executor-handler]] or [[async-query-executor-handler]]
 
@@ -248,25 +265,21 @@
         inject-app-context (inject-app-context-interceptor (:app-context options))
         executor (if (:async options)
                    async-query-executor-handler
-                   query-executor-handler)]
+                   query-executor-handler)
+        interceptors-tail [graphql-data-interceptor
+                           status-conversion-interceptor
+                           missing-query-interceptor
+                           query-parser
+                           inject-app-context
+                           executor]]
     (cond-> #{["/graphql" :post
-               [json-response-interceptor
-                body-data-interceptor
-                graphql-data-interceptor
-                missing-query-interceptor
-                query-parser
-                status-conversion-interceptor
-                inject-app-context
-                executor]
+               (into [json-response-interceptor
+                      body-data-interceptor]
+                     interceptors-tail)
                :route-name ::graphql-post]
               ["/graphql" :get
-               [json-response-interceptor
-                graphql-data-interceptor
-                missing-query-interceptor
-                query-parser
-                status-conversion-interceptor
-                inject-app-context
-                executor]
+               (into [json-response-interceptor]
+                     interceptors-tail)
                :route-name ::graphql-get]}
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
