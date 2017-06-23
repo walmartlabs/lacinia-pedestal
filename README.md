@@ -58,6 +58,7 @@ The steps for processing a GraphQL query are broken into multiple stages:
 - Extracting the query string and query variables from the request
 - Verifying that a query was included in the request
 - Converting the query string to a parsed query
+- Rejecting subscription queries
 - Defining the application context for executing the query
 - Executing the parsed query (possibly, asynchronously)
 - Setting the response status
@@ -67,13 +68,33 @@ Each of these steps is its own Pedestal interceptor.
 
 #### Clients
 
+##### GET request
+
 For GET requests, query parameter `query` should be the query to execute.
+
+A second optional query parameter, `variables`, should be a string that can
+be decoded and parsed into a JSON object.
+
+##### POST application/graphql
 
 For POST requests, the content type should be `application/graphql` and the
 body of the request should be the query to execute.
 
-In both cases, query variables may be supplied.  The `variables`
-query parameter should be the string-ified JSON containing the variables.
+In addition, the `variables` query parameters may also be used.
+
+This format is somewhat `legacy`; it was used prior to the GraphQL specification
+providing details about the over-the-wire format preferred.
+
+##### POST application/json
+
+This the prefered approach when using variables.
+The content type should be `application/json`.
+
+The provided JSON object must have a `query` key, with a string value.
+It may optionally include a `variables` key, a nested JSON object.
+
+Finally, an optional `operationName` key may identify the specific operation
+to execute, for a query that contains multiple operations.
 
 The response type will be `application/json`.
 

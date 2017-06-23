@@ -35,17 +35,12 @@
 
 (defn ^:private execute-resolver
   [conveyed-value]
-  (let [f (async/decorate-channel->result nil nil (make-chan-resolver conveyed-value))
+  (let [f (async/decorate-channel->result (make-chan-resolver conveyed-value))
         *p (promise)]
     (resolve/on-deliver! (f nil nil nil)
                          (fn [value error]
                            (deliver *p [value error])))
     @*p))
-
-(deftest decorate-non-channel-result-is-no-op
-  (let [f (fn [_ _ _])]
-    (is (identical? f
-                    (async/decorate-channel->result nil nil f)))))
 
 (deftest decorate-chan-normal-case
   (is (= [::value nil]

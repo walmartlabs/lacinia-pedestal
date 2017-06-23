@@ -22,12 +22,8 @@
 
 (defn decorate-channel->result
   "A field resolver decorator that ensures that a field resolver that returns a channel will be wrapped
-  to return a ResolverResult.
-
-  Only functions that have the meta-data :channel-result are wrapped."
-  [object-name field-name f]
-  (if (-> f meta :channel-result)
-    ^resolve/ResolverResult
-    (fn [context args value]
-      (channel->result (f context args value)))
-    f))
+  to return a ResolverResult."
+  [field-resolver]
+  ^resolve/ResolverResult
+  (fn [context args value]
+    (channel->result (field-resolver context args value))))

@@ -25,6 +25,10 @@
     :headers {}
     :body body}))
 
+(defn ^:private message-as-errors
+  [message]
+  {:errors [{:message message}]})
+
 (defmulti extract-query
   "Based on the content type of the query, adds up to three keys to the request:
 
@@ -89,6 +93,9 @@
                     q (extract-query request)]
                 (assoc context :request
                        (merge request q))))}))
+
+;; TODO: These are all inconsistent. Should probably all be in the form of
+;; {:errors [{:message "xxx"}]
 
 (defn ^:private query-not-found-error
   [request]
@@ -229,6 +236,15 @@
                                             (put! ch))))
                 ch))}))
 
+(def ^{:added "0.3.0"} disallow-subscriptions-interceptor
+  "Handles requests for subscriptions."
+  (interceptor
+    {:name ::disallow-subscriptions
+     :enter (fn [context]
+              (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
+                (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint."))))
+              context)}))
+
 (defn graphql-routes
   "Creates default routes for handling GET and POST requests (at `/graphql`) and
   (optionally) the GraphiQL IDE (at `/`).
@@ -244,6 +260,7 @@
   * [[status-conversion-interceptor]]
   * [[missing-query-interceptor]]
   * [[query-parser-interceptor]]
+  * [[disallow-subscriptions-interceptor]]
   * [[inject-app-context-interceptor]]
   * [[query-executor-handler]] or [[async-query-executor-handler]]
 
