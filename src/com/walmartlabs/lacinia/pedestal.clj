@@ -287,6 +287,7 @@
                            status-conversion-interceptor
                            missing-query-interceptor
                            query-parser
+                           disallow-subscriptions-interceptor
                            inject-app-context
                            executor]]
     (cond-> #{["/graphql" :post
