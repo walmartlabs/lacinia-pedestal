@@ -9,6 +9,7 @@
     [io.pedestal.http :as http]
     [io.pedestal.http.route :as route]
     [ring.util.response :as response]
+    [com.stuartsierra.dependency :as d]
     [com.walmartlabs.lacinia.resolve :as resolve]
     [com.walmartlabs.lacinia.parser :as parser]
     [com.walmartlabs.lacinia.util :as util]
@@ -217,7 +218,7 @@
               (let [resolver-result (execute-query context)
                     *result (promise)]
                 (resolve/on-deliver! resolver-result
-                                     (fn [result _]
+                                     (fn [result]
                                        (deliver *result result)))
                 (apply-result-to-context context @*result)))}))
 
@@ -230,7 +231,7 @@
               (let [ch (chan 1)
                     resolver-result (execute-query context)]
                 (resolve/on-deliver! resolver-result
-                                     (fn [result _]
+                                     (fn [result]
                                        (->> result
                                             (apply-result-to-context context)
                                             (put! ch))))
@@ -245,6 +246,86 @@
                 (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint."))))
               context)}))
 
+(defn with-dependencies
+  "Adds metadata to an interceptor to identify its dependencies.
+
+  Dependencies are a seq of keywords.
+
+  with-dependencies is additive.
+
+  Returns the interceptor with updated metadata."
+  {:added "0.3.0"}
+  [interceptor dependencies]
+  {:pre [(some? interceptor)
+         (seq dependencies)]}
+  (vary-meta interceptor
+             (fn [m]
+               (update m ::dependencies
+                       #(into (or % #{}) dependencies)))))
+
+(defn order-by-dependency
+  "Orders an interceptor *map* by dependencies.
+  The keys of the map are arbitrary keywords (generally the same as the :name
+  key of the interceptor map), and each value is an interceptor that has been
+  augmented via [[with-dependencies]].
+
+  The result is an ordered list of just the non-nil interceptors. "
+  {:added "0.3.0"}
+  [dependency-map]
+  (let [reducer (fn [g dep-name interceptor]
+                  (reduce #(d/depend %1 dep-name %2)
+                          g
+                          (-> interceptor meta ::dependencies)))]
+    (->> dependency-map
+         (reduce-kv reducer (d/graph))
+         d/topo-sort
+         (map #(get dependency-map %))
+         ;; When dealing with dependencies, you might replace a dependency with
+         ;; an empty map that, perhaps, has dependencies on some new dependency.
+         (remove empty?)
+         vec)))
+
+(defn graphql-interceptors
+  "Returns a dependency map of the GraphQL interceptors:
+
+  * ::json-response [[json-response-interceptor]]
+  * ::graphql-data [[graphql-data-interceptor]]
+  * ::status-conversion [[status-conversion-interceptor]]
+  * ::missing-query [[missing-query-interceptor]]
+  * ::query-paraser [[query-parser-interceptor]]
+  * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
+  * ::inject-app-context [[inject-app-context-interceptor]]
+  * [[query-executor-handler]] or [[async-query-executor-handler]]
+
+  Options:
+
+  :async (default false)
+  : If true, the query will execute asynchronously.
+
+  :app-context
+  : The base application context provided to Lacinia when executing a query."
+  {:added "0.3.0"}
+  [compiled-schema options]
+  (let [index-handler (when (:graphiql options)
+                        (fn [request]
+                          (response/redirect "/index.html")))
+        query-parser (query-parser-interceptor compiled-schema)
+        inject-app-context (inject-app-context-interceptor (:app-context options))
+        executor (if (:async options)
+                   async-query-executor-handler
+                   query-executor-handler)
+        interceptors [json-response-interceptor
+                      (with-dependencies graphql-data-interceptor [::json-response])
+                      (with-dependencies status-conversion-interceptor [::graphql-data])
+                      (with-dependencies missing-query-interceptor [::status-conversion])
+                      (with-dependencies query-parser [::missing-query])
+                      (with-dependencies disallow-subscriptions-interceptor [::query-parser])
+                      (with-dependencies inject-app-context [::query-parser])]]
+    (-> (zipmap (map :name interceptors)
+                interceptors)
+        (assoc ::query-executor
+               (with-dependencies executor [::inject-app-context ::disallow-subscriptions])))))
+
 (defn graphql-routes
   "Creates default routes for handling GET and POST requests (at `/graphql`) and
   (optionally) the GraphiQL IDE (at `/`).
@@ -252,17 +333,8 @@
   Returns a set of route vectors, compatible with
   `io.pedestal.http.route.definition.table/table-routes`.
 
-  The standard interceptor stack:
-
-  * [[json-response-interceptor]]
-  * [[require-graphql-content-interceptor]] (for method POST)
-  * [[graphql-data-interceptor]]
-  * [[status-conversion-interceptor]]
-  * [[missing-query-interceptor]]
-  * [[query-parser-interceptor]]
-  * [[disallow-subscriptions-interceptor]]
-  * [[inject-app-context-interceptor]]
-  * [[query-executor-handler]] or [[async-query-executor-handler]]
+  Uses [[graphql-interceptors]] to define the base set of interceptors and
+  dependencies.  For the POST route, [[body-data-interceptor]] is spliced in.
 
   Options:
 
@@ -275,29 +347,19 @@
   :app-context
   : The base application context provided to Lacinia when executing a query."
   [compiled-schema options]
-  (let [index-handler (when (:graphiql options)
+  (let [get-interceptor-map (graphql-interceptors compiled-schema options)
+        post-interceptor-map (-> get-interceptor-map
+                                 (assoc ::body-data
+                                        (with-dependencies body-data-interceptor [::json-response]))
+                                 (update ::graphql-data with-dependencies [::body-data]))
+        index-handler (when (:graphiql options)
                         (fn [request]
-                          (response/redirect "/index.html")))
-        query-parser (query-parser-interceptor compiled-schema)
-        inject-app-context (inject-app-context-interceptor (:app-context options))
-        executor (if (:async options)
-                   async-query-executor-handler
-                   query-executor-handler)
-        interceptors-tail [graphql-data-interceptor
-                           status-conversion-interceptor
-                           missing-query-interceptor
-                           query-parser
-                           disallow-subscriptions-interceptor
-                           inject-app-context
-                           executor]]
+                          (response/redirect "/index.html")))]
     (cond-> #{["/graphql" :post
-               (into [json-response-interceptor
-                      body-data-interceptor]
-                     interceptors-tail)
+               (order-by-dependency post-interceptor-map)
                :route-name ::graphql-post]
               ["/graphql" :get
-               (into [json-response-interceptor]
-                     interceptors-tail)
+               (order-by-dependency get-interceptor-map)
                :route-name ::graphql-get]}
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
@@ -327,3 +389,5 @@
     (cond->
       (:graphiql options) (assoc ::http/resource-path "graphiql"))
     http/create-server))
+
+
