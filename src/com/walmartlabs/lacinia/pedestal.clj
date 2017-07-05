@@ -278,6 +278,9 @@
                           (-> interceptor meta ::dependencies)))]
     (->> dependency-map
          (reduce-kv reducer (d/graph))
+         ;; Note: quietly ignore dependencies to unknown nodes, which is a feature
+         ;; (you can remove an interceptor entirely even if other interceptors depend
+         ;; on it).
          d/topo-sort
          (map #(get dependency-map %))
          ;; When dealing with dependencies, you might replace a dependency with
@@ -326,6 +329,25 @@
         (assoc ::query-executor
                (with-dependencies executor [::inject-app-context ::disallow-subscriptions])))))
 
+(defn routes-from-interceptor-map
+  "Returns a set of route vectors from a primary interceptor dependency map.
+  This uses a standard rule for splicing in the POST support.
+
+  This function is useful as an alternative to [[graphql-routes]] when the
+  default interceptor dependency map (from [[graphql-interceptors]]) is modified."
+  {:added "0.3.0"}
+  [route-path get-interceptor-map]
+  (let [post-interceptor-map (-> get-interceptor-map
+                                 (assoc ::body-data
+                                        (with-dependencies body-data-interceptor [::json-response]))
+                                 (update ::graphql-data with-dependencies [::body-data]))]
+    #{[route-path :post
+       (order-by-dependency post-interceptor-map)
+       :route-name ::graphql-post]
+      [route-path :get
+       (order-by-dependency get-interceptor-map)
+       :route-name ::graphql-get]}))
+
 (defn graphql-routes
   "Creates default routes for handling GET and POST requests (at `/graphql`) and
   (optionally) the GraphiQL IDE (at `/`).
@@ -348,19 +370,10 @@
   : The base application context provided to Lacinia when executing a query."
   [compiled-schema options]
   (let [get-interceptor-map (graphql-interceptors compiled-schema options)
-        post-interceptor-map (-> get-interceptor-map
-                                 (assoc ::body-data
-                                        (with-dependencies body-data-interceptor [::json-response]))
-                                 (update ::graphql-data with-dependencies [::body-data]))
         index-handler (when (:graphiql options)
                         (fn [request]
                           (response/redirect "/index.html")))]
-    (cond-> #{["/graphql" :post
-               (order-by-dependency post-interceptor-map)
-               :route-name ::graphql-post]
-              ["/graphql" :get
-               (order-by-dependency get-interceptor-map)
-               :route-name ::graphql-get]}
+    (cond-> (routes-from-interceptor-map "/graphql" get-interceptor-map)
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
 (defn pedestal-service

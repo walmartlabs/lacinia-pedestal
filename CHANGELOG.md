@@ -3,6 +3,16 @@
 Added support for subscriptions.
 
 The default interceptor stack has been reordered, slightly.
+New functions have been added to get the interceptor as a map
+annotated with dependency meta-data, and to extract
+the ordered interceptors from such a map.
+
+`com.walmartlabs.lacinia.pedestal/graphql-routes` has been refactored:
+it can be used as before, but it's logic has been largely refactored
+into smaller, reusable functions that are used when the default
+interceptor stack must be modified for the application.
+
+This version of lacinia-pedestal only works with com.walmartlabs/lacinia **0.19.0** and above.
 
 ## 0.2.0 -- 1 Jun 2017
 
@@ -28,5 +38,4 @@ Update dependency on Lacinia to latest, 0.15.0.
 ## 0.1.0 -- 19 Apr 2017
 
 First release.
-
 
