@@ -298,7 +298,7 @@
   * ::query-paraser [[query-parser-interceptor]]
   * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
   * ::inject-app-context [[inject-app-context-interceptor]]
-  * [[query-executor-handler]] or [[async-query-executor-handler]]
+  * ::query-executor [[query-executor-handler]] or [[async-query-executor-handler]]
 
   Options:
 
@@ -374,6 +374,8 @@
                         (fn [request]
                           (response/redirect "/index.html")))]
     (cond-> (routes-from-interceptor-map "/graphql" get-interceptor-map)
+      ;; NOTE: The JavaScript initialization code in index.html is hard-wired for
+      ;; the routes to be at /graphql.
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
 (defn pedestal-service

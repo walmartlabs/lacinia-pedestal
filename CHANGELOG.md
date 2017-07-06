@@ -19,7 +19,7 @@ This version of lacinia-pedestal only works with com.walmartlabs/lacinia **0.19.
 The library and GitHub project have been renamed from `pedestal-lacinia` to
 `lacinia-pedestal`.
 
-Updated to Lacinia 0.17.0.
+Updated to com.walmartlabs/lacinia dependency to version 0.17.0.
 
 Added an option to execute the GraphQL request asynchronously; when enabled,
 the handler returns a channel that conveys the Pedestal context containing
@@ -33,7 +33,7 @@ field resolvers that return clojure.core.async channels to Lacinia.
 
 ## 0.1.1 -- 19 Apr 2017
 
-Update dependency on Lacinia to latest, 0.15.0.
+Update dependency on com.walmartlabs/lacinia to latest version, 0.15.0.
 
 ## 0.1.0 -- 19 Apr 2017
 
