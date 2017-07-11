@@ -5,11 +5,25 @@
  :objects
  {:echoed_value
   {:fields {:value {:type String}
-            :method {:type (non-null :method)}}}}
+            :method {:type (non-null :method)}}}
+
+  :Ping
+  {:fields
+   {:message {:type (non-null String)}
+    :timestamp {:type (non-null Int)}}}}
 
  :queries
  {:echo {:type :echoed_value
          :args {:value {:type String}
                 ;; :error is an optional status code
                 :error {:type Int}}
-         :resolve :resolve-echo}}}
+         :resolve :resolve-echo}}
+
+ :subscriptions
+ {:ping
+  {:type :Ping
+   :stream :stream-ping
+   :args
+   {:count {:type Int
+            :default 5}
+    :message {:type (non-null String)}}}}}

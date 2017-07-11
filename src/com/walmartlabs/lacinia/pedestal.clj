@@ -391,7 +391,8 @@
                   ;; has callbacks such as :on-connect and :on-text, but in our scenario
                   ;; the callbacks are created by the listener-fn, so the value is nil.
                   #(ws/add-ws-endpoints % {"/graphql-ws" nil}
-                                        (subscriptions/listener-fn-factory compiled-schema options)))
+                                        {:listener-fn
+                                         (subscriptions/listener-fn-factory compiled-schema options)}))
 
         graphiql
         (assoc ::http/resource-path "graphiql"))

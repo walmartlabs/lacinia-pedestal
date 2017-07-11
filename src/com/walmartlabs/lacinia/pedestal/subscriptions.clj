@@ -10,6 +10,7 @@
     [io.pedestal.interceptor :refer [interceptor]]
     [io.pedestal.interceptor.chain :as chain]
     [io.pedestal.http.jetty.websockets :as ws]
+    [io.pedestal.log :as log]
     [com.walmartlabs.lacinia.parser :as parser]
     [com.walmartlabs.lacinia.validator :as validator]
     [com.walmartlabs.lacinia.executor :as executor]
@@ -44,6 +45,7 @@
       (when-some [parsed (try
                            (cheshire/parse-string text true)
                            (catch Throwable t
+                             (log/debug :event ::malformed-text :message text)
                              (>! response-data-ch
                                  {:type :connection_error
                                   :payload (util/as-error-map t)})))]
@@ -87,11 +89,13 @@
       (alt!
         cleanup-ch
         ([id]
+          (log/debug :event ::cleanup-ch :id id)
           (recur (dissoc subs id)))
 
         ;; TODO: Maybe only after connection_init?
         (async/timeout keep-alive-ms)
         (do
+          (log/debug :event ::timeout)
           (>! response-data-ch {:type :connection_keep_alive})
           (recur subs))
 
@@ -100,7 +104,9 @@
           (if (nil? data)
             ;; When the client closes the connection, any running subscriptions need to
             ;; shutdown and cleanup.
-            (run! close! (vals subs))
+            (do
+              (log/debug :event ::client-close)
+              (run! close! (vals subs)))
             ;; Otherwise it's a message from the client to be acted upon.
             (let [{:keys [id payload type]} data]
               (case type
@@ -111,16 +117,20 @@
                 ;; TODO: Track state, don't allow start, etc. until after connection_init
 
                 "start"
-                (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context)))
+                (do
+                  (log/debug :event ::start :id id)
+                  (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context))))
 
                 "stop"
                 (do
+                  (log/debug :event ::stop :id id)
                   (when-some [sub-shutdown-ch (get subs id)]
                     (close! sub-shutdown-ch))
                   (recur subs))
 
                 "connection_terminate"
                 (do
+                  (log/debug :event ::terminate)
                   (run! close! (vals subs))
                   ;; This shuts down the connection entirely.
                   (close! response-data-ch))
@@ -130,6 +140,7 @@
                                         :payload {:message "Unrecognized message type."
                                                   :type type}}
                                  id (assoc :id id))]
+                  (log/debug :event ::unknown-type :type type)
                   (>! response-data-ch response)
                   (recur subs))))))))))
 
@@ -277,16 +288,20 @@
   [compiled-schema options]
   (let [{:keys [keep-alive-ms app-context interceptors-configurator]
          :or {keep-alive-ms 30000
-              interceptors-configuration identity}} options
+              interceptors-configurator identity}} options
         base-context {::chain/terminators [:response]}]
+    (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [_ _ _]
+      (log/debug :event ::upgrade-requested)
       (let [response-data-ch (chan 10)                      ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
             ws-data-ch (chan 10)                            ; text -> data
-            on-close (fn []
+            on-close (fn [_ _]
+                       (log/debug :event ::closed)
                        (close! response-data-ch)
                        (close! ws-data-ch))
             on-connect (fn [session send-ch]
+                         (log/debug :event ::connected)
                          (let [interceptors (-> (default-interceptors compiled-schema app-context)
                                                 interceptors-configurator
                                                 interceptors/order-by-dependency)]
@@ -299,4 +314,5 @@
           {:on-connect (ws/start-ws-connection on-connect)
            ;; TODO: Back-pressure?
            :on-text #(put! ws-text-ch %)
+           :on-error #(log/error :event ::error :exception %)
            :on-close on-close})))))

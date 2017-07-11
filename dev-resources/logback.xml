@@ -14,4 +14,8 @@
     <!-- Switch to DEBUG to see each interceptor execute: -->
     <logger name="io.pedestal.interceptor" level="warn"/>
 
+    <logger name="com.walmartlabs.lacinia" level="warn"/>
+
+    <logger name="org.eclipse.jetty.websocket" level="warn"/>
+
 </configuration>
