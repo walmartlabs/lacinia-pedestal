@@ -1,3 +1,302 @@
 (ns com.walmartlabs.lacinia.pedestal.subscriptions
-  "Support for GraphQL subscriptions using Jetty WebSockets."
-  {:added "0.3.0"})
+  "Support for GraphQL subscriptions using Jetty WebSockets, following the design
+  of the Apollo client and server."
+  {:added "0.3.0"}
+  (:require
+    [com.walmartlabs.lacinia.util :as util]
+    [clojure.core.async :as async
+     :refer [chan put! close! go-loop <! >! alt! thread]]
+    [cheshire.core :as cheshire]
+    [io.pedestal.interceptor :refer [interceptor]]
+    [io.pedestal.interceptor.chain :as chain]
+    [io.pedestal.http.jetty.websockets :as ws]
+    [com.walmartlabs.lacinia.parser :as parser]
+    [com.walmartlabs.lacinia.validator :as validator]
+    [com.walmartlabs.lacinia.executor :as executor]
+    [com.walmartlabs.lacinia.constants :as constants]
+    [com.walmartlabs.lacinia.resolve :as resolve]
+    [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors
+     :refer [with-dependencies]]))
+
+(defn ^:private xform-channel
+  [input-ch output-ch xf]
+  (go-loop []
+    (if-some [input (<! input-ch)]
+      (let [output (xf input)]
+        (when (>! output-ch output)
+          (recur)))
+      (close! output-ch))))
+
+(defn ^:private response-encode-loop
+  "Takes values from the input channel, encodes them as a JSON string, and
+  puts them into the output-ch."
+  [input-ch output-ch]
+  (xform-channel input-ch output-ch cheshire/generate-string))
+
+(defn ^:private ws-parse-loop
+  "Parses text messages sent from the client into Clojure data with keyword keys,
+  which is passed along to the output-ch.
+
+  Parse errors are converted into connection_error messages sent to the response-ch."
+  [input-ch output-ch response-data-ch]
+  (go-loop []
+    (when-some [text (<! input-ch)]
+      (when-some [parsed (try
+                           (cheshire/parse-string text true)
+                           (catch Throwable t
+                             (>! response-data-ch
+                                 {:type :connection_error
+                                  :payload (util/as-error-map t)})))]
+        (>! output-ch parsed))
+      (recur))))
+
+(defn ^:private execute-query-interceptors
+  "Executes the interceptor chain for an operation, and returns
+  a channel used to shutdown and cleanup the operation."
+  [id payload response-data-ch cleanup-ch context]
+  (let [shutdown-ch (chan)
+        response-spy-ch (chan 1)
+        request (assoc payload
+                       :shutdown-ch shutdown-ch
+                       :response-data-ch response-spy-ch)]
+    ;; When the spy channel is closed, we write the id
+    ;; to the cleanup-ch; the containing CSP then removes the
+    ;; shutdown-ch from its subs map.
+    (go-loop []
+      (let [message (<! response-spy-ch)]
+        (if (some? message)
+          (do
+            (>! response-data-ch message)
+            (recur))
+          (>! cleanup-ch id))))
+
+    ;; Execute the chain, for side-effects.
+    (chain/execute (assoc context :request request))
+
+    ;; Return a shutdown channel that the CSP can close to shutdown the subscription
+    shutdown-ch))
+
+(defn ^:private connection-loop
+  "A loop started for each connection."
+  [compiled-schema keep-alive-ms ws-data-ch response-data-ch context]
+  (let [cleanup-ch (chan 1)]
+    ;; Keep track of subscriptions by (client-supplied) unique id.
+    ;; The value is a shutdown channel that, when closed, triggers
+    ;; a cleanup of the subscription.
+    (go-loop [subs {}]
+      (alt!
+        cleanup-ch
+        ([id]
+          (recur (dissoc subs id)))
+
+        ;; TODO: Maybe only after connection_init?
+        (async/timeout keep-alive-ms)
+        (do
+          (>! response-data-ch {:type :connection_keep_alive})
+          (recur subs))
+
+        ws-data-ch
+        ([data]
+          (if (nil? data)
+            ;; When the client closes the connection, any running subscriptions need to
+            ;; shutdown and cleanup.
+            (run! close! (vals subs))
+            ;; Otherwise it's a message from the client to be acted upon.
+            (let [{:keys [id payload type]} data]
+              (case type
+                "connection_init"
+                (when (>! response-data-ch {:type :connection_ack})
+                  (recur subs))
+
+                ;; TODO: Track state, don't allow start, etc. until after connection_init
+
+                "start"
+                (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context)))
+
+                "stop"
+                (do
+                  (when-some [sub-shutdown-ch (get subs id)]
+                    (close! sub-shutdown-ch))
+                  (recur subs))
+
+                "connection_terminate"
+                (do
+                  (run! close! (vals subs))
+                  ;; This shuts down the connection entirely.
+                  (close! response-data-ch))
+
+                ;; Not recognized!
+                (let [response (cond-> {:type :error
+                                        :payload {:message "Unrecognized message type."
+                                                  :type type}}
+                                 id (assoc :id id))]
+                  (>! response-data-ch response)
+                  (recur subs))))))))))
+
+;; We try to keep the interceptors here and in the main namespace as similar as possible, but
+;; there are distinctions that can't be readily smoothed over.
+
+(def send-operation-response-interceptor
+  (interceptor {:name ::send-operation-response
+                :leave (fn [context]
+                         (when-let [response (:response context)]
+                           (let [{:keys [id response-data-ch]} (:request context)]
+                             (put! response-data-ch {:type :data
+                                                     :id id
+                                                     :payload response})
+                             (put! response-data-ch {:type :complete
+                                                     :id id})))
+                         context)}))
+
+(defn query-parser-interceptor
+  "An interceptor that parses the query and places a prepared and validated
+  query into the :parsed-lacinia-query key of the request."
+  [compiled-schema]
+  (interceptor
+    {:name ::query-parser
+     :enter (fn [context]
+              (let [payload (get-in context [:request :payload])
+                    {operation-name :operationName
+                     :keys [query variables]} payload
+                    parsed-query (parser/parse-query compiled-schema query operation-name)
+                    prepared (parser/prepare-with-query-variables parsed-query variables)
+                    errors (validator/validate compiled-schema prepared {})]
+                (if (seq errors)
+                  (prn `query-parser-interceptor :errors errors) ; TODO!
+                  (assoc-in context [:request :parsed-lacinia-query] prepared))))}))
+
+(defn inject-app-context-interceptor
+  "Adds a :lacinia-app-context key to the request, used when executing the query.
+
+  It is not uncommon to replace this interceptor with one that constructs
+  the application context dynamically."
+  [app-context]
+  (interceptor
+    {:name ::inject-app-context
+     :enter (fn [context]
+              (assoc-in context [:request :lacinia-app-context] app-context))}))
+
+(defn ^:private execute-operation
+  [context parsed-query]
+  (let [ch (chan 1)]
+    (-> context
+        :request
+        :lacina-app-context
+        (assoc constants/parsed-query-key parsed-query)
+        executor/execute-query
+        (resolve/on-deliver! (fn [response]
+                               (put! ch (assoc context :response response))))
+        ;; Don't execute the query in a limited go block thread
+        thread)
+    ch))
+
+(defn ^:private execute-subscription
+  [context parsed-query]
+  (let [source-stream-ch (chan 1)
+        {:keys [id shutdown-ch response-data-ch]} (:request context)
+        source-stream (fn [value]
+                        (if (some? value)
+                          (put! source-stream-ch value)
+                          (close! source-stream-ch)))
+        app-context (-> context
+                        :request
+                        :lacinia-app-context
+                        (assoc constants/parsed-query-key parsed-query))
+        cleanup-fn (executor/invoke-streamer app-context source-stream)]
+    (go-loop []
+      (alt!
+
+        ;; TODO: A timeout?
+
+        ;; This channel is closed when the client sends a "stop" message
+        shutdown-ch
+        (do
+          (close! response-data-ch)
+          (cleanup-fn))
+
+        source-stream-ch
+        ([value]
+          (if (some? value)
+            (do
+              (-> app-context
+                  (assoc ::executor/resolved-value value)
+                  executor/execute-query
+                  (resolve/on-deliver! (fn [response]
+                                         (put! response-data-ch
+                                               {:type :data
+                                                :id id
+                                                :payload response})))
+                  ;; Don't execute the query in a limited go block thread
+                  thread)
+              (recur))
+            (do
+              ;; The streamer has signalled that it has exhausted the subscription.
+              (>! response-data-ch {:type :complete
+                                    :id id})
+              (close! response-data-ch)
+              (cleanup-fn))))))))
+
+(def execute-operation-interceptor
+  "Executes an mutation or query operation and sets the :response key of the context."
+  (-> {:name ::execute-operation
+       :enter (fn [context]
+                (let [request (:request context)
+                      parsed-query (:parsed-lacinia-query request)
+                      operation-type (-> parsed-query parser/operations :type)]
+                  (if (= operation-type :subscription)
+                    (execute-subscription context parsed-query)
+                    (execute-operation context parsed-query))))}
+      interceptor
+      (with-dependencies [::inject-app-context ::query-parser ::send-operation-response])))
+
+(defn default-interceptors
+  "Processing of operation requests from the client is passed through interceptor pipeline.
+  The context for the pipeline includes special keys for the necessary channels.
+
+  The :request key is the payload sent from the client, along with additional keys :response-data-ch
+  (which should be closed when the subscription is exhausted) and
+  :shutdown-ch (which will be closed if the client stops the subscription).
+
+  For mutation and query operations, a :response key is added to the context, which triggers
+  a response to the client.
+
+  For subscription operations, it's a bit different; there's no immediate response, but a new CSP
+  will work with the streamer defined by the subscription to send a sequence of \"data\" messages
+  to the client.
+
+  Returns a map of interceptor ids to interceptors, with dependencies."
+  [compiled-schema app-context]
+  (let [interceptors [send-operation-response-interceptor
+                      (query-parser-interceptor compiled-schema)
+                      (inject-app-context-interceptor app-context)
+                      execute-operation-interceptor]]
+    (interceptors/as-dependency-map interceptors)))
+
+(defn listener-fn-factory
+  "A factory for the function used to create a WS listener."
+  [compiled-schema options]
+  (let [{:keys [keep-alive-ms app-context interceptors-configurator]
+         :or {keep-alive-ms 30000
+              interceptors-configuration identity}} options
+        base-context {::chain/terminators [:response]}]
+    (fn [_ _ _]
+      (let [response-data-ch (chan 10)                      ; server data -> client
+            ws-text-ch (chan 1)                             ; client text -> server
+            ws-data-ch (chan 10)                            ; text -> data
+            on-close (fn []
+                       (close! response-data-ch)
+                       (close! ws-data-ch))
+            on-connect (fn [session send-ch]
+                         (let [interceptors (-> (default-interceptors compiled-schema app-context)
+                                                interceptors-configurator
+                                                interceptors/order-by-dependency)]
+                           (response-encode-loop response-data-ch send-ch)
+                           (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
+                           (connection-loop compiled-schema keep-alive-ms ws-data-ch response-data-ch
+                                            (chain/enqueue context interceptors))))]
+
+        (ws/make-ws-listener
+          {:on-connect (ws/start-ws-connection on-connect)
+           ;; TODO: Back-pressure?
+           :on-text #(put! ws-text-ch %)
+           :on-close on-close})))))

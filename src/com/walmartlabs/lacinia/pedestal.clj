@@ -5,17 +5,21 @@
     [com.walmartlabs.lacinia :as lacinia]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
+    [com.walmartlabs.lacinia.pedestal.interceptors
+     :as interceptors
+     :refer [with-dependencies]]
     [clojure.string :as str]
     [io.pedestal.http :as http]
     [io.pedestal.http.route :as route]
     [ring.util.response :as response]
-    [com.stuartsierra.dependency :as d]
     [com.walmartlabs.lacinia.resolve :as resolve]
     [com.walmartlabs.lacinia.parser :as parser]
     [com.walmartlabs.lacinia.util :as util]
     [com.walmartlabs.lacinia.validator :as validator]
     [com.walmartlabs.lacinia.executor :as executor]
-    [com.walmartlabs.lacinia.constants :as constants]))
+    [com.walmartlabs.lacinia.constants :as constants]
+    [io.pedestal.http.jetty.websockets :as ws]
+    [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]))
 
 (defn bad-request
   "Generates a bad request Ring response."
@@ -173,7 +177,11 @@
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.
 
-  The provided app-context map is augmented with the request map, as key :request."
+  The provided app-context map is augmented with the request map, as key :request.
+
+  It is not uncommon to replace this interceptor with one that constructs
+  the application context dynamically; for example, to extract authentication information
+  from the request and expose that as app-context keys."
   {:added "0.2.0"}
   [app-context]
   (interceptor
@@ -246,48 +254,6 @@
                 (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint."))))
               context)}))
 
-(defn with-dependencies
-  "Adds metadata to an interceptor to identify its dependencies.
-
-  Dependencies are a seq of keywords.
-
-  with-dependencies is additive.
-
-  Returns the interceptor with updated metadata."
-  {:added "0.3.0"}
-  [interceptor dependencies]
-  {:pre [(some? interceptor)
-         (seq dependencies)]}
-  (vary-meta interceptor
-             (fn [m]
-               (update m ::dependencies
-                       #(into (or % #{}) dependencies)))))
-
-(defn order-by-dependency
-  "Orders an interceptor *map* by dependencies.
-  The keys of the map are arbitrary keywords (generally the same as the :name
-  key of the interceptor map), and each value is an interceptor that has been
-  augmented via [[with-dependencies]].
-
-  The result is an ordered list of just the non-nil interceptors. "
-  {:added "0.3.0"}
-  [dependency-map]
-  (let [reducer (fn [g dep-name interceptor]
-                  (reduce #(d/depend %1 dep-name %2)
-                          g
-                          (-> interceptor meta ::dependencies)))]
-    (->> dependency-map
-         (reduce-kv reducer (d/graph))
-         ;; Note: quietly ignore dependencies to unknown nodes, which is a feature
-         ;; (you can remove an interceptor entirely even if other interceptors depend
-         ;; on it).
-         d/topo-sort
-         (map #(get dependency-map %))
-         ;; When dealing with dependencies, you might replace a dependency with
-         ;; an empty map that, perhaps, has dependencies on some new dependency.
-         (remove empty?)
-         vec)))
-
 (defn graphql-interceptors
   "Returns a dependency map of the GraphQL interceptors:
 
@@ -316,16 +282,15 @@
         inject-app-context (inject-app-context-interceptor (:app-context options))
         executor (if (:async options)
                    async-query-executor-handler
-                   query-executor-handler)
-        interceptors [json-response-interceptor
-                      (with-dependencies graphql-data-interceptor [::json-response])
-                      (with-dependencies status-conversion-interceptor [::graphql-data])
-                      (with-dependencies missing-query-interceptor [::status-conversion])
-                      (with-dependencies query-parser [::missing-query])
-                      (with-dependencies disallow-subscriptions-interceptor [::query-parser])
-                      (with-dependencies inject-app-context [::query-parser])]]
-    (-> (zipmap (map :name interceptors)
-                interceptors)
+                   query-executor-handler)]
+    (-> [json-response-interceptor
+         (with-dependencies graphql-data-interceptor [::json-response])
+         (with-dependencies status-conversion-interceptor [::graphql-data])
+         (with-dependencies missing-query-interceptor [::status-conversion])
+         (with-dependencies query-parser [::missing-query])
+         (with-dependencies disallow-subscriptions-interceptor [::query-parser])
+         (with-dependencies inject-app-context [::query-parser])]
+        interceptors/as-dependency-map
         (assoc ::query-executor
                (with-dependencies executor [::inject-app-context ::disallow-subscriptions])))))
 
@@ -342,10 +307,10 @@
                                         (with-dependencies body-data-interceptor [::json-response]))
                                  (update ::graphql-data with-dependencies [::body-data]))]
     #{[route-path :post
-       (order-by-dependency post-interceptor-map)
+       (interceptors/order-by-dependency post-interceptor-map)
        :route-name ::graphql-post]
       [route-path :get
-       (order-by-dependency get-interceptor-map)
+       (interceptors/order-by-dependency get-interceptor-map)
        :route-name ::graphql-get]}))
 
 (defn graphql-routes
@@ -389,20 +354,37 @@
   :graphiql (default: false)
   : If given, then enables resources to support the GraphiQL IDE
 
+  :subscriptions (default: false)
+  : If enabled, then support for WebSocket-based subscriptions is added.
+
   :port (default: 8888)
   : HTTP port to use.
 
   :env (default: :dev)
   : Environment being started."
-  [compiled-schema options]
-  (->
-    {:env (:env options :dev)
-     ::http/routes (route/expand-routes (graphql-routes compiled-schema options))
-     ::http/port (:port options 8888)
-     ::http/type :jetty
-     ::http/join? false}
-    (cond->
-      (:graphiql options) (assoc ::http/resource-path "graphiql"))
-    http/create-server))
+  ([compiled-schema options]
+   (pedestal-service compiled-schema
+                     (route/expand-routes (graphql-routes compiled-schema options))
+                     options))
+  ([compiled-schema routes options]
+   (->
+     {:env (:env options :dev)
+      ::http/routes routes
+      ::http/port (:port options 8888)
+      ::http/type :jetty
+      ::http/join? false}
+     (cond->
+       (:subscriptions options)
+       (assoc-in [::http/container-options :context-configurator]
+                 ;; The listener-fn is responsible for creating the listener; it is passed
+                 ;; the request, response, and the ws-map. In sample code, the ws-map
+                 ;; has callbacks such as :on-connect and :on-text, but in our scenario
+                 ;; the callbacks are created by the listener-fn, so the value is nil.
+                 #(ws/add-ws-endpoints % {"/graphql-ws" nil}
+                                       (subscriptions/listener-fn-factory compiled-schema options)))
+
+       (:graphiql options)
+       (assoc ::http/resource-path "graphiql"))
+     http/create-server)))
 
 
