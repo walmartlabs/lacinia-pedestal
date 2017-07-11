@@ -353,14 +353,13 @@
   "Creates and returns a Pedestal service map, ready to be started.
   This uses a server type of :jetty.
 
-  The options are used here, and also passed to [[graphql-routes]]
-  (with the two arity version).  Alternately, the complete routes
-  are provided (in the three arity version).
-
   Options:
 
   :graphiql (default: false)
   : If given, then enables resources to support the GraphiQL IDE
+
+  :routes (default: via [[graphql-routes]])
+  : Used when explicitly setting up the routes
 
   :subscriptions (default: false)
   : If enabled, then support for WebSocket-based subscriptions is added.
@@ -370,29 +369,32 @@
 
   :env (default: :dev)
   : Environment being started."
-  ([compiled-schema options]
-   (pedestal-service compiled-schema
-                     (route/expand-routes (graphql-routes compiled-schema options))
-                     options))
-  ([compiled-schema routes options]
-   (->
-     {:env (:env options :dev)
-      ::http/routes routes
-      ::http/port (:port options 8888)
-      ::http/type :jetty
-      ::http/join? false}
-     (cond->
-       (:subscriptions options)
-       (assoc-in [::http/container-options :context-configurator]
-                 ;; The listener-fn is responsible for creating the listener; it is passed
-                 ;; the request, response, and the ws-map. In sample code, the ws-map
-                 ;; has callbacks such as :on-connect and :on-text, but in our scenario
-                 ;; the callbacks are created by the listener-fn, so the value is nil.
-                 #(ws/add-ws-endpoints % {"/graphql-ws" nil}
-                                       (subscriptions/listener-fn-factory compiled-schema options)))
+  [compiled-schema options]
+  (let [{:keys [graphiql subscriptions port env]
+         :or {graphiql false
+              subscriptions false
+              port 8888
+              env :dev}} options
+        routes (or (:routes options)
+                   (route/expand-routes (graphql-routes compiled-schema options)))]
+    (->
+      {:env env
+       ::http/routes routes
+       ::http/port port
+       ::http/type :jetty
+       ::http/join? false}
+      (cond->
+        subscriptions
+        (assoc-in [::http/container-options :context-configurator]
+                  ;; The listener-fn is responsible for creating the listener; it is passed
+                  ;; the request, response, and the ws-map. In sample code, the ws-map
+                  ;; has callbacks such as :on-connect and :on-text, but in our scenario
+                  ;; the callbacks are created by the listener-fn, so the value is nil.
+                  #(ws/add-ws-endpoints % {"/graphql-ws" nil}
+                                        (subscriptions/listener-fn-factory compiled-schema options)))
 
-       (:graphiql options)
-       (assoc ::http/resource-path "graphiql"))
-     http/create-server)))
+        graphiql
+        (assoc ::http/resource-path "graphiql"))
+      http/create-server)))
 
 
