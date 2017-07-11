@@ -91,13 +91,14 @@
 
 (def graphql-data-interceptor
   "Extracts the raw data (query and variables) from the request using [[extract-query]]."
-  (interceptor
-    {:name ::graphql-data
-     :enter (fn [context]
-              (let [request (:request context)
-                    q (extract-query request)]
-                (assoc context :request
-                       (merge request q))))}))
+  (-> {:name ::graphql-data
+       :enter (fn [context]
+                (let [request (:request context)
+                      q (extract-query request)]
+                  (assoc context :request
+                         (merge request q))))}
+      interceptor
+      (with-dependencies [::json-response])))
 
 ;; TODO: These are all inconsistent. Should probably all be in the form of
 ;; {:errors [{:message "xxx"}]
@@ -117,13 +118,14 @@
   "Rejects the request when there's no GraphQL query in the request map.
 
    This must come after [[graphql-data-interceptor]], which is responsible for adding the query to the request map."
-  (interceptor
-    {:name ::missing-query
-     :enter (fn [context]
-              (if (-> context :request :graphql-query str/blank?)
-                (assoc context :response
-                       (bad-request (query-not-found-error (:request context))))
-                context))}))
+  (-> {:name ::missing-query
+       :enter (fn [context]
+                (if (-> context :request :graphql-query str/blank?)
+                  (assoc context :response
+                         (bad-request (query-not-found-error (:request context))))
+                  context))}
+      interceptor
+      (with-dependencies [::status-conversion])))
 
 (defn ^:private as-errors
   [exception]
@@ -137,42 +139,44 @@
    Adds a new request key, :parsed-lacinia-query, containing the parsed and prepared
    query."
   [schema]
-  (interceptor
-    {:name ::query-parser
-     :enter (fn [context]
-              (try
-                (let [request (:request context)
-                      {q :graphql-query
-                       vars :graphql-vars
-                       operation-name :graphql-operation-name} request
-                      parsed-query (parser/parse-query schema q operation-name)
-                      prepared (parser/prepare-with-query-variables parsed-query vars)
-                      errors (validator/validate schema prepared {})]
-                  (if (seq errors)
-                    (assoc context :response (bad-request {:errors errors}))
-                    (assoc-in context [:request :parsed-lacinia-query] prepared)))
-                (catch Exception e
-                  (assoc context :response
-                         (bad-request (as-errors e))))))}))
+  (-> {:name ::query-parser
+       :enter (fn [context]
+                (try
+                  (let [request (:request context)
+                        {q :graphql-query
+                         vars :graphql-vars
+                         operation-name :graphql-operation-name} request
+                        parsed-query (parser/parse-query schema q operation-name)
+                        prepared (parser/prepare-with-query-variables parsed-query vars)
+                        errors (validator/validate schema prepared {})]
+                    (if (seq errors)
+                      (assoc context :response (bad-request {:errors errors}))
+                      (assoc-in context [:request :parsed-lacinia-query] prepared)))
+                  (catch Exception e
+                    (assoc context :response
+                           (bad-request (as-errors e))))))}
+      interceptor
+      (with-dependencies [::missing-query])))
 
 (def status-conversion-interceptor
   "Checks to see if any error map in the :errors key of the response
   contains a :status value.  If so, the maximum status value of such errors
   is found and used as the status of the overall response, and the
   :status key is dissoc'ed from all errors."
-  (interceptor
-    {:name ::status-conversion
-     :leave (fn [context]
-              (let [response (:response context)
-                    errors (get-in response [:body :errors])
-                    statuses (keep :status errors)]
-                (if (seq statuses)
-                  (let [max-status (reduce max (:status response) statuses)]
-                    (-> context
-                        (assoc-in [:response :status] max-status)
-                        (assoc-in [:response :body :errors]
-                                  (map #(dissoc % :status) errors))))
-                  context)))}))
+  (-> {:name ::status-conversion
+       :leave (fn [context]
+                (let [response (:response context)
+                      errors (get-in response [:body :errors])
+                      statuses (keep :status errors)]
+                  (if (seq statuses)
+                    (let [max-status (reduce max (:status response) statuses)]
+                      (-> context
+                          (assoc-in [:response :status] max-status)
+                          (assoc-in [:response :body :errors]
+                                    (map #(dissoc % :status) errors))))
+                    context)))}
+      interceptor
+      (with-dependencies [::graphql-data])))
 
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.
@@ -184,11 +188,12 @@
   from the request and expose that as app-context keys."
   {:added "0.2.0"}
   [app-context]
-  (interceptor
-    {:name ::inject-app-context
-     :enter (fn [context]
-              (assoc-in context [:request :lacinia-app-context]
-                        (assoc app-context :request (:request context))))}))
+  (-> {:name ::inject-app-context
+       :enter (fn [context]
+                (assoc-in context [:request :lacinia-app-context]
+                          (assoc app-context :request (:request context))))}
+      interceptor
+      (with-dependencies [::query-parser])))
 
 (defn ^:private apply-result-to-context
   [context result]
@@ -247,12 +252,13 @@
 
 (def ^{:added "0.3.0"} disallow-subscriptions-interceptor
   "Handles requests for subscriptions."
-  (interceptor
-    {:name ::disallow-subscriptions
-     :enter (fn [context]
-              (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
-                (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint."))))
-              context)}))
+  (-> {:name ::disallow-subscriptions
+       :enter (fn [context]
+                (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
+                  (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint."))))
+                context)}
+      interceptor
+      (with-dependencies [::query-parser])))
 
 (defn graphql-interceptors
   "Returns a dependency map of the GraphQL interceptors:
@@ -284,12 +290,12 @@
                    async-query-executor-handler
                    query-executor-handler)]
     (-> [json-response-interceptor
-         (with-dependencies graphql-data-interceptor [::json-response])
-         (with-dependencies status-conversion-interceptor [::graphql-data])
-         (with-dependencies missing-query-interceptor [::status-conversion])
-         (with-dependencies query-parser [::missing-query])
-         (with-dependencies disallow-subscriptions-interceptor [::query-parser])
-         (with-dependencies inject-app-context [::query-parser])]
+         graphql-data-interceptor
+         status-conversion-interceptor
+         missing-query-interceptor
+         query-parser
+         disallow-subscriptions-interceptor
+         inject-app-context]
         interceptors/as-dependency-map
         (assoc ::query-executor
                (with-dependencies executor [::inject-app-context ::disallow-subscriptions])))))
@@ -347,7 +353,9 @@
   "Creates and returns a Pedestal service map, ready to be started.
   This uses a server type of :jetty.
 
-  The options are used here, and also passed to [[graphql-routes]].
+  The options are used here, and also passed to [[graphql-routes]]
+  (with the two arity version).  Alternately, the complete routes
+  are provided (in the three arity version).
 
   Options:
 

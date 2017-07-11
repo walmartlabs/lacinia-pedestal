@@ -293,7 +293,7 @@
                            (response-encode-loop response-data-ch send-ch)
                            (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
                            (connection-loop compiled-schema keep-alive-ms ws-data-ch response-data-ch
-                                            (chain/enqueue context interceptors))))]
+                                            (chain/enqueue base-context interceptors))))]
 
         (ws/make-ws-listener
           {:on-connect (ws/start-ws-connection on-connect)
