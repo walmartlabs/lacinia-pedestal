@@ -204,7 +204,7 @@
                      :type "complete"})
 
     (is (= @*ping-subscribes @*ping-cleanups)
-        "The completed subscription has been cleaned up.")))
+        "The completed subscriptions have been cleaned up.")))
 
 (deftest client-terminates-connection
   (send-init)
@@ -238,7 +238,7 @@
     (expect-message ::timed-out)
 
     (is (= @*ping-subscribes @*ping-cleanups)
-        "The completed subscription has been cleaned up.")))
+        "The completed subscriptions have been cleaned up.")))
 
 (deftest client-closes-connection
   (send-init)
@@ -272,4 +272,4 @@
     (expect-message ::timed-out)
 
     (is (= @*ping-subscribes @*ping-cleanups)
-        "The completed subscription has been cleaned up.")))
+        "The completed subscriptions have been cleaned up.")))
