@@ -2,14 +2,14 @@
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [com.walmartlabs.lacinia.test-utils
-     :refer [sample-schema-fixture]]
+     :refer [test-server-fixture *ping-subscribes *ping-cleanups]]
     [cheshire.core :as cheshire]
     [gniazdo.core :as g]
     [io.pedestal.log :as log]))
 
 (def ^:private uri "ws://localhost:8888/graphql-ws")
 
-(use-fixtures :once (sample-schema-fixture {:subscriptions true}))
+(use-fixtures :once (test-server-fixture {:subscriptions true}))
 
 (def ^:private *messages (atom []))
 
@@ -70,3 +70,21 @@
 (deftest connect-with-ws
   (is (= [{:type "connection_ack"}]
          (await-messages))))
+
+(deftest ordinary-operation
+  (is (= [{:type "connection_ack"}]
+         (await-messages)))
+
+  (let [id (swap! *id inc)]
+    (send-data {:id id
+                :type :start
+                :payload
+                {:query "{ echo(value: \"ws\") { value }}"}})
+    ;; Queries and mutations always deliver a single payload, then
+    ;; a complete.
+    (is (= [{:id id
+             :payload {:data {:echo {:value "ws"}}}
+             :type "data"}
+            {:id id
+             :type "complete"}]
+           (await-messages)))))

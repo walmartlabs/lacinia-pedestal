@@ -47,7 +47,8 @@
       schema/compile
       (lp/pedestal-service options)))
 
-(defn sample-schema-fixture
+(defn test-server-fixture
+  "Starts up the test server as a fixture."
   [options]
   (fn [f]
     (reset! *ping-subscribes 0)

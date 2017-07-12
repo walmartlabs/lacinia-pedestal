@@ -4,12 +4,12 @@
     [com.walmartlabs.lacinia.pedestal :as lp]
     [clj-http.client :as client]
     [clojure.string :as str]
-    [com.walmartlabs.lacinia.test-utils :refer [sample-schema-fixture
+    [com.walmartlabs.lacinia.test-utils :refer [test-server-fixture
                                                 send-request
                                                 send-json-request]]))
 
 
-(use-fixtures :once (sample-schema-fixture {:graphiql true}))
+(use-fixtures :once (test-server-fixture {:graphiql true}))
 
 (deftest simple-get-query
   (let [response (send-request "{ echo(value: \"hello\") { value method }}")]

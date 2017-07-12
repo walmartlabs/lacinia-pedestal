@@ -59,6 +59,7 @@
   (let [shutdown-ch (chan)
         response-spy-ch (chan 1)
         request (assoc payload
+                       :id id
                        :shutdown-ch shutdown-ch
                        :response-data-ch response-spy-ch)]
     ;; When the spy channel is closed, we write the id
@@ -166,14 +167,13 @@
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
-              (let [payload (get-in context [:request :payload])
-                    {operation-name :operationName
-                     :keys [query variables]} payload
+              (let [{operation-name :operationName
+                     :keys [query variables]} (:request context)
                     parsed-query (parser/parse-query compiled-schema query operation-name)
                     prepared (parser/prepare-with-query-variables parsed-query variables)
                     errors (validator/validate compiled-schema prepared {})]
                 (if (seq errors)
-                  (prn `query-parser-interceptor :errors errors) ; TODO!
+                  (throw (ex-info "Query validation errors." {:errors errors}))
                   (assoc-in context [:request :parsed-lacinia-query] prepared))))}))
 
 (defn inject-app-context-interceptor

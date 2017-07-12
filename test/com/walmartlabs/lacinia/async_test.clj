@@ -3,13 +3,13 @@
     [clojure.test :refer [deftest is use-fixtures]]
     [clojure.core.async :refer [go]]
     [com.walmartlabs.lacinia.async :as async]
-    [com.walmartlabs.lacinia.test-utils :refer [sample-schema-fixture
+    [com.walmartlabs.lacinia.test-utils :refer [test-server-fixture
                                                 send-request]]
     [com.walmartlabs.lacinia.resolve :as resolve]))
 
 ;; TODO: Some way to verify that processing is actually async.
 
-(use-fixtures :once (sample-schema-fixture {:async true}))
+(use-fixtures :once (test-server-fixture {:async true}))
 
 (deftest async-get
   (let [response (send-request "{ echo(value: \"hello\") { value method }}")]
