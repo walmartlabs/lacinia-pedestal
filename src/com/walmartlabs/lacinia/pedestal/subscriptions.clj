@@ -17,7 +17,8 @@
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.resolve :as resolve]
     [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors
-     :refer [ordered-after]]))
+     :refer [ordered-after]]
+    [clojure.string :as str]))
 
 (defn ^:private xform-channel
   [input-ch output-ch xf]
@@ -148,33 +149,80 @@
 ;; We try to keep the interceptors here and in the main namespace as similar as possible, but
 ;; there are distinctions that can't be readily smoothed over.
 
+(defn ^:private fix-up-message
+  [s]
+  (-> s
+      str/trim
+       (str/replace #"\s*\.?$" "")
+      str/capitalize))
+
+(defn ^:private construct-exception-message
+  [e]
+  (loop [result ""
+         prev nil
+         current ^Throwable e]
+    (if
+      (or (= prev current)
+          (nil? current))
+      (str (str/trim result) ".")
+      (let [message (.getMessage e)
+            next-e (.getCause e)]
+        (if (or (str/blank? message)
+                (str/includes? result message))
+          (recur result e next-e)
+          (recur (str result
+                      (when-not (str/blank? result) ": ")
+                      message
+                      (when-let [errors (->> e ex-data :errors
+                                             (map :parse-error)
+                                             distinct
+                                             (map fix-up-message))]
+                        (str " "
+                             (str/join "; " errors))))
+                 e next-e))))))
+
+(def exception-handler-interceptor
+  (interceptor
+    {:name ::exception-handler
+     :error (fn [context ^Throwable e]
+              (log/debug :event ::exception :exception e)
+              (let [{:keys [id response-data-ch]} (:request context)]
+                (put! response-data-ch {:type :error
+                                        :id id
+                                        ;; Strip off the outer layer because that's "Interceptor Exception"
+                                        :payload {:message (construct-exception-message (.getCause e))}})
+                (close! response-data-ch)))}))
+
 (def send-operation-response-interceptor
-  (interceptor {:name ::send-operation-response
-                :leave (fn [context]
-                         (when-let [response (:response context)]
-                           (let [{:keys [id response-data-ch]} (:request context)]
-                             (put! response-data-ch {:type :data
-                                                     :id id
-                                                     :payload response})
-                             (put! response-data-ch {:type :complete
-                                                     :id id})))
-                         context)}))
+  (interceptor
+    {:name ::send-operation-response
+     :leave (fn [context]
+              (when-let [response (:response context)]
+                (let [{:keys [id response-data-ch]} (:request context)]
+                  (put! response-data-ch {:type :data
+                                          :id id
+                                          :payload response})
+                  (put! response-data-ch {:type :complete
+                                          :id id})
+                  (close! response-data-ch)))
+              context)}))
 
 (defn query-parser-interceptor
   "An interceptor that parses the query and places a prepared and validated
   query into the :parsed-lacinia-query key of the request."
   [compiled-schema]
-  (interceptor
-    {:name ::query-parser
-     :enter (fn [context]
-              (let [{operation-name :operationName
-                     :keys [query variables]} (:request context)
-                    parsed-query (parser/parse-query compiled-schema query operation-name)
-                    prepared (parser/prepare-with-query-variables parsed-query variables)
-                    errors (validator/validate compiled-schema prepared {})]
-                (if (seq errors)
-                  (throw (ex-info "Query validation errors." {:errors errors}))
-                  (assoc-in context [:request :parsed-lacinia-query] prepared))))}))
+  (-> {:name ::query-parser
+       :enter (fn [context]
+                (let [{operation-name :operationName
+                       :keys [query variables]} (:request context)
+                      parsed-query (parser/parse-query compiled-schema query operation-name)
+                      prepared (parser/prepare-with-query-variables parsed-query variables)
+                      errors (validator/validate compiled-schema prepared {})]
+                  (if (seq errors)
+                    (throw (ex-info "Query validation errors." {:errors errors}))
+                    (assoc-in context [:request :parsed-lacinia-query] prepared))))}
+      interceptor
+      (ordered-after [::exception-handler])))
 
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.
@@ -281,7 +329,8 @@
 
   Returns a map of interceptor ids to interceptors, with dependencies."
   [compiled-schema app-context]
-  (let [interceptors [send-operation-response-interceptor
+  (let [interceptors [exception-handler-interceptor
+                      send-operation-response-interceptor
                       (query-parser-interceptor compiled-schema)
                       (inject-app-context-interceptor app-context)
                       execute-operation-interceptor]]

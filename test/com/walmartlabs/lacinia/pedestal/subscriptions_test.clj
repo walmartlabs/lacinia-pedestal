@@ -6,7 +6,8 @@
      :refer [test-server-fixture *ping-subscribes *ping-cleanups]]
     [cheshire.core :as cheshire]
     [gniazdo.core :as g]
-    [io.pedestal.log :as log]))
+    [io.pedestal.log :as log]
+    [clojure.string :as str]))
 
 (def ^:private uri "ws://localhost:8888/graphql-ws")
 
@@ -175,12 +176,15 @@
                      :payload {:data {:ping {:message "left #1"}}}
                      :type "data"})
 
+    (Thread/sleep 20)
+
     (send-data {:id right-id
                 :type :start
                 :payload
                 {:query "subscription { ping(message: \"right\", count: 2 ) { message }}"}})
 
-    ;; The timeouts between messages should be enough to ensure a consistent order.
+    ;; The timeouts between messages is usually enough to ensure a consistent order.
+    ;; But not always ...
 
     (expect-message {:id right-id
                      :payload {:data {:ping {:message "right #1"}}}
@@ -273,3 +277,29 @@
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
+
+(deftest client-invalid-message
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (g/send-msg *session* "~~~")
+
+  (let [message (<message!!)]
+    (is (= "connection_error"
+           (:type message)))
+    (is (str/includes? (-> message :payload :message)
+                       "Unexpected character"))))
+
+(deftest client-invalid-payload
+
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (let [id (swap! *id inc)]
+    (send-data {:id id
+                :type :start
+                :payload {:query "~~~"}})
+
+    (expect-message {:id id
+                     :payload {:message "Failed to parse GraphQL query. Token recognition error at: '~'; No viable alternative at input '<eof>'."}
+                     :type "error"})))
