@@ -153,7 +153,7 @@
   [s]
   (-> s
       str/trim
-       (str/replace #"\s*\.?$" "")
+      (str/replace #"\s*\.?$" "")
       str/capitalize))
 
 (defn ^:private construct-exception-message
@@ -186,11 +186,12 @@
     {:name ::exception-handler
      :error (fn [context ^Throwable e]
               (log/debug :event ::exception :exception e)
-              (let [{:keys [id response-data-ch]} (:request context)]
+              (let [{:keys [id response-data-ch]} (:request context)
+                    ;; Strip off the outer layer because that's "Interceptor Exception"
+                    message (construct-exception-message (.getCause e))]
                 (put! response-data-ch {:type :error
                                         :id id
-                                        ;; Strip off the outer layer because that's "Interceptor Exception"
-                                        :payload {:message (construct-exception-message (.getCause e))}})
+                                        :payload {:message message}})
                 (close! response-data-ch)))}))
 
 (def send-operation-response-interceptor
