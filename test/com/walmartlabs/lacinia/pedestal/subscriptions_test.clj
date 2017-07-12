@@ -1,6 +1,7 @@
 (ns com.walmartlabs.lacinia.pedestal.subscriptions-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
+    [clojure.core.async :refer [chan alt!! put! timeout]]
     [com.walmartlabs.lacinia.test-utils
      :refer [test-server-fixture *ping-subscribes *ping-cleanups]]
     [cheshire.core :as cheshire]
@@ -11,12 +12,7 @@
 
 (use-fixtures :once (test-server-fixture {:subscriptions true}))
 
-(def ^:private *messages (atom []))
-
-(defn ^:private store-message
-  [message-text]
-  (log/debug :reason ::receive :message message-text)
-  (swap! *messages conj (cheshire/parse-string message-text true)))
+(def ^:private ^:dynamic *messages-ch* nil)
 
 (def ^:private ^:dynamic *session* nil)
 
@@ -30,50 +26,50 @@
   []
   (send-data {:type :connection_init}))
 
-(defn await-messages
+(defn ^:private <message!!
   []
-  (let [start-ts (System/currentTimeMillis)]
-    (loop []
-      (cond
-        (seq @*messages)
-        (let [messages @*messages]
-          (swap! *messages empty)
-          messages)
+  (alt!!
+    *messages-ch* ([message] message)
 
-        (< 5000 (- (System/currentTimeMillis) start-ts))
-        [:timed-out]
+    (timeout 500) ::timed-out))
 
-        :else
-        (do
-          (Thread/sleep 50)
-          (recur))))))
+(defmacro ^:private expect-message
+  [expected]
+  `(is (= ~expected
+          (<message!!))))
 
 (def ^:private *id (atom 0))
 
 (use-fixtures :each
   (fn [f]
     (log/debug :reason ::test-start)
-    (let [session (g/connect uri
-                             :on-receive store-message
+    (let [messages-ch (chan 10)
+          session (g/connect uri
+                             :on-receive (fn [message-text]
+                                           (log/debug :reason ::receive :message message-text)
+                                           (put! messages-ch (cheshire/parse-string message-text true)))
                              :on-connect (fn [_] (log/debug :reason ::connected))
                              :on-close #(log/debug :reason ::closed :code %1 :message %2)
                              :on-error #(log/error :reason ::unexpected-error
                                                    :exception %))]
-      (try
-        (swap! *messages empty)
-        (binding [*session* session]
-          (send-init)
-          (f))
-        (finally
-          (g/close session))))))
+
+      (binding [*session* session
+                ;; New messages channel on each test as well, to ensure failed tests don't cause
+                ;; cascading failures.
+                *messages-ch* messages-ch]
+        (try
+          (f)
+          (finally
+            (log/debug :reason ::test-end)
+            (g/close session)))))))
 
 (deftest connect-with-ws
-  (is (= [{:type "connection_ack"}]
-         (await-messages))))
+  (send-init)
+  (expect-message {:type "connection_ack"}))
 
 (deftest ordinary-operation
-  (is (= [{:type "connection_ack"}]
-         (await-messages)))
+  (send-init)
+  (expect-message {:type "connection_ack"})
 
   (let [id (swap! *id inc)]
     (send-data {:id id
@@ -82,9 +78,42 @@
                 {:query "{ echo(value: \"ws\") { value }}"}})
     ;; Queries and mutations always deliver a single payload, then
     ;; a complete.
-    (is (= [{:id id
-             :payload {:data {:echo {:value "ws"}}}
-             :type "data"}
-            {:id id
-             :type "complete"}]
-           (await-messages)))))
+    (expect-message {:id id
+                     :payload {:data {:echo {:value "ws"}}}
+                     :type "data"})
+    (expect-message {:id id
+                     :type "complete"})))
+
+(deftest short-subscription
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  ;; There's an observability issue with core.async, of course, just as there's an observability
+  ;; problem inside pure and lazy functions. We have to draw conclusions from some global side-effects
+  ;; we've introduced.
+
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "Any prior subscribes have been cleaned up.")
+
+  (let [id (swap! *id inc)]
+    (send-data {:id id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"short\", count: 2 ) { message }}"}})
+
+    (expect-message {:id id
+                     :payload {:data {:ping {:message "short #1"}}}
+                     :type "data"})
+
+    (is (> @*ping-subscribes @*ping-cleanups)
+        "A subscribe is active, but has not been cleaned up.")
+
+    (expect-message {:id id
+                     :payload {:data {:ping {:message "short #2"}}}
+                     :type "data"})
+
+    (expect-message {:id id
+                     :type "complete"})
+
+    (is (= @*ping-subscribes @*ping-cleanups)
+        "The completed subscription has been cleaned up.")))
