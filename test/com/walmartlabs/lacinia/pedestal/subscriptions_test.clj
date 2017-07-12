@@ -27,11 +27,13 @@
   (send-data {:type :connection_init}))
 
 (defn ^:private <message!!
-  []
-  (alt!!
-    *messages-ch* ([message] message)
+  ([]
+    (<message!! 100))
+  ([timeout-ms]
+   (alt!!
+     *messages-ch* ([message] message)
 
-    (timeout 500) ::timed-out))
+     (timeout timeout-ms) ::timed-out)))
 
 (defmacro ^:private expect-message
   [expected]
@@ -117,3 +119,39 @@
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscription has been cleaned up.")))
+
+(deftest client-stop
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  ;; There's an observability issue with core.async, of course, just as there's an observability
+  ;; problem inside pure and lazy functions. We have to draw conclusions from some global side-effects
+  ;; we've introduced.
+
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "Any prior subscribes have been cleaned up.")
+
+  (let [id (swap! *id inc)]
+    (send-data {:id id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"stop\", count: 20 ) { message }}"}})
+
+    (expect-message {:id id
+                     :payload {:data {:ping {:message "stop #1"}}}
+                     :type "data"})
+
+    (is (> @*ping-subscribes @*ping-cleanups)
+        "A subscribe is active, but has not been cleaned up.")
+
+    (expect-message {:id id
+                     :payload {:data {:ping {:message "stop #2"}}}
+                     :type "data"})
+
+    (send-data {:id id :type :stop})
+
+    (expect-message ::timed-out)
+
+    (is (= @*ping-subscribes @*ping-cleanups)
+        "The completed subscription has been cleaned up.")))
+

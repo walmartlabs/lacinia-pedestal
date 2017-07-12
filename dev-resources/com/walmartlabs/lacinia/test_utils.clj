@@ -30,7 +30,7 @@
                              (dotimes [i count]
                                (source-stream {:message (str message " #" (inc i))
                                                :timestamp (System/currentTimeMillis)})
-                               (Thread/sleep 100))
+                               (Thread/sleep 50))
 
                              (source-stream nil))]
     (.start (Thread. runnable "stream-ping-thread")))
