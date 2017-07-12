@@ -155,3 +155,121 @@
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscription has been cleaned up.")))
 
+(deftest client-parallel
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "Any prior subscribes have been cleaned up.")
+
+  (let [init-subs @*ping-subscribes
+        left-id (swap! *id inc)
+        right-id (swap! *id inc)]
+
+    (send-data {:id left-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"left\", count: 2 ) { message }}"}})
+
+    (expect-message {:id left-id
+                     :payload {:data {:ping {:message "left #1"}}}
+                     :type "data"})
+
+    (send-data {:id right-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"right\", count: 2 ) { message }}"}})
+
+    ;; The timeouts between messages should be enough to ensure a consistent order.
+
+    (expect-message {:id right-id
+                     :payload {:data {:ping {:message "right #1"}}}
+                     :type "data"})
+
+    (is (= 2
+           (- @*ping-subscribes init-subs)))
+
+    (expect-message {:id left-id
+                     :payload {:data {:ping {:message "left #2"}}}
+                     :type "data"})
+
+    (expect-message {:id right-id
+                     :payload {:data {:ping {:message "right #2"}}}
+                     :type "data"})
+
+    (expect-message {:id left-id
+                     :type "complete"})
+
+    (expect-message {:id right-id
+                     :type "complete"})
+
+    (is (= @*ping-subscribes @*ping-cleanups)
+        "The completed subscription has been cleaned up.")))
+
+(deftest client-terminates-connection
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (let [left-id (swap! *id inc)
+        right-id (swap! *id inc)]
+
+    (send-data {:id left-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"left\", count: 2 ) { message }}"}})
+
+    (expect-message {:id left-id
+                     :payload {:data {:ping {:message "left #1"}}}
+                     :type "data"})
+
+    (send-data {:id right-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"right\", count: 2 ) { message }}"}})
+
+    ;; The timeouts between messages should be enough to ensure a consistent order.
+
+    (expect-message {:id right-id
+                     :payload {:data {:ping {:message "right #1"}}}
+                     :type "data"})
+
+    (send-data {:type :connection_terminate})
+
+    (expect-message ::timed-out)
+
+    (is (= @*ping-subscribes @*ping-cleanups)
+        "The completed subscription has been cleaned up.")))
+
+(deftest client-closes-connection
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (let [left-id (swap! *id inc)
+        right-id (swap! *id inc)]
+
+    (send-data {:id left-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"left\", count: 2 ) { message }}"}})
+
+    (expect-message {:id left-id
+                     :payload {:data {:ping {:message "left #1"}}}
+                     :type "data"})
+
+    (send-data {:id right-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"right\", count: 2 ) { message }}"}})
+
+    ;; The timeouts between messages should be enough to ensure a consistent order.
+
+    (expect-message {:id right-id
+                     :payload {:data {:ping {:message "right #1"}}}
+                     :type "data"})
+
+    (g/close *session*)
+
+    (expect-message ::timed-out)
+
+    (is (= @*ping-subscribes @*ping-cleanups)
+        "The completed subscription has been cleaned up.")))
