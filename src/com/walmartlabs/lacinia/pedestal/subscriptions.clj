@@ -17,7 +17,7 @@
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.resolve :as resolve]
     [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors
-     :refer [with-dependencies]]))
+     :refer [ordered-after]]))
 
 (defn ^:private xform-channel
   [input-ch output-ch xf]
@@ -258,7 +258,7 @@
                     (execute-subscription context parsed-query)
                     (execute-operation context parsed-query))))}
       interceptor
-      (with-dependencies [::inject-app-context ::query-parser ::send-operation-response])))
+      (ordered-after [::inject-app-context ::query-parser ::send-operation-response])))
 
 (defn default-interceptors
   "Processing of operation requests from the client is passed through interceptor pipeline.

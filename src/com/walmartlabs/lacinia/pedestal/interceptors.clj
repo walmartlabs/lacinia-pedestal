@@ -4,7 +4,7 @@
   (:require
     [com.stuartsierra.dependency :as d]))
 
-(defn with-dependencies
+(defn ordered-after
   "Adds metadata to an interceptor to identify its dependencies.
   The interceptor will be ordered after all of its dependencies.
 
@@ -30,7 +30,7 @@
   "Orders an interceptor *map* by dependencies.
   The keys of the map are arbitrary keywords (generally the same as the :name
   key of the interceptor map), and each value is an interceptor that has been
-  augmented via [[order-after]].
+  augmented via [[ordered-after]].
 
   The result is an ordered list of just the non-empty interceptors.
 

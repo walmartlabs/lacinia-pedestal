@@ -7,7 +7,7 @@
     [io.pedestal.interceptor :refer [interceptor]]
     [com.walmartlabs.lacinia.pedestal.interceptors
      :as interceptors
-     :refer [with-dependencies]]
+     :refer [ordered-after]]
     [clojure.string :as str]
     [io.pedestal.http :as http]
     [io.pedestal.http.route :as route]
@@ -98,7 +98,7 @@
                   (assoc context :request
                          (merge request q))))}
       interceptor
-      (with-dependencies [::json-response])))
+      (ordered-after [::json-response])))
 
 ;; TODO: These are all inconsistent. Should probably all be in the form of
 ;; {:errors [{:message "xxx"}]
@@ -125,7 +125,7 @@
                          (bad-request (query-not-found-error (:request context))))
                   context))}
       interceptor
-      (with-dependencies [::status-conversion])))
+      (ordered-after [::status-conversion])))
 
 (defn ^:private as-errors
   [exception]
@@ -156,7 +156,7 @@
                     (assoc context :response
                            (bad-request (as-errors e))))))}
       interceptor
-      (with-dependencies [::missing-query])))
+      (ordered-after [::missing-query])))
 
 (def status-conversion-interceptor
   "Checks to see if any error map in the :errors key of the response
@@ -176,7 +176,7 @@
                                     (map #(dissoc % :status) errors))))
                     context)))}
       interceptor
-      (with-dependencies [::graphql-data])))
+      (ordered-after [::graphql-data])))
 
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.
@@ -193,7 +193,7 @@
                 (assoc-in context [:request :lacinia-app-context]
                           (assoc app-context :request (:request context))))}
       interceptor
-      (with-dependencies [::query-parser])))
+      (ordered-after [::query-parser])))
 
 (defn ^:private apply-result-to-context
   [context result]
@@ -258,7 +258,7 @@
                   (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint."))))
                 context)}
       interceptor
-      (with-dependencies [::query-parser])))
+      (ordered-after [::query-parser])))
 
 (defn graphql-interceptors
   "Returns a dependency map of the GraphQL interceptors:
@@ -298,7 +298,7 @@
          inject-app-context]
         interceptors/as-dependency-map
         (assoc ::query-executor
-               (with-dependencies executor [::inject-app-context ::disallow-subscriptions])))))
+               (ordered-after executor [::inject-app-context ::disallow-subscriptions])))))
 
 (defn routes-from-interceptor-map
   "Returns a set of route vectors from a primary interceptor dependency map.
@@ -310,8 +310,8 @@
   [route-path get-interceptor-map]
   (let [post-interceptor-map (-> get-interceptor-map
                                  (assoc ::body-data
-                                        (with-dependencies body-data-interceptor [::json-response]))
-                                 (update ::graphql-data with-dependencies [::body-data]))]
+                                        (ordered-after body-data-interceptor [::json-response]))
+                                 (update ::graphql-data ordered-after [::body-data]))]
     #{[route-path :post
        (interceptors/order-by-dependency post-interceptor-map)
        :route-name ::graphql-post]
