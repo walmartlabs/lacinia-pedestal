@@ -11,7 +11,8 @@
 
 (def ^:private uri "ws://localhost:8888/graphql-ws")
 
-(use-fixtures :once (test-server-fixture {:subscriptions true}))
+(use-fixtures :once (test-server-fixture {:subscriptions true
+                                          :keep-alive-ms 200}))
 
 (def ^:private ^:dynamic *messages-ch* nil)
 
@@ -29,7 +30,7 @@
 
 (defn ^:private <message!!
   ([]
-    (<message!! 100))
+    (<message!! 75))
   ([timeout-ms]
    (alt!!
      *messages-ch* ([message] message)
@@ -303,3 +304,11 @@
     (expect-message {:id id
                      :payload {:message "Failed to parse GraphQL query. Token recognition error at: '~'; No viable alternative at input '<eof>'."}
                      :type "error"})))
+
+(deftest client-keep-alive
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (dotimes [_ 2]
+    (is (= {:type "connection_keep_alive"}
+           (<message!! 250)))))
