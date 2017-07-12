@@ -335,7 +335,8 @@
   : If true, enables routes for the GraphiQL IDE.
 
   :async (default false)
-  : If true, the query will execute asynchronously.
+  : If true, the query will execute asynchronously; the handler will return a clojure.core.async
+    channel rather than blocking.
 
   :app-context
   : The base application context provided to Lacinia when executing a query."
@@ -363,6 +364,7 @@
 
   :subscriptions (default: false)
   : If enabled, then support for WebSocket-based subscriptions is added.
+  : See [[listener-fn-factory]] for further options related to subscriptions.
 
   :port (default: 8888)
   : HTTP port to use.

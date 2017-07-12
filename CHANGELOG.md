@@ -1,14 +1,16 @@
 ## 0.3.0 -- UNRELEASED
 
 Added support for subscriptions.
+Subscriptions are patterned after [Apollo GraphQL](http://dev.apollodata.com/tools/graphql-subscriptions/index.html).
+lacinia-pedestal should be a drop-in replacement for Apollo GraphQL server.
 
 The default interceptor stack has been reordered, slightly.
-New functions have been added to get the interceptor as a map
+New functions have been added to get the interceptors as a map
 annotated with dependency meta-data, and to extract
 the ordered interceptors from such a map.
 
 `com.walmartlabs.lacinia.pedestal/graphql-routes` has been refactored:
-it can be used as before, but it's logic has been largely refactored
+it can be used as before, but its logic has been largely refactored
 into smaller, reusable functions that are used when the default
 interceptor stack must be modified for the application.
 

@@ -195,6 +195,9 @@
                 (close! response-data-ch)))}))
 
 (def send-operation-response-interceptor
+  "Interceptor responsible for the :response key of the context, which
+  is packaged up as the payload of a \"data\" message to the client,
+  followed by a \"complete\" message."
   (interceptor
     {:name ::send-operation-response
      :leave (fn [context]
@@ -301,7 +304,8 @@
     context))
 
 (def execute-operation-interceptor
-  "Executes an mutation or query operation and sets the :response key of the context."
+  "Executes an mutation or query operation and sets the :response key of the context,
+  or executes a long-lived subscription operation."
   (-> {:name ::execute-operation
        :enter (fn [context]
                 (let [request (:request context)
@@ -317,9 +321,18 @@
   "Processing of operation requests from the client is passed through interceptor pipeline.
   The context for the pipeline includes special keys for the necessary channels.
 
-  The :request key is the payload sent from the client, along with additional keys :response-data-ch
-  (which should be closed when the subscription is exhausted) and
-  :shutdown-ch (which will be closed if the client stops the subscription).
+  The :request key is the payload sent from the client, along with additional keys:
+
+  :response-data-ch
+  : Channel to which Clojure data destined for the client should be written.
+  : This should be closed when the subscription data is exhausted.
+
+  :shutdown-ch
+  : This channel will be closed if the client terminates the connection.
+    For subscriptions, this ensures that the subscription is cleaned up.
+
+  :id
+  : The client-provided string that must be included in the response.
 
   For mutation and query operations, a :response key is added to the context, which triggers
   a response to the client.
@@ -327,6 +340,12 @@
   For subscription operations, it's a bit different; there's no immediate response, but a new CSP
   will work with the streamer defined by the subscription to send a sequence of \"data\" messages
   to the client.
+
+  * ::exception-handler [[exception-handler-interceptor]]
+  * ::send-operation-response [[send-operation-response-interceptor]]
+  * ::query-parser [query-parser-interceptor]]
+  * ::inject-app-context [inject-app-context-interceptor]]
+  * ::execute-operation [[execute-operation-interceptor]]
 
   Returns a map of interceptor ids to interceptors, with dependencies."
   [compiled-schema app-context]
@@ -338,12 +357,27 @@
     (interceptors/as-dependency-map interceptors)))
 
 (defn listener-fn-factory
-  "A factory for the function used to create a WS listener."
+  "A factory for the function used to create a WS listener.
+
+  Options:
+
+  :keep-alive-ms (default: 30000)
+  : The interval at which keep alive messages are sent to the client.
+
+  :app-context
+  : The base application context provided to Lacinia when executing a query.
+
+  :interceptors-configurator (default: indentity)
+  : A function that is passed the map of interceptors and can modify the map before it is ordered
+    into a seq of interceptors."
   [compiled-schema options]
   (let [{:keys [keep-alive-ms app-context interceptors-configurator]
          :or {keep-alive-ms 30000
               interceptors-configurator identity}} options
-        base-context {::chain/terminators [:response]}]
+        base-context {::chain/terminators [:response]}
+        interceptors (-> (default-interceptors compiled-schema app-context)
+                         interceptors-configurator
+                         interceptors/order-by-dependency)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [_ _ _]
       (log/debug :event ::upgrade-requested)
@@ -356,13 +390,10 @@
                        (close! ws-data-ch))
             on-connect (fn [session send-ch]
                          (log/debug :event ::connected)
-                         (let [interceptors (-> (default-interceptors compiled-schema app-context)
-                                                interceptors-configurator
-                                                interceptors/order-by-dependency)]
-                           (response-encode-loop response-data-ch send-ch)
-                           (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
-                           (connection-loop compiled-schema keep-alive-ms ws-data-ch response-data-ch
-                                            (chain/enqueue base-context interceptors))))]
+                         (response-encode-loop response-data-ch send-ch)
+                         (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
+                         (connection-loop compiled-schema keep-alive-ms ws-data-ch response-data-ch
+                                          (chain/enqueue base-context interceptors)))]
 
         (ws/make-ws-listener
           {:on-connect (ws/start-ws-connection on-connect)
