@@ -22,7 +22,7 @@
                        #(into (or % #{}) dependencies)))))
 
 (defn dependencies
-  "Returns the set of dependencies for an interceptor, as provided by [[with-dependencies]]."
+  "Returns the set of dependencies for an interceptor, as provided by [[ordered-after]]."
   [interceptor]
   (-> interceptor meta ::dependencies))
 
