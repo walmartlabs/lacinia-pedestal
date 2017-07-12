@@ -245,7 +245,11 @@
               (>! response-data-ch {:type :complete
                                     :id id})
               (close! response-data-ch)
-              (cleanup-fn))))))))
+              (cleanup-fn))))))
+
+    ;; Return the context unchanged, it will unwind while the above process
+    ;; does the real work.
+    context))
 
 (def execute-operation-interceptor
   "Executes an mutation or query operation and sets the :response key of the context."
