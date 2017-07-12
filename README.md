@@ -2,6 +2,8 @@
 
 [![Clojars Project](https://img.shields.io/clojars/v/com.walmartlabs/lacinia-pedestal.svg)](https://clojars.org/com.walmartlabs/lacinia-pedestal)
 
+[![CircleCI](https://circleci.com/gh/walmartlabs/lacinia-pedestal.svg?style=svg)](https://circleci.com/gh/walmartlabs/lacinia-pedestal)
+
 A library that adds the
 [Pedestal](https://github.com/pedestal/pedestal) underpinnings needed when exposing
 [Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
