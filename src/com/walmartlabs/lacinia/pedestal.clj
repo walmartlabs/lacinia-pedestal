@@ -1,6 +1,7 @@
 (ns com.walmartlabs.lacinia.pedestal
   "Defines Pedestal interceptors and supporting code."
   (:require
+    [clojure.test :refer [function?]]
     [clojure.core.async :refer [chan put!]]
     [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.parser :refer [parse-query]]
@@ -115,14 +116,14 @@
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
    Adds a new request key, :parsed-lacinia-query."
-  [schema]
+  [get-compiled-schema]
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
               (try
                 (let [q (get-in context [:request :graphql-query])
                       operation-name (get-in context [:request :graphql-operation-name])
-                      parsed-query (parse-query schema q operation-name)]
+                      parsed-query (parse-query (get-compiled-schema) q operation-name)]
                   (assoc-in context [:request :parsed-lacinia-query] parsed-query))
                 (catch Exception e
                   (assoc context :response
@@ -240,11 +241,11 @@
 
   :app-context
   : The base application context provided to Lacinia when executing a query."
-  [compiled-schema options]
+  [get-compiled-schema options]
   (let [index-handler (when (:graphiql options)
                         (fn [request]
                           (response/redirect "/index.html")))
-        query-parser (query-parser-interceptor compiled-schema)
+        query-parser (query-parser-interceptor get-compiled-schema)
         inject-app-context (inject-app-context-interceptor (:app-context options))
         executor (if (:async options)
                    async-query-executor-handler
@@ -287,12 +288,15 @@
   :env (default: :dev)
   : Environment being started."
   [compiled-schema options]
-  (->
-    {:env (:env options :dev)
-     ::http/routes (route/expand-routes (graphql-routes compiled-schema options))
-     ::http/port (:port options 8888)
-     ::http/type :jetty
-     ::http/join? false}
-    (cond->
-      (:graphiql options) (assoc ::http/resource-path "graphiql"))
-    http/create-server))
+  (let [get-compiled-schema (if (function? compiled-schema)
+                                compiled-schema
+                                (constantly compiled-schema))]
+    (->
+      {:env (:env options :dev)
+       ::http/routes (route/expand-routes (graphql-routes get-compiled-schema options))
+       ::http/port (:port options 8888)
+       ::http/type :jetty
+       ::http/join? false}
+      (cond->
+        (:graphiql options) (assoc ::http/resource-path "graphiql"))
+      http/create-server)))
