@@ -7,6 +7,7 @@ A library that adds the
 [Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
 
 [Lacinia-Pedestal Manual](http://lacinia-pedestal.readthedocs.io/en/latest/)
+
 [API Documentation](http://walmartlabs.github.io/lacinia-pedestal/)
 
 ## Usage
