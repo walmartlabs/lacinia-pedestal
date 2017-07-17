@@ -8,6 +8,8 @@ A library that adds the
 [Pedestal](https://github.com/pedestal/pedestal) underpinnings needed when exposing
 [Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
 
+[Lacinia-Pedestal Manual](http://lacinia-pedestal.readthedocs.io/en/latest/)
+
 [API Documentation](http://walmartlabs.github.io/lacinia-pedestal/)
 
 ## Usage
@@ -28,7 +30,7 @@ generate a service, then invoke `io.pedestal.http/start`.
 (def hello-schema (schema/compile
                    {:queries {:hello
                               ;; String is quoted here; in EDN the quotation is not required
-                              {:type 'String 
+                              {:type 'String
                                :resolve (constantly "world")}}}))
 
 (def service (lacinia/pedestal-service hello-schema {:graphiql true}))
@@ -50,80 +52,6 @@ Lacinia will handle GET and POST requests at the `/graphql` endpoint.
 $ curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d '{ hello }'
 {"data":{"hello":"world"}}
 ```
-
-When the `:graphiql` option is true, then a
-[GraphiQL](https://github.com/graphql/graphiql) IDE will be available at `/`.
-
-Alternately, you can build you own stack and re-use the individual pieces
-supplied here as building blocks.
-The steps for processing a GraphQL query are broken into multiple stages:
-- Extracting the query string and query variables from the request
-- Verifying that a query was included in the request
-- Converting the query string to a parsed query
-- Rejecting subscription queries
-- Defining the application context for executing the query
-- Executing the parsed query (possibly, asynchronously)
-- Setting the response status
-- Encoding the response body as JSON
-
-Each of these steps is its own Pedestal interceptor.
-
-#### Clients
-
-##### GET request
-
-For GET requests, query parameter `query` should be the query to execute.
-
-A second optional query parameter, `variables`, should be a string that can
-be decoded and parsed into a JSON object.
-
-##### POST application/graphql
-
-For POST requests, the content type should be `application/graphql` and the
-body of the request should be the query to execute.
-
-In addition, the `variables` query parameters may also be used.
-
-This format is somewhat `legacy`; it was used prior to the GraphQL specification
-providing details about the over-the-wire format preferred.
-
-##### POST application/json
-
-This the prefered approach when using variables.
-The content type should be `application/json`.
-
-The provided JSON object must have a `query` key, with a string value.
-It may optionally include a `variables` key, a nested JSON object.
-
-Finally, an optional `operationName` key may identify the specific operation
-to execute, for a query that contains multiple operations.
-
-The response type will be `application/json`.
-
-#### Response Status
-
-Response status is normally 200.
-
-If the :data key is missing, that indicates a bad request (a failure
-during query parse or prepare), and so
-the response status is set to 400.
-
-However, you can get more precise control over the response status.
-A field resolver function may use the `resolve-as` function to return
-an error map.
-An error map with a :status key is used to set the overall response
-status.
-The :status value is expected to be numeric.
-
-Typically, you would make use of this feature when a field resolver utilizes an external
-resource (such as a database, or another web service) and that resource
-fails; the field resolver can determine an appropriate HTTP status
-and include it with an error map.
-
-The response status is the maximum of any :status value of any
-error map.
-
-The :error key is `dissoc`'ed from any error maps in the response.
 
 ### GraphiQL
 

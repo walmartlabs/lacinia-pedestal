@@ -1,0 +1,23 @@
+(ns demo.server
+  (:require
+    [clojure.edn :as edn]
+    [clojure.java.io :as io]
+    [com.walmartlabs.lacinia.pedestal :refer [pedestal-service]
+    [com.walmartlabs.lacinia.schema :as schema]
+    [io.pedestal.http :as http]))
+
+(defn ^:private resolve-hello
+  [context args value]
+  "Hello, Clojurians!")
+
+(defn ^:private hello-schema
+  (-> "hello-world-schema.edn"
+      io/resource
+      slurp
+      edn/read-string
+      (util/attach-resolvers {:resolve-hello resolve-hello})
+      schema/compile))
+
+(def service (-> (hello-schema)
+                 (pedestal-service {:graphiql true})
+                 http/start))
