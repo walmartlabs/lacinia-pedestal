@@ -367,7 +367,7 @@
   :app-context
   : The base application context provided to Lacinia when executing a query.
 
-  :interceptors-configurator (default: indentity)
+  :interceptors-configurator (default: identity)
   : A function that is passed the map of interceptors and can modify the map before it is ordered
     into a seq of interceptors."
   [compiled-schema options]
