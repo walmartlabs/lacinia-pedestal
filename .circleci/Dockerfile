@@ -7,8 +7,12 @@ LABEL maintainer="hlship@gmail.com"
 RUN curl -sL https://deb.nodesource.com/setup_7.x | sudo bash -
 RUN sudo apt-get install -y nodejs
 
-# docker build -t hlship/circleci-lein-node:2.7.1 .
-# docker push hlship/circleci-lein-node:2.7.1
+
+# To build & deploy:
+# From .circleci folder:
+#
+#    docker build -t hlship/circleci-lein-node:2.7.1 .
+#    docker push hlship/circleci-lein-node:2.7.1
 
 
 
