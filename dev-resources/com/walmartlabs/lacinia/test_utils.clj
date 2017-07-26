@@ -19,15 +19,41 @@
                         :method (get-in context [:request :request-method])}]
     (resolve-as resolved-value error-map)))
 
-(defn sample-schema-fixture
+(def *ping-subscribes (atom 0))
+(def *ping-cleanups (atom 0))
+
+(defn ^:private stream-ping
+  [context args source-stream]
+  (swap! *ping-subscribes inc)
+  (let [{:keys [message count]} args
+        runnable ^Runnable (fn []
+                             (dotimes [i count]
+                               (source-stream {:message (str message " #" (inc i))
+                                               :timestamp (System/currentTimeMillis)})
+                               (Thread/sleep 50))
+
+                             (source-stream nil))]
+    (.start (Thread. runnable "stream-ping-thread")))
+  ;; Return a cleanup fn:
+  #(swap! *ping-cleanups inc))
+
+(defn ^:private make-service
+  [options]
+  (-> (io/resource "sample-schema.edn")
+      slurp
+      edn/read-string
+      (util/attach-resolvers {:resolve-echo resolve-echo})
+      (util/attach-streamers {:stream-ping stream-ping})
+      schema/compile
+      (lp/pedestal-service options)))
+
+(defn test-server-fixture
+  "Starts up the test server as a fixture."
   [options]
   (fn [f]
-    (let [schema (-> (io/resource "sample-schema.edn")
-                     slurp
-                     edn/read-string
-                     (util/attach-resolvers {:resolve-echo resolve-echo})
-                     schema/compile)
-          service (lp/pedestal-service schema options)]
+    (reset! *ping-subscribes 0)
+    (reset! *ping-cleanups 0)
+    (let [service (make-service options)]
       (http/start service)
       (try
         (f)

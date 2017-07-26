@@ -2,7 +2,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%-5level %logger - %msg%n</pattern>
+            <pattern>%d{ss.SSS} %-5level %logger - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -13,5 +13,9 @@
 
     <!-- Switch to DEBUG to see each interceptor execute: -->
     <logger name="io.pedestal.interceptor" level="warn"/>
+
+    <logger name="com.walmartlabs.lacinia" level="warn"/>
+
+    <logger name="org.eclipse.jetty.websocket" level="warn"/>
 
 </configuration>
