@@ -8,6 +8,9 @@ A library that adds the
 [Pedestal](https://github.com/pedestal/pedestal) underpinnings needed when exposing
 [Lacinia](https://github.com/walmartlabs/lacinia) as an HTTP endpoint.
 
+Lacinia-Pedestal also supports GraphQL subscriptions, using the same protocol
+as [Apollo GraphQL](https://github.com/apollographql/subscriptions-transport-ws).
+
 [Lacinia-Pedestal Manual](http://lacinia-pedestal.readthedocs.io/en/latest/)
 
 [API Documentation](http://walmartlabs.github.io/lacinia-pedestal/)
