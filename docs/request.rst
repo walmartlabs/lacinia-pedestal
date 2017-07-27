@@ -13,15 +13,19 @@ The query must be provided as query parameter ``query``.
 POST (application/json)
 -----------------------
 
-When using POST with the ``application/json`` content type, the body of the request must
-contain a ``query`` key, and may contain additional keys:
+When using POST with the ``application/json`` content type, the body of the request may contain the following keys:
 
-* ``query``: The GraphQL query, as a string.
+.. glossary::
 
-* ``variables``: A JSON object of variables (as defined and referenced in the query).
+  ``query``
+    Required: The GraphQL query, as a string.
 
-*  ``operationName``: The name of the specific operation to execute, when the query contains
-   more than one named operation.
+  ``variables``
+    Optional: A JSON object of variables (as defined and referenced in the query).
+
+  ``operationName``
+    Optional: The name of the specific operation to execute, when the query contains
+    more than one named operation.
 
 
 POST (application/graphql)
