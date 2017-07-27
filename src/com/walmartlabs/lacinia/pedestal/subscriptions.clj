@@ -182,6 +182,7 @@
                  e next-e))))))
 
 (def exception-handler-interceptor
+  "An interceptor that implements the :error callback, to send an \"error\" message to the client."
   (interceptor
     {:name ::exception-handler
      :error (fn [context ^Throwable e]
@@ -195,7 +196,8 @@
                 (close! response-data-ch)))}))
 
 (def send-operation-response-interceptor
-  "Interceptor responsible for the :response key of the context, which
+  "Interceptor responsible for the :response key of the context (set when a request
+  is either a query or mutation, but not a subscription). The :response data
   is packaged up as the payload of a \"data\" message to the client,
   followed by a \"complete\" message."
   (interceptor
@@ -304,7 +306,7 @@
     context))
 
 (def execute-operation-interceptor
-  "Executes an mutation or query operation and sets the :response key of the context,
+  "Executes a mutation or query operation and sets the :response key of the context,
   or executes a long-lived subscription operation."
   (-> {:name ::execute-operation
        :enter (fn [context]
@@ -367,17 +369,16 @@
   :app-context
   : The base application context provided to Lacinia when executing a query.
 
-  :interceptors-configurator (default: identity)
-  : A function that is passed the map of interceptors and can modify the map before it is ordered
-    into a seq of interceptors."
+  :subscription-interceptors
+  : A seq of interceptors for processing queries.  The default is
+    derived from [[default-interceptors]]."
   [compiled-schema options]
-  (let [{:keys [keep-alive-ms app-context interceptors-configurator]
-         :or {keep-alive-ms 30000
-              interceptors-configurator identity}} options
-        base-context {::chain/terminators [:response]}
-        interceptors (-> (default-interceptors compiled-schema app-context)
-                         interceptors-configurator
-                         interceptors/order-by-dependency)]
+  (let [{:keys [keep-alive-ms app-context]
+         :or {keep-alive-ms 30000}} options
+        interceptors (or (:subscription-interceptors options)
+                         (interceptors/order-by-dependency (default-interceptors compiled-schema app-context)))
+        base-context (chain/enqueue {::chain/terminators [:response]}
+                                    interceptors)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [_ _ _]
       (log/debug :event ::upgrade-requested)
@@ -392,9 +393,7 @@
                          (log/debug :event ::connected)
                          (response-encode-loop response-data-ch send-ch)
                          (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
-                         (connection-loop compiled-schema keep-alive-ms ws-data-ch response-data-ch
-                                          (chain/enqueue base-context interceptors)))]
-
+                         (connection-loop compiled-schema keep-alive-ms ws-data-ch response-data-ch base-context))]
         (ws/make-ws-listener
           {:on-connect (ws/start-ws-connection on-connect)
            ;; TODO: Back-pressure?

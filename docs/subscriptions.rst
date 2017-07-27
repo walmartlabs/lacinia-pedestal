@@ -56,10 +56,9 @@ The following keys are used:
   ``:keep-alive-ms``
     The interval at which keep-alive messages are sent to the client; defaults to 30 seconds.
 
-  ``:interceptors-configurator``
-    A function that is passed the map of interceptors for processing subscription requests, and
-    returns the same or update map.  This is to allow customization of the interceptor chain for
-    domain-specific logic.
+  ``:subscription-interceptors``
+    A seq of interceptors used when processing GraphQL query, mutation, or subscription requests
+    via the WebSocket connection. This is used when overriding the default interceptors.
 
 Endpoint
 --------
