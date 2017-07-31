@@ -98,7 +98,7 @@
         (async/timeout keep-alive-ms)
         (do
           (log/debug :event ::timeout)
-          (>! response-data-ch {:type :connection_keep_alive})
+          (>! response-data-ch {:type :ka})
           (recur subs))
 
         ws-data-ch
