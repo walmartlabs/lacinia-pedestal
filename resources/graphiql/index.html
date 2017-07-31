@@ -21,7 +21,7 @@
     <script src="//cdn.jsdelivr.net/fetch/0.9.0/fetch.min.js"></script>
     <script src="//cdn.jsdelivr.net/react/0.14.7/react.min.js"></script>
     <script src="//cdn.jsdelivr.net/react/0.14.7/react-dom.min.js"></script>
-    <script src=”//unpkg.com/subscriptions-transport-ws@0.5.4/browser/client.js”></script>
+    <script src="//unpkg.com/subscriptions-transport-ws@0.8.2/browser/client.js"></script>
     <script src="//unpkg.com/graphiql-subscriptions-fetcher@0.0.2/browser/client.js"></script>
     <script src="./graphiql.js"></script>
   </head>
@@ -103,8 +103,8 @@
           }
         });
       }
-      var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(window.location.origin + '/graphql-ws', { reconnect: true });
-      var subscriptionsFetcher = window.SubscriptionsTransportWs.graphQLFetcher(subscriptionsClient, graphQLFetcher);
+      var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(window.location.origin.replace('http', 'ws') + '/graphql-ws', { reconnect: true });
+      var subscriptionsFetcher = window.GraphiQLSubscriptionsFetcher.graphQLFetcher(subscriptionsClient, graphQLFetcher);
 
       // Render <GraphiQL /> into the body.
       ReactDOM.render(
