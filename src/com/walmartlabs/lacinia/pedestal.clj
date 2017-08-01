@@ -252,8 +252,8 @@
   (-> {:name ::disallow-subscriptions
        :enter (fn [context]
                 (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
-                  (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint."))))
-                context)}
+                  (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
+                  context))}
       interceptor
       (ordered-after [::query-parser])))
 

@@ -105,3 +105,9 @@
   (let [response (client/get "http://localhost:8888/" {:throw-exceptions false})]
     (is (= 200 (:status response)))
     (is (str/includes? (:body response) "<html>"))))
+
+(deftest forbids-subscriptions
+  (let [response (send-request :post "subscription { ping(message: \"gnip\") { message }}")]
+    (is (= {:body {:errors [{:message "Subscription queries must be processed by the WebSockets endpoint."}]}
+            :status 400}
+           (select-keys response [:status :body])))))
