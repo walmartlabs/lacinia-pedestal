@@ -4,17 +4,17 @@
   :license {:name "Apache Software License 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [com.walmartlabs/lacinia "0.19.0"]
-                 [com.fasterxml.jackson.core/jackson-core "2.8.8"]
+                 [com.walmartlabs/lacinia "0.20.0"]
+                 [com.fasterxml.jackson.core/jackson-core "2.9.0"]
                  [io.pedestal/pedestal.service "0.5.2"]
                  [io.pedestal/pedestal.jetty "0.5.2"]
                  [com.stuartsierra/dependency "0.2.0"]]
   :profiles
-  {:dev {:dependencies [[clj-http "2.0.0"]
+  {:dev {:dependencies [[clj-http "2.3.0"]
 
                         ;; Overrides to match version of Jetty via Pedestal:
                         [org.eclipse.jetty.websocket/websocket-client "9.4.0.v20161208"]
-                        [stylefruits/gniazdo "1.0.0"
+                        [stylefruits/gniazdo "1.0.1"
                          :exclusions [org.eclipse.jetty.websocket/websocket-client]]
 
                         [io.aviso/logging "0.2.0"]]}}
