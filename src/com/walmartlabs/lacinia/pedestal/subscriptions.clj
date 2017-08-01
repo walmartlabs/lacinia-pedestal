@@ -98,7 +98,7 @@
         (async/timeout keep-alive-ms)
         (do
           (log/debug :event ::timeout)
-          (>! response-data-ch {:type :connection_keep_alive})
+          (>! response-data-ch {:type :ka})
           (recur subs))
 
         ws-data-ch
@@ -379,7 +379,8 @@
                          interceptors-configurator
                          interceptors/order-by-dependency)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
-    (fn [_ _ _]
+    (fn [req resp ws-map]
+      (.setAcceptedSubProtocol resp "graphql-ws")
       (log/debug :event ::upgrade-requested)
       (let [response-data-ch (chan 10)                      ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
