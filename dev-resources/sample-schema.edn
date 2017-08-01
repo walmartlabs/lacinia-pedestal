@@ -1,27 +1,37 @@
 {:enums
  {:method
-  {:values [:get :post]}}
+  {:description "A mapping to HTTP methods." :values [:get :post]}}
 
  :objects
  {:echoed_value
-  {:fields {:value {:type String}
+  {:description "This is a long description, and can be in `Markdown` format.
+
+- You have to be careful about indentation
+- It can make the `schema.edn` file a bit cluttered"
+   :fields {:value {:type String}
             :method {:type (non-null :method)}}}
 
   :Ping
-  {:fields
+  {:description "Captures a message and a timestamp. This is used when testing
+Subscriptions."
+   :fields
    {:message {:type (non-null String)}
     :timestamp {:type (non-null Int)}}}}
 
  :queries
  {:echo {:type :echoed_value
-         :args {:value {:type String}
+         :description "Captures arguments into an `echoed_value` input object."
+         :args {:value {:type String
+                        :description "The value to expose in the `echoed_object`."}
                 ;; :error is an optional status code
-                :error {:type Int}}
+                :error {:type Int
+                        :description "Optional status code to resolve as an error with the field."}}
          :resolve :resolve-echo}}
 
  :subscriptions
  {:ping
   {:type :Ping
+   :description "Sends the provided message a particular number of times, as a subscription."
    :stream :stream-ping
    :args
    {:count {:type Int

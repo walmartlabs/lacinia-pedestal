@@ -59,7 +59,7 @@ $ curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d 
 ### GraphiQL
 
 The GraphiQL packaged inside the library is built using `npm`, from
-version `0.9.3`.
+version `0.11.2`.
 
 ## License
 
