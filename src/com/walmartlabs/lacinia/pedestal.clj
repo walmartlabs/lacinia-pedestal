@@ -100,19 +100,16 @@
       interceptor
       (ordered-after [::json-response])))
 
-;; TODO: These are all inconsistent. Should probably all be in the form of
-;; {:errors [{:message "xxx"}]
-
 (defn ^:private query-not-found-error
   [request]
   (let [request-method (get request :request-method)
         content-type (get-in request [:headers "content-type"])
-        body (get request :body)]
-    (cond
-      (= request-method :get) "Query parameter 'query' is missing or blank."
-      (nil? body) "Request body is empty."
-      :else {:message "Request content type must be application/graphql or application/json."})))
-
+        body (get request :body)
+        message (cond
+                  (= request-method :get) "Query parameter 'query' is missing or blank."
+                  (str/blank? body) "Request body is empty."
+                  :else "Request content type must be application/graphql or application/json.")]
+    (message-as-errors message)))
 
 (def missing-query-interceptor
   "Rejects the request when there's no GraphQL query in the request map.
@@ -267,7 +264,7 @@
   * ::graphql-data [[graphql-data-interceptor]]
   * ::status-conversion [[status-conversion-interceptor]]
   * ::missing-query [[missing-query-interceptor]]
-  * ::query-paraser [[query-parser-interceptor]]
+  * ::query-parser [[query-parser-interceptor]]
   * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
   * ::inject-app-context [[inject-app-context-interceptor]]
   * ::query-executor [[query-executor-handler]] or [[async-query-executor-handler]]

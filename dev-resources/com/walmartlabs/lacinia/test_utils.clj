@@ -103,8 +103,9 @@
    (-> {:method method
         :url "http://localhost:8888/graphql"
         :throw-exceptions false
-        :body (cheshire/generate-string json)
         :headers {"Content-Type" content-type}}
+       (cond->
+         json (assoc :body (cheshire/generate-string json)))
        client/request
        (update :body
                #(try

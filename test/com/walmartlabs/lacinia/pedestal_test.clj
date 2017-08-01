@@ -32,7 +32,19 @@
         (send-json-request :post
                            {:query "{ echo(value: \"hello\") { value method }}"}
                            "text/plain")]
-    (is (= {:body {:message "Request content type must be application/graphql or application/json."}
+    (is (= {:body {:errors [{:message "Request content type must be application/graphql or application/json."}]}
+            :status 400}
+           (select-keys response [:status :body])))))
+
+(deftest missing-query
+  (let [response (send-json-request :get nil nil)]
+    (is (= {:body {:errors [{:message "Query parameter 'query' is missing or blank."}]}
+            :status 400}
+           (select-keys response [:status :body])))))
+
+(deftest empty-body
+  (let [response (send-json-request :post nil "application/json")]
+    (is (= {:body {:errors [{:message "Request body is empty."}]}
             :status 400}
            (select-keys response [:status :body])))))
 
