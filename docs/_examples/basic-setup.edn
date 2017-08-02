@@ -10,7 +10,7 @@
   [context args value]
   "Hello, Clojurians!")
 
-(defn ^:private hello-schema
+(def ^:private hello-schema
   (-> "hello-world-schema.edn"
       io/resource
       slurp
