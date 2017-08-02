@@ -310,5 +310,5 @@
   (expect-message {:type "connection_ack"})
 
   (dotimes [_ 2]
-    (is (= {:type "connection_keep_alive"}
+    (is (= {:type "ka"}
            (<message!! 250)))))
