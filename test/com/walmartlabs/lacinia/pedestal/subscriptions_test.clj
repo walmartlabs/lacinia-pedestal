@@ -30,7 +30,7 @@
 
 (defn ^:private <message!!
   ([]
-    (<message!! 75))
+   (<message!! 75))
   ([timeout-ms]
    (alt!!
      *messages-ch* ([message] message)
