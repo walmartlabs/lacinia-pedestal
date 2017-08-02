@@ -98,7 +98,7 @@
 
 (defn send-json-request
   ([method json]
-   (send-json-request method json "application/json"))
+   (send-json-request method json "application/json; charset=utf-8"))
   ([method json content-type]
    (-> {:method method
         :url "http://localhost:8888/graphql"
