@@ -35,8 +35,7 @@
   {:errors [{:message message}]})
 
 (defn parse-content-type
-  "Parse `s` as an RFC 2616 media type.
-  Originally from http-kit"
+  "Parse `s` as an RFC 2616 media type."
   [s]
   (if-let [[_ type _ _ raw-params] (re-matches #"\s*(([^/]+)/([^ ;]+))\s*(\s*;.*)?" (str s))]
     {:content-type (keyword type)
