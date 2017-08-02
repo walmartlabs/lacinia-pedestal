@@ -91,60 +91,60 @@
       (alt!
         cleanup-ch
         ([id]
-          (log/debug :event ::cleanup-ch :id id)
-          (recur (dissoc subs id)))
+         (log/debug :event ::cleanup-ch :id id)
+         (recur (dissoc subs id)))
 
         ;; TODO: Maybe only after connection_init?
         (async/timeout keep-alive-ms)
         (do
           (log/debug :event ::timeout)
-          (>! response-data-ch {:type :connection_keep_alive})
+          (>! response-data-ch {:type :ka})
           (recur subs))
 
         ws-data-ch
         ([data]
-          (if (nil? data)
+         (if (nil? data)
             ;; When the client closes the connection, any running subscriptions need to
             ;; shutdown and cleanup.
-            (do
-              (log/debug :event ::client-close)
-              (run! close! (vals subs)))
+           (do
+             (log/debug :event ::client-close)
+             (run! close! (vals subs)))
             ;; Otherwise it's a message from the client to be acted upon.
-            (let [{:keys [id payload type]} data]
-              (case type
-                "connection_init"
-                (when (>! response-data-ch {:type :connection_ack})
-                  (recur subs))
+           (let [{:keys [id payload type]} data]
+             (case type
+               "connection_init"
+               (when (>! response-data-ch {:type :connection_ack})
+                 (recur subs))
 
                 ;; TODO: Track state, don't allow start, etc. until after connection_init
 
-                "start"
-                (do
-                  (log/debug :event ::start :id id)
-                  (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context))))
+               "start"
+               (do
+                 (log/debug :event ::start :id id)
+                 (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context))))
 
-                "stop"
-                (do
-                  (log/debug :event ::stop :id id)
-                  (when-some [sub-shutdown-ch (get subs id)]
-                    (close! sub-shutdown-ch))
-                  (recur subs))
+               "stop"
+               (do
+                 (log/debug :event ::stop :id id)
+                 (when-some [sub-shutdown-ch (get subs id)]
+                   (close! sub-shutdown-ch))
+                 (recur subs))
 
-                "connection_terminate"
-                (do
-                  (log/debug :event ::terminate)
-                  (run! close! (vals subs))
+               "connection_terminate"
+               (do
+                 (log/debug :event ::terminate)
+                 (run! close! (vals subs))
                   ;; This shuts down the connection entirely.
-                  (close! response-data-ch))
+                 (close! response-data-ch))
 
                 ;; Not recognized!
-                (let [response (cond-> {:type :error
-                                        :payload {:message "Unrecognized message type."
-                                                  :type type}}
-                                 id (assoc :id id))]
-                  (log/debug :event ::unknown-type :type type)
-                  (>! response-data-ch response)
-                  (recur subs))))))))))
+               (let [response (cond-> {:type :error
+                                       :payload {:message "Unrecognized message type."
+                                                 :type type}}
+                                id (assoc :id id))]
+                 (log/debug :event ::unknown-type :type type)
+                 (>! response-data-ch response)
+                 (recur subs))))))))))
 
 ;; We try to keep the interceptors here and in the main namespace as similar as possible, but
 ;; there are distinctions that can't be readily smoothed over.
@@ -279,25 +279,25 @@
 
         source-stream-ch
         ([value]
-          (if (some? value)
-            (do
-              (-> app-context
-                  (assoc ::executor/resolved-value value)
-                  executor/execute-query
-                  (resolve/on-deliver! (fn [response]
-                                         (put! response-data-ch
-                                               {:type :data
-                                                :id id
-                                                :payload response})))
+         (if (some? value)
+           (do
+             (-> app-context
+                 (assoc ::executor/resolved-value value)
+                 executor/execute-query
+                 (resolve/on-deliver! (fn [response]
+                                        (put! response-data-ch
+                                              {:type :data
+                                               :id id
+                                               :payload response})))
                   ;; Don't execute the query in a limited go block thread
-                  thread)
-              (recur))
-            (do
+                 thread)
+             (recur))
+           (do
               ;; The streamer has signalled that it has exhausted the subscription.
-              (>! response-data-ch {:type :complete
-                                    :id id})
-              (close! response-data-ch)
-              (cleanup-fn))))))
+             (>! response-data-ch {:type :complete
+                                   :id id})
+             (close! response-data-ch)
+             (cleanup-fn))))))
 
     ;; Return the context unchanged, it will unwind while the above process
     ;; does the real work.
@@ -379,7 +379,8 @@
                          interceptors-configurator
                          interceptors/order-by-dependency)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
-    (fn [_ _ _]
+    (fn [req resp ws-map]
+      (.setAcceptedSubProtocol resp "graphql-ws")
       (log/debug :event ::upgrade-requested)
       (let [response-data-ch (chan 10)                      ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
