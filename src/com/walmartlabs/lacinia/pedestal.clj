@@ -38,15 +38,16 @@
   "Parse `s` as an RFC 2616 media type.
   Originally from http-kit"
   [s]
-  (if-let [m (re-matches #"\s*(([^/]+)/([^ ;]+))\s*(\s*;.*)?" (str s))]
-    {:content-type (keyword (nth m 1))
+  (if-let [[_ type _ _ raw-params] (re-matches #"\s*(([^/]+)/([^ ;]+))\s*(\s*;.*)?" (str s))]
+    {:content-type (keyword type)
      :content-type-params
-     (->> (str/split (str (nth m 4)) #"\s*;\s*")
-       (identity)
-       (remove str/blank?)
-       (map #(str/split % #"="))
-       (mapcat (fn [[k v]] [(keyword (str/lower-case k)) (str/trim v)]))
-       (apply hash-map))}))
+     (->> (str/split (str raw-params) #"\s*;\s*")
+        (keep identity)
+        (remove str/blank?)
+        (map #(str/split % #"="))
+        (mapcat (fn [[k v]] [(keyword (str/lower-case k)) (str/trim v)]))
+        (apply hash-map))}))
+
 
 (defn content-type
   "Gets the content-type of a request. (without encoding)"
