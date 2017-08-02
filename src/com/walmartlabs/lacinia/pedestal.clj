@@ -34,6 +34,26 @@
   [message]
   {:errors [{:message message}]})
 
+(defn parse-content-type
+  "Parse `s` as an RFC 2616 media type.
+  Originally from http-kit"
+  [s]
+  (if-let [m (re-matches #"\s*(([^/]+)/([^ ;]+))\s*(\s*;.*)?" (str s))]
+    {:content-type (keyword (nth m 1))
+     :content-type-params
+     (->> (str/split (str (nth m 4)) #"\s*;\s*")
+       (identity)
+       (remove str/blank?)
+       (map #(str/split % #"="))
+       (mapcat (fn [[k v]] [(keyword (str/lower-case k)) (str/trim v)]))
+       (apply hash-map))}))
+
+(defn content-type
+  "Gets the content-type of a request. (without encoding)"
+  [request]
+  (if-let [content-type (get-in request [:headers "content-type"])]
+    (:content-type (parse-content-type content-type))))
+
 (defmulti extract-query
   "Based on the content type of the query, adds up to three keys to the request:
 
@@ -46,9 +66,9 @@
   :graphql-operation-name
   : The specific operation requested (for queries that define multiple named operations)."
   (fn [request]
-    (get-in request [:headers "content-type"])))
+    (content-type request)))
 
-(defmethod extract-query "application/json" [request]
+(defmethod extract-query :application/json [request]
   (let [body (cheshire/parse-string (:body request) true)
         query (:query body)
         variables (:variables body)
@@ -57,7 +77,7 @@
      :graphql-vars variables
      :graphql-operation-name operation-name}))
 
-(defmethod extract-query  "application/graphql" [request]
+(defmethod extract-query  :application/graphql [request]
   (let [query (:body request)
         variables (when-let [vars (get-in request [:query-params :variables])]
                     (cheshire/parse-string vars true))]
@@ -399,5 +419,3 @@
         graphiql
         (assoc ::http/resource-path "graphiql"))
       http/create-server)))
-
-
