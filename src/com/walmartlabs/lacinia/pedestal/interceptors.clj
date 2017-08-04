@@ -10,7 +10,8 @@
 
   Dependencies are a seq of keywords.
 
-  with-dependencies is additive.
+  ordered-after is additive, invoking it multiple times will
+  accumulate dependencies.
 
   Returns the interceptor with updated metadata."
   [interceptor dependencies]
