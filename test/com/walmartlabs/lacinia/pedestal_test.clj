@@ -32,7 +32,19 @@
         (send-json-request :post
                            {:query "{ echo(value: \"hello\") { value method }}"}
                            "text/plain")]
-    (is (= {:body {:message "Request content type must be application/graphql or application/json."}
+    (is (= {:body {:errors [{:message "Request content type must be application/graphql or application/json."}]}
+            :status 400}
+           (select-keys response [:status :body])))))
+
+(deftest missing-query
+  (let [response (send-json-request :get nil nil)]
+    (is (= {:body {:errors [{:message "Query parameter 'query' is missing or blank."}]}
+            :status 400}
+           (select-keys response [:status :body])))))
+
+(deftest empty-body
+  (let [response (send-json-request :post nil "application/json")]
+    (is (= {:body {:errors [{:message "Request body is empty."}]}
             :status 400}
            (select-keys response [:status :body])))))
 
@@ -93,3 +105,9 @@
   (let [response (client/get "http://localhost:8888/" {:throw-exceptions false})]
     (is (= 200 (:status response)))
     (is (str/includes? (:body response) "<html>"))))
+
+(deftest forbids-subscriptions
+  (let [response (send-request :post "subscription { ping(message: \"gnip\") { message }}")]
+    (is (= {:body {:errors [{:message "Subscription queries must be processed by the WebSockets endpoint."}]}
+            :status 400}
+           (select-keys response [:status :body])))))

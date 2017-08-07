@@ -74,7 +74,7 @@ the server sends WebSocket text messages for subscription updates and keep alive
 Subscription requests are not allowed in ``/graphql``.
 
 .. [#apollo] Apollo defines a `particular contract <https://github.com/apollographql/subscriptions-transport-ws/blob/master/PROTOCOL.md>`_
-  for how the client and server communicate; this includes heartbeats an explicit way for
-  the server to signal that the subscription has completed.
+  for how the client and server communicate; this includes heartbeats, and an explicit way for
+  the server to signal to the client that the subscription has completed.
 
-  The Apollo project also provides `clients in several languages <https://github.com/apollographql>_`.
+  The Apollo project also provides `clients in several languages <https://github.com/apollographql>`_.
