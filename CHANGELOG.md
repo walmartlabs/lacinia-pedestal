@@ -1,6 +1,6 @@
-## 0.3.0 -- UNRELEASED
+## 0.3.0 -- 7 Aug 2017
 
-Added support for subscriptions.
+Added support for GraphQL subscriptions!
 Subscriptions are patterned after [Apollo GraphQL](http://dev.apollodata.com/tools/graphql-subscriptions/index.html).
 lacinia-pedestal should be a drop-in replacement for Apollo GraphQL server.
 
@@ -14,7 +14,12 @@ it can be used as before, but its logic has been largely refactored
 into smaller, reusable functions that are used when the default
 interceptor stack must be modified for the application.
 
+Error during request processing are now reported, in the response, in a more
+consistent fashion.
+
 This version of lacinia-pedestal only works with com.walmartlabs/lacinia **0.19.0** and above.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/2?closed=1)
 
 ## 0.2.0 -- 1 Jun 2017
 
