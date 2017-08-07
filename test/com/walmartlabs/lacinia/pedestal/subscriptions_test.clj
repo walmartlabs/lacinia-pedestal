@@ -11,6 +11,7 @@
 
 (def ^:private uri "ws://localhost:8888/graphql-ws")
 
+
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}))
 

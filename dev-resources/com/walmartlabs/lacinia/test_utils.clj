@@ -38,27 +38,31 @@
   #(swap! *ping-cleanups inc))
 
 (defn ^:private make-service
-  [options]
-  (-> (io/resource "sample-schema.edn")
-      slurp
-      edn/read-string
-      (util/attach-resolvers {:resolve-echo resolve-echo})
-      (util/attach-streamers {:stream-ping stream-ping})
-      schema/compile
-      (lp/pedestal-service options)))
+  [options options-builder]
+  (let [schema (-> (io/resource "sample-schema.edn")
+                   slurp
+                   edn/read-string
+                   (util/attach-resolvers {:resolve-echo resolve-echo})
+                   (util/attach-streamers {:stream-ping stream-ping})
+                   schema/compile)
+        options' (merge options
+                        (options-builder schema))]
+    (lp/pedestal-service schema options')))
 
 (defn test-server-fixture
   "Starts up the test server as a fixture."
-  [options]
-  (fn [f]
-    (reset! *ping-subscribes 0)
-    (reset! *ping-cleanups 0)
-    (let [service (make-service options)]
-      (http/start service)
-      (try
-        (f)
-        (finally
-          (http/stop service))))))
+  ([options]
+   (test-server-fixture options (constantly {})))
+  ([options options-builder]
+   (fn [f]
+     (reset! *ping-subscribes 0)
+     (reset! *ping-cleanups 0)
+     (let [service (make-service options options-builder)]
+       (http/start service)
+       (try
+         (f)
+         (finally
+           (http/stop service)))))))
 
 
 (defn get-url
