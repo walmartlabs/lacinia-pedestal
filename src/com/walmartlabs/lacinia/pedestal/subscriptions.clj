@@ -268,9 +268,10 @@
                           (put! source-stream-ch value)
                           (close! source-stream-ch)))
         app-context (-> context
-                        :request
-                        :lacinia-app-context
-                        (assoc constants/parsed-query-key parsed-query))
+                      (dissoc :io.pedestal.interceptor.chain/terminators)
+                      (dissoc :io.pedestal.interceptor.chain/queue)
+                      (dissoc :io.pedestal.interceptor.chain/stack)
+                      (assoc constants/parsed-query-key parsed-query))
         cleanup-fn (executor/invoke-streamer app-context source-stream)]
     (go-loop []
       (alt!
