@@ -4,6 +4,7 @@
     [clojure.java.io :as io]
     [com.walmartlabs.lacinia.pedestal :refer [pedestal-service]
     [com.walmartlabs.lacinia.schema :as schema]
+    [com.walmartlabs.lacinia.util :as util]
     [io.pedestal.http :as http]))
 
 (defn ^:private resolve-hello
@@ -18,6 +19,6 @@
       (util/attach-resolvers {:resolve-hello resolve-hello})
       schema/compile))
 
-(def service (-> (hello-schema)
+(def service (-> hello-schema
                  (pedestal-service {:graphiql true})
                  http/start))
