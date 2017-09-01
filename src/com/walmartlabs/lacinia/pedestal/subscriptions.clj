@@ -87,19 +87,20 @@
     ;; Keep track of subscriptions by (client-supplied) unique id.
     ;; The value is a shutdown channel that, when closed, triggers
     ;; a cleanup of the subscription.
-    (go-loop [subs {}]
+    (go-loop [subs {}
+              connection-state {}]
       (alt!
         cleanup-ch
         ([id]
          (log/debug :event ::cleanup-ch :id id)
-         (recur (dissoc subs id)))
+         (recur (dissoc subs id) {}))
 
         ;; TODO: Maybe only after connection_init?
         (async/timeout keep-alive-ms)
         (do
           (log/debug :event ::timeout)
           (>! response-data-ch {:type :ka})
-          (recur subs))
+          (recur subs connection-state))
 
         ws-data-ch
         ([data]
@@ -114,21 +115,24 @@
              (case type
                "connection_init"
                (when (>! response-data-ch {:type :connection_ack})
-                 (recur subs))
+                 (recur subs (assoc connection-state :initial-payload payload)))
 
                 ;; TODO: Track state, don't allow start, etc. until after connection_init
 
                "start"
-               (do
+               (let [context (merge connection-state context)
+                     subscription (execute-query-interceptors id payload response-data-ch cleanup-ch context)]
                  (log/debug :event ::start :id id)
-                 (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context))))
+                 (recur
+                   (assoc subs id subscription)
+                   connection-state))
 
                "stop"
                (do
                  (log/debug :event ::stop :id id)
                  (when-some [sub-shutdown-ch (get subs id)]
                    (close! sub-shutdown-ch))
-                 (recur subs))
+                 (recur subs connection-state))
 
                "connection_terminate"
                (do
@@ -144,7 +148,7 @@
                                 id (assoc :id id))]
                  (log/debug :event ::unknown-type :type type)
                  (>! response-data-ch response)
-                 (recur subs))))))))))
+                 (recur subs connection-state))))))))))
 
 ;; We try to keep the interceptors here and in the main namespace as similar as possible, but
 ;; there are distinctions that can't be readily smoothed over.
@@ -264,9 +268,10 @@
                           (put! source-stream-ch value)
                           (close! source-stream-ch)))
         app-context (-> context
-                        :request
-                        :lacinia-app-context
-                        (assoc constants/parsed-query-key parsed-query))
+                      (dissoc :io.pedestal.interceptor.chain/terminators)
+                      (dissoc :io.pedestal.interceptor.chain/queue)
+                      (dissoc :io.pedestal.interceptor.chain/stack)
+                      (assoc constants/parsed-query-key parsed-query))
         cleanup-fn (executor/invoke-streamer app-context source-stream)]
     (go-loop []
       (alt!
