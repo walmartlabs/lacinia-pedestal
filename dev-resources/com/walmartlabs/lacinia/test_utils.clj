@@ -1,13 +1,18 @@
 (ns com.walmartlabs.lacinia.test-utils
-  (:require [clj-http.client :as client]
-            [io.pedestal.http :as http]
-            [com.walmartlabs.lacinia.pedestal :as lp]
-            [clojure.java.io :as io]
-            [clojure.edn :as edn]
-            [com.walmartlabs.lacinia.util :as util]
-            [com.walmartlabs.lacinia.schema :as schema]
-            [com.walmartlabs.lacinia.resolve :refer [resolve-as]]
-            [cheshire.core :as cheshire]))
+  (:require
+    [clojure.test :refer [is]]
+    [clj-http.client :as client]
+    [io.pedestal.http :as http]
+    [com.walmartlabs.lacinia.pedestal :as lp]
+    [clojure.core.async :refer [timeout alt!! chan put!]]
+    [clojure.java.io :as io]
+    [clojure.edn :as edn]
+    [com.walmartlabs.lacinia.util :as util]
+    [com.walmartlabs.lacinia.schema :as schema]
+    [com.walmartlabs.lacinia.resolve :refer [resolve-as]]
+    [gniazdo.core :as g]
+    [io.pedestal.log :as log]
+    [cheshire.core :as cheshire]))
 
 (defn ^:private resolve-echo
   [context args _]
@@ -38,13 +43,16 @@
   #(swap! *ping-cleanups inc))
 
 (defn ^:private make-service
+  "The special option :indirect-schema wraps the schema in a function; this exercises some
+  logic that allows a compiled schema to actually be a  function that returns the compiled schema."
   [options options-builder]
   (let [schema (-> (io/resource "sample-schema.edn")
                    slurp
                    edn/read-string
                    (util/attach-resolvers {:resolve-echo resolve-echo})
                    (util/attach-streamers {:stream-ping stream-ping})
-                   schema/compile)
+                   schema/compile
+                   (cond-> (:indirect-schema options) constantly))
         options' (merge options
                         (options-builder schema))]
     (lp/pedestal-service schema options')))
@@ -115,3 +123,58 @@
                #(try
                   (cheshire/parse-string % true)
                   (catch Exception t %))))))
+
+(def ws-uri "ws://localhost:8888/graphql-ws")
+
+(def ^:dynamic *messages-ch* nil)
+
+(def ^:dynamic *session* nil)
+
+(def *subscriber-id (atom 0))
+
+(defn send-data
+  [data]
+  (log/debug :reason ::send-data :data data)
+  (g/send-msg *session*
+              (cheshire/generate-string data)))
+
+(defn send-init
+  []
+  (send-data {:type :connection_init}))
+
+(defn <message!!
+  ([]
+   (<message!! 75))
+  ([timeout-ms]
+   (alt!!
+     *messages-ch* ([message] message)
+
+     (timeout timeout-ms) ::timed-out)))
+
+(defmacro expect-message
+  [expected]
+  `(is (= ~expected
+          (<message!!))))
+
+(defn subscriptions-fixture
+  [f]
+  (log/debug :reason ::test-start)
+  (let [messages-ch (chan 10)
+        session (g/connect ws-uri
+                           :on-receive (fn [message-text]
+                                         (log/debug :reason ::receive :message message-text)
+                                         (put! messages-ch (cheshire/parse-string message-text true)))
+                           :on-connect (fn [_] (log/debug :reason ::connected))
+                           :on-close #(log/debug :reason ::closed :code %1 :message %2)
+                           :on-error #(log/error :reason ::unexpected-error
+                                                 :exception %))]
+
+    (binding [*session* session
+              ;; New messages channel on each test as well, to ensure failed tests don't cause
+              ;; cascading failures.
+              *messages-ch* messages-ch]
+      (try
+        (f)
+        (finally
+          (log/debug :reason ::test-end)
+          (g/close session))))))

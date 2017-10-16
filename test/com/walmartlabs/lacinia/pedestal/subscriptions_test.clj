@@ -1,72 +1,19 @@
 (ns com.walmartlabs.lacinia.pedestal.subscriptions-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
-    [clojure.core.async :refer [chan alt!! put! timeout]]
-    [com.walmartlabs.lacinia.test-utils
-     :refer [test-server-fixture *ping-subscribes *ping-cleanups]]
+    [com.walmartlabs.lacinia.test-utils :as tu
+     :refer [test-server-fixture *ping-subscribes *ping-cleanups
+             ws-uri *session* subscriptions-fixture
+             send-data send-init <message!! expect-message
+             *subscriber-id]]
     [cheshire.core :as cheshire]
     [gniazdo.core :as g]
     [io.pedestal.log :as log]
     [clojure.string :as str]))
 
-(def ^:private uri "ws://localhost:8888/graphql-ws")
-
-
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}))
-
-(def ^:private ^:dynamic *messages-ch* nil)
-
-(def ^:private ^:dynamic *session* nil)
-
-(defn send-data
-  [data]
-  (log/debug :reason ::send-data :data data)
-  (g/send-msg *session*
-              (cheshire/generate-string data)))
-
-(defn ^:private send-init
-  []
-  (send-data {:type :connection_init}))
-
-(defn ^:private <message!!
-  ([]
-   (<message!! 75))
-  ([timeout-ms]
-   (alt!!
-     *messages-ch* ([message] message)
-
-     (timeout timeout-ms) ::timed-out)))
-
-(defmacro ^:private expect-message
-  [expected]
-  `(is (= ~expected
-          (<message!!))))
-
-(def ^:private *id (atom 0))
-
-(use-fixtures :each
-  (fn [f]
-    (log/debug :reason ::test-start)
-    (let [messages-ch (chan 10)
-          session (g/connect uri
-                             :on-receive (fn [message-text]
-                                           (log/debug :reason ::receive :message message-text)
-                                           (put! messages-ch (cheshire/parse-string message-text true)))
-                             :on-connect (fn [_] (log/debug :reason ::connected))
-                             :on-close #(log/debug :reason ::closed :code %1 :message %2)
-                             :on-error #(log/error :reason ::unexpected-error
-                                                   :exception %))]
-
-      (binding [*session* session
-                ;; New messages channel on each test as well, to ensure failed tests don't cause
-                ;; cascading failures.
-                *messages-ch* messages-ch]
-        (try
-          (f)
-          (finally
-            (log/debug :reason ::test-end)
-            (g/close session)))))))
+(use-fixtures :each subscriptions-fixture)
 
 (deftest connect-with-ws
   (send-init)
@@ -76,7 +23,7 @@
   (send-init)
   (expect-message {:type "connection_ack"})
 
-  (let [id (swap! *id inc)]
+  (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
                 :type :start
                 :payload
@@ -100,7 +47,7 @@
   (is (= @*ping-subscribes @*ping-cleanups)
       "Any prior subscribes have been cleaned up.")
 
-  (let [id (swap! *id inc)]
+  (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
                 :type :start
                 :payload
@@ -134,7 +81,7 @@
   (is (= @*ping-subscribes @*ping-cleanups)
       "Any prior subscribes have been cleaned up.")
 
-  (let [id (swap! *id inc)]
+  (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
                 :type :start
                 :payload
@@ -153,7 +100,7 @@
 
     (send-data {:id id :type :stop})
 
-    (expect-message ::timed-out)
+    (expect-message ::tu/timed-out)
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscription has been cleaned up.")))
@@ -166,8 +113,8 @@
       "Any prior subscribes have been cleaned up.")
 
   (let [init-subs @*ping-subscribes
-        left-id (swap! *id inc)
-        right-id (swap! *id inc)]
+        left-id (swap! *subscriber-id inc)
+        right-id (swap! *subscriber-id inc)]
 
     (send-data {:id left-id
                 :type :start
@@ -216,8 +163,8 @@
   (send-init)
   (expect-message {:type "connection_ack"})
 
-  (let [left-id (swap! *id inc)
-        right-id (swap! *id inc)]
+  (let [left-id (swap! *subscriber-id inc)
+        right-id (swap! *subscriber-id inc)]
 
     (send-data {:id left-id
                 :type :start
@@ -241,7 +188,7 @@
 
     (send-data {:type :connection_terminate})
 
-    (expect-message ::timed-out)
+    (expect-message ::tu/timed-out)
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
@@ -250,8 +197,8 @@
   (send-init)
   (expect-message {:type "connection_ack"})
 
-  (let [left-id (swap! *id inc)
-        right-id (swap! *id inc)]
+  (let [left-id (swap! *subscriber-id inc)
+        right-id (swap! *subscriber-id inc)]
 
     (send-data {:id left-id
                 :type :start
@@ -275,7 +222,7 @@
 
     (g/close *session*)
 
-    (expect-message ::timed-out)
+    (expect-message ::tu/timed-out)
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
@@ -297,7 +244,7 @@
   (send-init)
   (expect-message {:type "connection_ack"})
 
-  (let [id (swap! *id inc)]
+  (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
                 :type :start
                 :payload {:query "~~~"}})

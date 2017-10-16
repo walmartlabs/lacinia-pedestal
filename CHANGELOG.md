@@ -1,5 +1,9 @@
 ## 0.4.0 -- UNRELEASED
 
+The compiled-schema passed to `com.walmartlabs.lacinia.pedestal/pedestal-service` may now
+be a function that _returns_ the compiled schema, which is useful when during testing
+and development.
+
 ## 0.3.0 -- 7 Aug 2017
 
 Added support for GraphQL subscriptions!

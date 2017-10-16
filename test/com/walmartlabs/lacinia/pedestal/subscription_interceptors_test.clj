@@ -3,16 +3,15 @@
     [clojure.test :refer [deftest is use-fixtures]]
     [clojure.core.async :refer [chan alt!! put! timeout]]
     [com.walmartlabs.lacinia.test-utils
-     :refer [test-server-fixture *ping-subscribes *ping-cleanups]]
+     :refer [test-server-fixture *ping-subscribes *ping-cleanups
+             ws-uri
+             subscriptions-fixture
+             send-data send-init <message!! expect-message]]
     [io.pedestal.interceptor :refer [interceptor]]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as s]
     [com.walmartlabs.lacinia.pedestal.interceptors :as i]
     [cheshire.core :as cheshire]
-    [gniazdo.core :as g]
-    [io.pedestal.log :as log]
     [clojure.string :as str]))
-
-(def ^:private uri "ws://localhost:8888/graphql-ws")
 
 (def ^:private *invoke-count (atom 0))
 
@@ -37,51 +36,7 @@
                                           :keep-alive-ms 200}
                                          options-builder))
 
-(def ^:private ^:dynamic *messages-ch* nil)
-
-(def ^:private ^:dynamic *session* nil)
-
-(defn send-data
-  [data]
-  (log/debug :reason ::send-data :data data)
-  (g/send-msg *session*
-              (cheshire/generate-string data)))
-
-(defn ^:private send-init
-  []
-  (send-data {:type :connection_init}))
-
-(defn ^:private <message!!
-  ([]
-   (<message!! 75))
-  ([timeout-ms]
-   (alt!!
-     *messages-ch* ([message] message)
-
-     (timeout timeout-ms) ::timed-out)))
-
-(defmacro ^:private expect-message
-  [expected]
-  `(is (= ~expected
-          (<message!!))))
-
-(use-fixtures :each
-  (fn [f]
-    (let [messages-ch (chan 10)
-          session (g/connect uri
-                             :on-receive (fn [message-text]
-                                           (log/debug :reason ::receive :message message-text)
-                                           (put! messages-ch (cheshire/parse-string message-text true))))]
-
-      (binding [*session* session
-                ;; New messages channel on each test as well, to ensure failed tests don't cause
-                ;; cascading failures.
-                *messages-ch* messages-ch]
-        (try
-          (reset! *invoke-count 0)
-          (f)
-          (finally
-            (g/close session)))))))
+(use-fixtures :each subscriptions-fixture)
 
 (deftest added-interceptor-is-invoked
   (send-init)
