@@ -1,3 +1,5 @@
+## 0.4.0 -- UNRELEASED
+
 ## 0.3.0 -- 7 Aug 2017
 
 Added support for GraphQL subscriptions!
