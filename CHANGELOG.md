@@ -1,3 +1,9 @@
+## 0.4.0 -- UNRELEASED
+
+
+Added `com.walmartlabs.lacinia.pedestal.interceptors/splice`, which is
+used to substitute an existing interceptor with a replacement.
+
 ## 0.3.0 -- 7 Aug 2017
 
 Added support for GraphQL subscriptions!
