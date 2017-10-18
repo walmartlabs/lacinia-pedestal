@@ -66,7 +66,7 @@
 (defn splice
   "Overwrites an existing interceptor in the map with a replacement interceptor.
 
-  Throws an exception is the interceptor does not already exist.
+  Throws an exception if the interceptor does not already exist.
 
   The replacement's dependencies are merged with the dependency it is replacing: this
   ensures that interceptor ordering is not affected, even if it was based on transitive
