@@ -4,6 +4,9 @@ The compiled-schema passed to `com.walmartlabs.lacinia.pedestal/pedestal-service
 be a function that _returns_ the compiled schema, which is useful when during testing
 and development.
 
+Added `com.walmartlabs.lacinia.pedestal.interceptors/splice`, which is
+used to substitute an existing interceptor with a replacement.
+
 ## 0.3.0 -- 7 Aug 2017
 
 Added support for GraphQL subscriptions!

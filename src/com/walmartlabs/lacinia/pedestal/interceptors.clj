@@ -44,12 +44,12 @@
   (let [reducer (fn [g dep-name interceptor]
                   (reduce #(d/depend %1 dep-name %2)
                           g
-                          (-> interceptor meta ::dependencies)))]
+                          (dependencies interceptor)))]
     (->> dependency-map
          (reduce-kv reducer (d/graph))
          ;; Note: quietly ignore dependencies to unknown nodes, which is a feature
          ;; (you can remove an interceptor entirely even if other interceptors depend
-         ;; on it).
+         ;; on it) ... though probably better to use splice now.
          d/topo-sort
          (map #(get dependency-map %))
          ;; When dealing with dependencies, you might replace a dependency with
@@ -62,3 +62,22 @@
   of each interceptor.  This can then be passed to [[order-by-dependency]]."
   [interceptors]
   (zipmap (map :name interceptors) interceptors))
+
+(defn splice
+  "Overwrites an existing interceptor in the map with a replacement interceptor.
+
+  Throws an exception if the interceptor does not already exist.
+
+  The replacement's dependencies are merged with the dependency it is replacing: this
+  ensures that interceptor ordering is not affected, even if it was based on transitive
+  dependencies through the replaced interceptor."
+  {:added "0.4.0"}
+  [dependency-map interceptor-name replacement]
+  (update dependency-map interceptor-name
+          (fn [existing]
+            (when (nil? existing)
+              (throw (ex-info "Unknown interceptor for splice."
+                              {:dependency-map dependency-map
+                               :interceptor-name interceptor-name})))
+
+            (ordered-after replacement (dependencies existing)))))
