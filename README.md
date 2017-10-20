@@ -56,6 +56,17 @@ $ curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d 
 {"data":{"hello":"world"}}
 ```
 
+## Development Mode
+
+When developing an application, it is desirable to be able to change the schema
+without restarting.
+Lacinia-Pedestal supports this: in the above example, the schema passed to
+`pedestal-service` could be a _function_ that returns the compiled schema.
+It could even be a Var containing the function that returns the compiled schema.
+
+In this way, the Pedestal stack continues to run, but each request rebuilds
+the compiled schema based on the latest code you've loaded into the REPL.
+
 ### GraphiQL
 
 The GraphiQL packaged inside the library is built using `npm`, from

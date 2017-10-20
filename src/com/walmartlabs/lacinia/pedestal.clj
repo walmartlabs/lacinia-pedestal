@@ -151,11 +151,14 @@
 (defn query-parser-interceptor
   "Given an schema, returns an interceptor that parses the query.
 
+   `compiled-schema` may be the actual compiled schema, or a no-arguments function
+   that returns the compiled schema.
+
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
    Adds a new request key, :parsed-lacinia-query, containing the parsed and prepared
    query."
-  [schema]
+  [compiled-schema]
   (-> {:name ::query-parser
        :enter (fn [context]
                 (try
@@ -163,9 +166,12 @@
                         {q :graphql-query
                          vars :graphql-vars
                          operation-name :graphql-operation-name} request
-                        parsed-query (parser/parse-query schema q operation-name)
+                        actual-schema (if (map? compiled-schema)
+                                        compiled-schema
+                                        (compiled-schema))
+                        parsed-query (parser/parse-query actual-schema q operation-name)
                         prepared (parser/prepare-with-query-variables parsed-query vars)
-                        errors (validator/validate schema prepared {})]
+                        errors (validator/validate actual-schema prepared {})]
                     (if (seq errors)
                       (assoc context :response (bad-request {:errors errors}))
                       (assoc-in context [:request :parsed-lacinia-query] prepared)))
@@ -289,6 +295,8 @@
   * ::inject-app-context [[inject-app-context-interceptor]]
   * ::query-executor [[query-executor-handler]] or [[async-query-executor-handler]]
 
+  `compiled-schema` may be the actual compiled schema, or a no-arguments function that returns the compiled schema.
+
   Options:
 
   :async (default false)
@@ -345,6 +353,9 @@
 
   Uses [[graphql-interceptors]] to define the base set of interceptors and
   dependencies.  For the POST route, [[body-data-interceptor]] is spliced in.
+
+  `compiled-schema` may be the actual compiled schema, or a no-arguments function
+  that returns the compiled schema.
 
   Options:
 

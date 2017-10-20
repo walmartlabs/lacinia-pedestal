@@ -82,7 +82,7 @@
 
 (defn ^:private connection-loop
   "A loop started for each connection."
-  [compiled-schema keep-alive-ms ws-data-ch response-data-ch context]
+  [keep-alive-ms ws-data-ch response-data-ch context]
   (let [cleanup-ch (chan 1)]
     ;; Keep track of subscriptions by (client-supplied) unique id.
     ;; The value is a shutdown channel that, when closed, triggers
@@ -215,15 +215,21 @@
 
 (defn query-parser-interceptor
   "An interceptor that parses the query and places a prepared and validated
-  query into the :parsed-lacinia-query key of the request."
+  query into the :parsed-lacinia-query key of the request.
+
+  `compiled-schema` may be the actual compiled schema, or a no-arguments function
+  that returns the compiled schema."
   [compiled-schema]
   (-> {:name ::query-parser
        :enter (fn [context]
                 (let [{operation-name :operationName
                        :keys [query variables]} (:request context)
-                      parsed-query (parser/parse-query compiled-schema query operation-name)
+                      actual-schema (if (map? compiled-schema)
+                                      compiled-schema
+                                      (compiled-schema))
+                      parsed-query (parser/parse-query actual-schema query operation-name)
                       prepared (parser/prepare-with-query-variables parsed-query variables)
-                      errors (validator/validate compiled-schema prepared {})]
+                      errors (validator/validate actual-schema prepared {})]
                   (if (seq errors)
                     (throw (ex-info "Query validation errors." {:errors errors}))
                     (assoc-in context [:request :parsed-lacinia-query] prepared))))}
@@ -361,6 +367,9 @@
 (defn listener-fn-factory
   "A factory for the function used to create a WS listener.
 
+  `compiled-schema` may be the actual compiled schema, or a no-arguments function
+  that returns the compiled schema.
+
   Options:
 
   :keep-alive-ms (default: 30000)
@@ -394,7 +403,7 @@
                          (log/debug :event ::connected)
                          (response-encode-loop response-data-ch send-ch)
                          (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
-                         (connection-loop compiled-schema keep-alive-ms ws-data-ch response-data-ch base-context))]
+                         (connection-loop keep-alive-ms ws-data-ch response-data-ch base-context))]
         (ws/make-ws-listener
           {:on-connect (ws/start-ws-connection on-connect)
            ;; TODO: Back-pressure?
