@@ -18,15 +18,15 @@ as [Apollo GraphQL](https://github.com/apollographql/subscriptions-transport-ws)
 ## Usage
 
 For a basic Pedestal server, simply supply a compiled Lacinia schema to
-the `com.walmartlabs.lacinia.pedestal/pedestal-service` function to
-generate a service, then invoke `io.pedestal.http/start`.
+the `com.walmartlabs.lacinia.pedestal/pedestal-service` function to.
+generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 
 ```clojure
 ;; This example is based off of the code generated from the template
 ;;  `lein new pedestal-service graphql-demo`
 
 (ns graphql-demo.server
-  (:require [io.pedestal.http :as server]
+  (:require [io.pedestal.http :as http]
             [com.walmartlabs.lacinia.pedestal :as lacinia]
             [com.walmartlabs.lacinia.schema :as schema]))
 
@@ -46,7 +46,7 @@ generate a service, then invoke `io.pedestal.http/start`.
   "The entry-point for 'lein run'"
   [& args]
   (println "\nCreating your server...")
-  (server/start runnable-service))
+  (http/start runnable-service))
 ```
 
 Lacinia will handle GET and POST requests at the `/graphql` endpoint.
