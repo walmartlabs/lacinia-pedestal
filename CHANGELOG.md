@@ -1,4 +1,4 @@
-## 0.4.0 -- UNRELEASED
+## 0.4.0 -- 24 Oct 2017
 
 The compiled-schema passed to `com.walmartlabs.lacinia.pedestal/pedestal-service` may now
 be a function that _returns_ the compiled schema, which is useful when during testing
