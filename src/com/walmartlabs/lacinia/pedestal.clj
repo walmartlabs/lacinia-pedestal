@@ -400,7 +400,7 @@
   :env (default: :dev)
   : Environment being started."
   [compiled-schema options]
-  (let [{:keys [graphiql subscriptions port env]
+  (let [{:keys [graphiql subscriptions port env allowed-origins secure-headers]
          :or {graphiql false
               subscriptions false
               port 8888
@@ -412,8 +412,18 @@
        ::http/routes routes
        ::http/port port
        ::http/type :jetty
-       ::http/join? false}
+       ::http/join? false
+       }
       (cond->
+        allowed-origins
+        (assoc ::http/allowed-origins allowed-origins)
+
+        secure-headers
+        (assoc ::http/secure-headers secure-headers)
+
+        allowed-origins
+        (assoc ::http/allowed-origins allowed-origins)
+
         subscriptions
         (assoc-in [::http/container-options :context-configurator]
                   ;; The listener-fn is responsible for creating the listener; it is passed
