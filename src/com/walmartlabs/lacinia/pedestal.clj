@@ -379,7 +379,7 @@
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
 (defn pedestal-service
-  "Creates and returns a Pedestal service map, ready to be started.
+  "Creates and returns a Pedestal service map.
   This uses a server type of :jetty.
 
   Options:
@@ -425,5 +425,4 @@
                                          (subscriptions/listener-fn-factory compiled-schema options)}))
 
         graphiql
-        (assoc ::http/resource-path "graphiql"))
-      http/create-server)))
+        (assoc ::http/resource-path "graphiql")))))
