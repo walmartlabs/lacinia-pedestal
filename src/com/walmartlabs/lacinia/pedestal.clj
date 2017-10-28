@@ -379,7 +379,7 @@
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
 (defn pedestal-service
-  "Creates and returns a Pedestal service map.
+  "Creates and returns a Pedestal service map, ready to be started.
   This uses a server type of :jetty.
 
   Options:
@@ -398,13 +398,18 @@
   : HTTP port to use.
 
   :env (default: :dev)
-  : Environment being started."
+  : Environment being started.
+
+  :create-server (default: true)
+  : return a startable server map.  If false, return the config map."
   [compiled-schema options]
-  (let [{:keys [graphiql subscriptions port env]
+  (let [{:keys [graphiql subscriptions port env create-server]
          :or {graphiql false
               subscriptions false
               port 8888
-              env :dev}} options
+              env :dev
+              create-server true
+              }} options
         routes (or (:routes options)
                    (route/expand-routes (graphql-routes compiled-schema options)))]
     (->
@@ -425,4 +430,6 @@
                                          (subscriptions/listener-fn-factory compiled-schema options)}))
 
         graphiql
-        (assoc ::http/resource-path "graphiql")))))
+        (assoc ::http/resource-path "graphiql")
+        create-server
+        http/create-server))))
