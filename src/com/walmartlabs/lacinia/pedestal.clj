@@ -435,5 +435,5 @@
                                          (subscriptions/listener-fn-factory compiled-schema options)}))
 
         graphiql
-        (assoc ::http/resource-path "graphiql"))
+        (assoc ::http/resource-path "graphcool_playground"))
       http/create-server)))
