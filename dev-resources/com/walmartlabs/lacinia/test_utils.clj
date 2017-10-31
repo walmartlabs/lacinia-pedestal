@@ -65,8 +65,9 @@
    (fn [f]
      (reset! *ping-subscribes 0)
      (reset! *ping-cleanups 0)
-     (let [service (make-service options options-builder)]
-       (http/start service)
+     (let [service (-> (make-service options options-builder)
+                       http/create-server
+                       http/start)]
        (try
          (f)
          (finally
