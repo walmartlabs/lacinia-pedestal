@@ -8,115 +8,52 @@
 -->
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
+    <meta charset=utf-8 />
+    <meta name="viewport" content="user-scalable=no, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, minimal-ui">
+    <title>Graphcool Playground</title>
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/graphql-playground/middleware-build/static/css/main.css" />
+    <link rel="shortcut icon" href="//cdn.jsdelivr.net/npm/graphql-playground/middleware-build/favicon.png" />
+    <script src="//cdn.jsdelivr.net/npm/graphql-playground/middleware-build/static/js/main.js"></script>
+</head>
+<body>
+<div id="root">
     <style>
-      html, body {
-        height: 100%;
-        margin: 0;
-        width: 100%;
-        overflow: hidden;
-      }
+        body {
+            background-color: rgb(23,42,58);
+            font-family: Open Sans,sans-serif;
+            height: 90vh;
+        }
+        #root {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading {
+            font-size: 32px;
+            font-weight: 200;
+            color: rgba(255,255,255,.6);
+            margin-left: 20px;
+        }
+        img {
+            width: 78px;
+            height: 78px;
+        }
+        .title {
+            font-weight: 400;
+        }
     </style>
-    <link rel="stylesheet" href="./graphiql.css" />
-    <script src="//cdn.jsdelivr.net/fetch/0.9.0/fetch.min.js"></script>
-    <script src="//cdn.jsdelivr.net/react/0.14.7/react.min.js"></script>
-    <script src="//cdn.jsdelivr.net/react/0.14.7/react-dom.min.js"></script>
-    <script src="//unpkg.com/subscriptions-transport-ws@0.8.2/browser/client.js"></script>
-    <script src="//unpkg.com/graphiql-subscriptions-fetcher@0.0.2/browser/client.js"></script>
-    <script src="./graphiql.js"></script>
-  </head>
-  <body>
-    Loading...
-    <script>
-
-      /**
-       * This GraphiQL example illustrates how to use some of GraphiQL's props
-       * in order to enable reading and updating the URL parameters, making
-       * link sharing of queries a little bit easier.
-       *
-       * This is only one example of this kind of feature, GraphiQL exposes
-       * various React params to enable interesting integrations.
-       */
-
-      // Parse the search string to get url parameters.
-      var search = window.location.search;
-      var parameters = {};
-      search.substr(1).split('&').forEach(function (entry) {
-        var eq = entry.indexOf('=');
-        if (eq >= 0) {
-          parameters[decodeURIComponent(entry.slice(0, eq))] =
-            decodeURIComponent(entry.slice(eq + 1));
-        }
-      });
-
-      // if variables was provided, try to format it.
-      if (parameters.variables) {
-        try {
-          parameters.variables =
-            JSON.stringify(JSON.parse(parameters.variables), null, 2);
-        } catch (e) {
-          // Do nothing, we want to display the invalid JSON as a string, rather
-          // than present an error.
-        }
-      }
-
-      // When the query and variables string is edited, update the URL bar so
-      // that it can be easily shared
-      function onEditQuery(newQuery) {
-        parameters.query = newQuery;
-        updateURL();
-      }
-
-      function onEditVariables(newVariables) {
-        parameters.variables = newVariables;
-        updateURL();
-      }
-
-      function computeParams() {
-        return '?' + Object.keys(parameters).map(function (key) {
-          return encodeURIComponent(key) + '=' +
-            encodeURIComponent(parameters[key]);
-        }).join('&');
-      }
-
-      function updateURL() {
-        history.replaceState(null, null, computeParams());
-      }
-
-      // Defines a GraphQL fetcher using the fetch API.
-      function graphQLFetcher(graphQLParams) {
-        console.log(graphQLParams);
-        return fetch(window.location.origin + '/graphql' + computeParams(), {
-          method: 'post',
-          headers: {
-            'Content-Type': 'application/graphql',
-            'apikey': 'graphiql'
-          },
-          body: graphQLParams.query
-        }).then(function (response) {
-          return response.text();
-        }).then(function (responseBody) {
-          try {
-            return JSON.parse(responseBody);
-          } catch (error) {
-            return responseBody;
-          }
-        });
-      }
-      var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(window.location.origin.replace('http', 'ws') + '/graphql-ws', { reconnect: true });
-      var subscriptionsFetcher = window.GraphiQLSubscriptionsFetcher.graphQLFetcher(subscriptionsClient, graphQLFetcher);
-
-      // Render <GraphiQL /> into the body.
-      ReactDOM.render(
-        React.createElement(GraphiQL, {
-          fetcher: subscriptionsFetcher,
-          query: parameters.query,
-          variables: parameters.variables,
-          onEditQuery: onEditQuery,
-          onEditVariables: onEditVariables
-        }),
-        document.body
-      );
-    </script>
-  </body>
+    <img src='//cdn.jsdelivr.net/npm/graphql-playground/middleware-build/logo.png' alt=''>
+    <div class="loading">
+        Loading <span class="title">GraphQL Playground</span>
+    </div>
+</div>
+<script>
+  window.addEventListener('load', function(event) {
+    GraphQLPlayground.init(document.getElementById('root'), {"endpoint": window.location.origin + '/graphql'})
+  })
+</script>
+</body>
 </html>
