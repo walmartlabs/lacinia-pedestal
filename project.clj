@@ -1,4 +1,4 @@
-(defproject com.walmartlabs/lacinia-pedestal "0.4.0"
+(defproject com.tiensonqin/my-lacinia-pedestal "0.4.1-SNAPSHOT"
   :description "Pedestal infrastructure supporting Lacinia GraphQL"
   :url "https://github.com/walmartlabs/pedestal-lacinia"
   :license {:name "Apache Software License 2.0"
@@ -23,7 +23,7 @@
             [test2junit "1.3.0"]
             [lein-shell "0.5.0"]]
   :shell {:dir "resources/graphiql"}
-  :prep-tasks [["shell" "./build"]]
+  ;; :prep-tasks [["shell" "./build"]]
   :jar-exclusions [#"graphiql/node_.*"
                    #"graphiql/build"
                    #"graphiql/package.json"
