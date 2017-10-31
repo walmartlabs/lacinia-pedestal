@@ -404,26 +404,25 @@
          :or {graphiql false
               subscriptions false
               port 8888
-              env :dev}} options
+              env :dev
+              create? true}} options
         routes (or (:routes options)
                    (route/expand-routes (graphql-routes compiled-schema options)))]
-    (->
-      {:env env
-       ::http/routes routes
-       ::http/port port
-       ::http/type :jetty
-       ::http/join? false}
-      (cond->
-        subscriptions
-        (assoc-in [::http/container-options :context-configurator]
-                  ;; The listener-fn is responsible for creating the listener; it is passed
-                  ;; the request, response, and the ws-map. In sample code, the ws-map
-                  ;; has callbacks such as :on-connect and :on-text, but in our scenario
-                  ;; the callbacks are created by the listener-fn, so the value is nil.
-                  #(ws/add-ws-endpoints % {"/graphql-ws" nil}
-                                        {:listener-fn
-                                         (subscriptions/listener-fn-factory compiled-schema options)}))
+    (cond-> {:env env
+             ::http/routes routes
+             ::http/port port
+             ::http/type :jetty
+             ::http/join? false}
 
-        graphiql
-        (assoc ::http/resource-path "graphiql"))
-      http/create-server)))
+      subscriptions
+      (assoc-in [::http/container-options :context-configurator]
+                ;; The listener-fn is responsible for creating the listener; it is passed
+                ;; the request, response, and the ws-map. In sample code, the ws-map
+                ;; has callbacks such as :on-connect and :on-text, but in our scenario
+                ;; the callbacks are created by the listener-fn, so the value is nil.
+                #(ws/add-ws-endpoints % {"/graphql-ws" nil}
+                                      {:listener-fn
+                                       (subscriptions/listener-fn-factory compiled-schema options)}))
+
+      graphiql
+      (assoc ::http/resource-path "graphiql"))))

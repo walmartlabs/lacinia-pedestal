@@ -1,3 +1,8 @@
+## 0.5.0 -- UNRELEASED
+
+The service map created by `com.walmartlabs.lacinia.pedestal/pedestal-service` is not longer
+passed to `io.pedestal.http/create-server`; this is now the responsibility of the caller.
+
 ## 0.4.0 -- 24 Oct 2017
 
 The compiled-schema passed to `com.walmartlabs.lacinia.pedestal/pedestal-service` may now

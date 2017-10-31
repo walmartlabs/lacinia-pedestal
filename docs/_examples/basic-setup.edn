@@ -2,7 +2,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.java.io :as io]
-    [com.walmartlabs.lacinia.pedestal :refer [pedestal-service]
+    [com.walmartlabs.lacinia.pedestal :refer [pedestal-service]]
     [com.walmartlabs.lacinia.schema :as schema]
     [com.walmartlabs.lacinia.util :as util]
     [io.pedestal.http :as http]))
@@ -11,7 +11,8 @@
   [context args value]
   "Hello, Clojurians!")
 
-(def ^:private hello-schema
+(defn ^:private hello-schema
+  []
   (-> "hello-world-schema.edn"
       io/resource
       slurp
@@ -19,6 +20,7 @@
       (util/attach-resolvers {:resolve-hello resolve-hello})
       schema/compile))
 
-(def service (-> hello-schema
+(def service (-> (hello-schema)
                  (pedestal-service {:graphiql true})
+                 http/create-server
                  http/start))

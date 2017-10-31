@@ -36,9 +36,15 @@ Most commonly, a streamer will subscribe to some external feed such as a JMS or 
 a `core.async pub <http://clojure.github.io/core.async/#clojure.core.async/pub>`_ or channel.
 
 When a streamer passes nil to the callback, a clean shutdown of the subscription occurs; the
-client is sent a completion message (otherwise, it might attempt to reconnect).
+client is sent a completion message.
+The completion message informs the client that the stream of events has completed, and that it
+should not attempt to reconnect.
 
-The cleanup function is invoked when the client closes the subscription, then the connection from
+The definition of "completed" here is entirely up to the application.
+For example, a field argument could specify the maximum number of values to stream, and the
+streamer can pass nil after sufficient values are streamed.
+
+The cleanup function is invoked when the client closes the subscription, when the connection from
 the client is lost due to a network partition, or when the streamer passes nil to the callback.
 
 Configuration
@@ -64,7 +70,7 @@ Endpoint
 --------
 
 Subscriptions are processed on a second endpoint; normal requests continue to be sent to ``/graphql``, but
-Subscription requests must use ``/graphql-ws``.
+subscription requests must use ``/graphql-ws``.
 
 The ``/graphql-ws`` endpoint does not handle ordinary requests; instead it is used only to establish the
 WebSocket connection.
