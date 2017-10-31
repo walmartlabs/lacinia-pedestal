@@ -23,7 +23,7 @@
             [test2junit "1.3.0"]
             [lein-shell "0.5.0"]]
   :shell {:dir "resources/graphiql"}
-  :prep-tasks [["shell" "./build"]]
+  ;; :prep-tasks [["shell" "./build"]]
   :jar-exclusions [#"graphiql/node_.*"
                    #"graphiql/build"
                    #"graphiql/package.json"

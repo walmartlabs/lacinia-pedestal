@@ -44,7 +44,7 @@
 </div>
 <script>
   window.addEventListener('load', function(event) {
-    GraphQLPlayground.init(document.getElementById('root'))
+    GraphQLPlayground.init(document.getElementById('root'), {"endpoint": window.location.origin + '/graphql'})
   })
 </script>
 </body>
