@@ -20,13 +20,7 @@
                         [io.aviso/logging "0.2.0"]]}}
   :jvm-opts ["-Xmx500m"]
   :plugins [[lein-codox "0.10.3"]
-            [test2junit "1.3.0"]
-            [lein-shell "0.5.0"]]
-  :shell {:dir "resources/graphiql"}
-  :prep-tasks [["shell" "./build"]]
-  :jar-exclusions [#"graphiql/node_.*"
-                   #"graphiql/build"
-                   #"graphiql/package.json"
-                   #".*/\.DS_Store"]
+            [test2junit "1.3.0"]]
+  :jar-exclusions [#".*/\.DS_Store"]
   :codox {:source-uri "https://github.com/walmartlabs/pedestal-lacinia/blob/master/{filepath}#L{line}"
           :metadata {:doc/format :markdown}})
