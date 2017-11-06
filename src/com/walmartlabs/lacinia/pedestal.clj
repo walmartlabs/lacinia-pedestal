@@ -362,6 +362,10 @@
   :graphiql (default false)
   : If true, enables routes for the GraphiQL IDE.
 
+  :interceptors
+  : The map of interceptors to be passed to [[routes-from-interceptor-map]].
+    If not provided, [[graphql-interceptors]] is invoked.
+
   :async (default false)
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
     channel rather than blocking.
@@ -369,7 +373,8 @@
   :app-context
   : The base application context provided to Lacinia when executing a query."
   [compiled-schema options]
-  (let [get-interceptor-map (graphql-interceptors compiled-schema options)
+  (let [get-interceptor-map (or (:interceptors options)
+                                (graphql-interceptors compiled-schema options))
         index-handler (when (:graphiql options)
                         (fn [request]
                           (response/redirect "/index.html")))]
@@ -378,17 +383,30 @@
       ;; the routes to be at /graphql.
       index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
 
-(defn pedestal-service
-  "Creates and returns a Pedestal service map, ready to be started.
+(defn service-map
+  "Creates and returns a Pedestal service map.
   This uses a server type of :jetty.
+
+  The returned service map can be passed to the `io.pedestal.http/create-server` function.
+
+  The deprecated function [[pedestal-service]] invokes `create-server` before returning.
+  However, in many cases, further extensions to the service map are needed before
+  creating and starting the server.
 
   Options:
 
   :graphiql (default: false)
   : If given, then enables resources to support the GraphiQL IDE
 
+  :interceptors
+  : Map of interceptor names to interceptors, with dependencies.
+    If not provided, default is via [[graphql-interceptors]].
+    Used to build the routes (via [[routes-from-interceptor-map]]).
+
   :routes (default: via [[graphql-routes]])
-  : Used when explicitly setting up the routes
+  : Used when explicitly setting up the routes.
+    It is usually easier to configure the interceptors than to set up
+    the routes explicitly.
 
   :subscriptions (default: false)
   : If enabled, then support for WebSocket-based subscriptions is added.
@@ -399,13 +417,13 @@
 
   :env (default: :dev)
   : Environment being started."
+  {:added "0.5.0"}
   [compiled-schema options]
   (let [{:keys [graphiql subscriptions port env]
          :or {graphiql false
               subscriptions false
               port 8888
-              env :dev
-              create? true}} options
+              env :dev}} options
         routes (or (:routes options)
                    (route/expand-routes (graphql-routes compiled-schema options)))]
     (cond-> {:env env
@@ -426,3 +444,12 @@
 
       graphiql
       (assoc ::http/resource-path "graphiql"))))
+
+(defn pedestal-service
+  "This function has been deprecated in favor of [[service-map]], but is being maintained for
+  compatibility.
+
+  This simply invokes [[service-map]] and passes the resulting map through `io.pedestal.http/create-server`."
+  {:deprecated "0.5.0"}
+  [compiled-schema options]
+  (http/create-server (service-map compiled-schema options)))

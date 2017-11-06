@@ -2,7 +2,7 @@
   (:require
     [clojure.edn :as edn]
     [clojure.java.io :as io]
-    [com.walmartlabs.lacinia.pedestal :refer [pedestal-service]]
+    [com.walmartlabs.lacinia.pedestal :refer [service-map]]
     [com.walmartlabs.lacinia.schema :as schema]
     [com.walmartlabs.lacinia.util :as util]
     [io.pedestal.http :as http]))
@@ -21,6 +21,6 @@
       schema/compile))
 
 (def service (-> (hello-schema)
-                 (pedestal-service {:graphiql true})
+                 (service-map {:graphiql true})
                  http/create-server
                  http/start))

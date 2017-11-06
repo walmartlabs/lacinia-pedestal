@@ -1,7 +1,11 @@
 ## 0.5.0 -- UNRELEASED
 
-The service map created by `com.walmartlabs.lacinia.pedestal/pedestal-service` is not longer
-passed to `io.pedestal.http/create-server`; this is now the responsibility of the caller.
+New function `com.walmartlabs.lacinia.pedestal/service-map` is now preferred
+over `pedestal-service` (which has been deprecated).
+`service-map` does *not* create the server; that is now the responsibility
+of the§ calling code,
+which makes it far easier to customize the service map before creating a server
+from it.
 
 ## 0.4.0 -- 24 Oct 2017
 
