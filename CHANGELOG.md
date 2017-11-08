@@ -3,9 +3,11 @@
 New function `com.walmartlabs.lacinia.pedestal/service-map` is now preferred
 over `pedestal-service` (which has been deprecated).
 `service-map` does *not* create the server; that is now the responsibility
-of the§ calling code,
+of the calling code,
 which makes it far easier to customize the service map before creating a server
 from it.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/4?closed=1)
 
 ## 0.4.0 -- 24 Oct 2017
 
@@ -15,6 +17,8 @@ and development.
 
 Added `com.walmartlabs.lacinia.pedestal.interceptors/splice`, which is
 used to substitute an existing interceptor with a replacement.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/3?closed=1)
 
 ## 0.3.0 -- 7 Aug 2017
 
