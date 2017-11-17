@@ -3,13 +3,15 @@
     [com.walmartlabs.lacinia.pedestal :as lp]
     [clojure.test :refer [deftest is are use-fixtures]]
     [io.pedestal.http :as http]
-    [clj-http.client :as client]))
+    [clj-http.client :as client]
+    [com.walmartlabs.lacinia.schema :as schema]))
 
 (use-fixtures :once
   (fn [f]
-    (let [
-          service (lp/pedestal-service {} {:graphiql false})]
-      (http/start service)
+    (let [empty-schema (schema/compile {})
+          service (-> (lp/pedestal-service empty-schema {:graphiql false})
+                      http/create-server
+                      http/start)]
       (try
         (f)
         (finally

@@ -55,7 +55,7 @@
                    (cond-> (:indirect-schema options) constantly))
         options' (merge options
                         (options-builder schema))]
-    (lp/pedestal-service schema options')))
+    (lp/service-map schema options')))
 
 (defn test-server-fixture
   "Starts up the test server as a fixture."
@@ -65,8 +65,9 @@
    (fn [f]
      (reset! *ping-subscribes 0)
      (reset! *ping-cleanups 0)
-     (let [service (make-service options options-builder)]
-       (http/start service)
+     (let [service (-> (make-service options options-builder)
+                       http/create-server
+                       http/start)]
        (try
          (f)
          (finally

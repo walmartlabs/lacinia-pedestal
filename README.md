@@ -11,14 +11,13 @@ A library that adds the
 Lacinia-Pedestal also supports GraphQL subscriptions, using the same protocol
 as [Apollo GraphQL](https://github.com/apollographql/subscriptions-transport-ws).
 
-[Lacinia-Pedestal Manual](http://lacinia-pedestal.readthedocs.io/en/latest/)
-
+[Lacinia-Pedestal Manual](http://lacinia-pedestal.readthedocs.io/en/latest/) |
 [API Documentation](http://walmartlabs.github.io/lacinia-pedestal/)
 
 ## Usage
 
 For a basic Pedestal server, simply supply a compiled Lacinia schema to
-the `com.walmartlabs.lacinia.pedestal/pedestal-service` function to.
+the `com.walmartlabs.lacinia.pedestal/service-map` function to
 generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 
 ```clojure
@@ -36,7 +35,7 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
                               {:type 'String
                                :resolve (constantly "world")}}}))
 
-(def service (lacinia/pedestal-service hello-schema {:graphiql true}))
+(def service (lacinia/service-map hello-schema {:graphiql true}))
 
 ;; This is an adapted service map, that can be started and stopped
 ;; From the REPL you can call server/start and server/stop on this service
