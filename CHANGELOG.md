@@ -7,6 +7,10 @@ of the calling code,
 which makes it far easier to customize the service map before creating a server
 from it.
 
+Pedestal 0.5.3 includes a `Content-Security-Policy` header by default that disables
+GraphiQL.
+This header is now disabled when GraphiQL is enabled.
+
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/4?closed=1)
 
 ## 0.4.0 -- 24 Oct 2017

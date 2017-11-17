@@ -396,7 +396,9 @@
   Options:
 
   :graphiql (default: false)
-  : If given, then enables resources to support the GraphiQL IDE
+  : If given, then enables resources to support the GraphiQL IDE.
+    This includes disabling the Content-Security-Policy headers
+    that Pedestal 0.5.3 generates by default.
 
   :interceptors
   : Map of interceptor names to interceptors, with dependencies.
@@ -443,7 +445,8 @@
                                        (subscriptions/listener-fn-factory compiled-schema options)}))
 
       graphiql
-      (assoc ::http/resource-path "graphiql"))))
+      (assoc ::http/resource-path "graphiql"
+             ::http/secure-headers nil))))
 
 (defn pedestal-service
   "This function has been deprecated in favor of [[service-map]], but is being maintained for
