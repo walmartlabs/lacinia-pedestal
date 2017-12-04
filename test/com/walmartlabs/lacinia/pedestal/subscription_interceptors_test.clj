@@ -11,7 +11,8 @@
     [com.walmartlabs.lacinia.pedestal.subscriptions :as s]
     [com.walmartlabs.lacinia.pedestal.interceptors :as i]
     [cheshire.core :as cheshire]
-    [clojure.string :as str]))
+    [clojure.string :as str])
+  (:import [org.eclipse.jetty.websocket.servlet ServletUpgradeRequest]))
 
 (def ^:private *invoke-count (atom 0))
 
@@ -23,6 +24,16 @@
               (swap! *invoke-count inc)
               context)}))
 
+(def ^:private *user-agent (atom nil))
+
+(def ^:private user-agent-interceptor
+  "Used to demonstrate that the init-context option works"
+  (interceptor
+   {:name ::user-agent
+    :enter (fn [context]
+             (reset! *user-agent (:user-agent context))
+             context)}))
+
 (defn ^:private options-builder
   [schema]
   {:subscription-interceptors
@@ -30,7 +41,15 @@
    (-> (s/default-interceptors schema nil)
        (assoc ::invoke-count invoke-count-interceptor)
        (update ::s/execute-operation i/ordered-after [::invoke-count])
-       i/order-by-dependency)})
+       (assoc ::user-agent user-agent-interceptor)
+       (update ::s/execute-operation i/ordered-after [::user-agent])
+       i/order-by-dependency)
+
+   :init-context
+   (fn [ctx ^ServletUpgradeRequest req resp]
+     (reset! *invoke-count 0)
+     (reset! *user-agent nil)
+     (assoc ctx :user-agent (.getHeader (.getHttpServletRequest req) "User-Agent")))})
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}
@@ -53,3 +72,19 @@
 
   (is (= 1 @*invoke-count)
       "The added interceptor has been executed."))
+
+(deftest context-is-created-by-init-context
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (send-data {:id 987
+              :type :start
+              :payload
+              {:query "subscription { ping(message: \"short\", count: 2 ) { message }}"}})
+
+  (expect-message {:id 987
+                   :payload {:data {:ping {:message "short #1"}}}
+                   :type "data"})
+
+  (is (not-empty @*user-agent)
+      "The user agent was set by the init-context function."))

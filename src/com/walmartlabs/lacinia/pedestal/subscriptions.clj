@@ -380,10 +380,19 @@
 
   :subscription-interceptors
   : A seq of interceptors for processing queries.  The default is
-    derived from [[default-interceptors]]."
+    derived from [[default-interceptors]].
+
+  :init-context
+  : A function returning the base context for the subscription-interceptors to operate on.
+    The function takes the following arguments:
+     - the minimal viable context for operation
+     - the ServletUpgradeRequest that initiated this connection
+     - the ServletUpgradeResponse to the upgrade request
+    Defaults to returning the context unchanged.."
   [compiled-schema options]
-  (let [{:keys [keep-alive-ms app-context]
-         :or {keep-alive-ms 30000}} options
+  (let [{:keys [keep-alive-ms app-context init-context]
+         :or {keep-alive-ms 30000
+              init-context (fn [ctx & args] ctx)}} options
         interceptors (or (:subscription-interceptors options)
                          (interceptors/order-by-dependency (default-interceptors compiled-schema app-context)))
         base-context (chain/enqueue {::chain/terminators [:response]}
@@ -399,6 +408,7 @@
                        (log/debug :event ::closed)
                        (close! response-data-ch)
                        (close! ws-data-ch))
+            base-context (init-context base-context req resp)
             on-connect (fn [session send-ch]
                          (log/debug :event ::connected)
                          (response-encode-loop response-data-ch send-ch)
