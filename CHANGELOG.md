@@ -1,4 +1,4 @@
-## 0.5.0 -- UNRELEASED
+## 0.5.0 -- 5 Dec 2017
 
 New function `com.walmartlabs.lacinia.pedestal/service-map` is now preferred
 over `pedestal-service` (which has been deprecated).
