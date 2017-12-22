@@ -9,6 +9,7 @@
      :as interceptors
      :refer [ordered-after]]
     [clojure.string :as str]
+    [clojure.java.io :as io]
     [io.pedestal.http :as http]
     [io.pedestal.http.route :as route]
     [ring.util.response :as response]
@@ -20,6 +21,8 @@
     [com.walmartlabs.lacinia.constants :as constants]
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]))
+
+(def ^:private default-subscriptions-path "/graphql-ws")
 
 (defn bad-request
   "Generates a bad request Ring response."
@@ -341,6 +344,25 @@
        (interceptors/order-by-dependency get-interceptor-map)
        :route-name ::graphql-get]}))
 
+(defn ^:private read-index-html
+  "Reads the index.html resource, then injects new content into it, and ultimately returns a canned
+  response map."
+  [path options]
+  (let [{:keys [subscriptions-path api-key]
+         :or {subscriptions-path default-subscriptions-path
+              api-key "graphiql"}} options
+        replacements {:apikey api-key
+                      :asset-path ""
+                      :path path
+                      :subscriptions-path subscriptions-path}]
+    (-> "com/walmartlabs/lacinia/pedestal/graphiql-index.html"
+        io/resource
+        slurp
+        (str/replace #"\{\{(.+?)}}" (fn [[_ key]]
+                                      (get replacements (keyword key) "--NO-MATCH--")))
+        response/response
+        (response/content-type "text/html"))))
+
 (defn graphql-routes
   "Creates default routes for handling GET and POST requests (at `/graphql`) and
   (optionally) the GraphiQL IDE (at `/`).
@@ -356,29 +378,40 @@
 
   Options:
 
-  :graphiql (default false)
+  :graphiql (default: false)
   : If true, enables routes for the GraphiQL IDE.
+
+  :path (default: \"/graphql\")
+  : Path at which GraphQL requests are services (distinct from the GraphQL IDE).
+
+  :ide-path (default: \"/\")
+  : Path from which the GraphiQL IDE, if enabled, can be loaded.
+
+  :api-key (default: \"graphiql\")
+  : Passed back in requests from the IDE as the \"apikey\" header.
 
   :interceptors
   : The map of interceptors to be passed to [[routes-from-interceptor-map]].
     If not provided, [[graphql-interceptors]] is invoked.
 
-  :async (default false)
+  :async (default: false)
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
     channel rather than blocking.
 
   :app-context
   : The base application context provided to Lacinia when executing a query."
   [compiled-schema options]
-  (let [get-interceptor-map (or (:interceptors options)
+  (let [{:keys [path ide-path subscriptions-path]
+         :or {path "/graphql"
+              ide-path "/"}} options
+        get-interceptor-map (or (:interceptors options)
                                 (graphql-interceptors compiled-schema options))
         index-handler (when (:graphiql options)
-                        (fn [request]
-                          (response/redirect "/index.html")))]
-    (cond-> (routes-from-interceptor-map "/graphql" get-interceptor-map)
-      ;; NOTE: The JavaScript initialization code in index.html is hard-wired for
-      ;; the routes to be at /graphql.
-      index-handler (conj ["/" :get index-handler :route-name ::graphiql-ide-index]))))
+                        (let [index-response (read-index-html path options)]
+                          (fn [request]
+                            index-response)))]
+    (cond-> (routes-from-interceptor-map path get-interceptor-map)
+      index-handler (conj [ide-path :get index-handler :route-name ::graphiql-ide-index]))))
 
 (defn service-map
   "Creates and returns a Pedestal service map.
@@ -411,6 +444,10 @@
   : If enabled, then support for WebSocket-based subscriptions is added.
   : See [[listener-fn-factory]] for further options related to subscriptions.
 
+  :subscriptions-path (default: \"/graphql-ws\")
+  : If subscriptions are enabled, the path at which to service GraphQL websocket requests.
+    This must be a distinct path.
+
   :port (default: 8888)
   : HTTP port to use.
 
@@ -418,10 +455,11 @@
   : Environment being started."
   {:added "0.5.0"}
   [compiled-schema options]
-  (let [{:keys [graphiql subscriptions port env]
+  (let [{:keys [graphiql subscriptions port env subscriptions-path]
          :or {graphiql false
               subscriptions false
               port 8888
+              subscriptions-path default-subscriptions-path
               env :dev}} options
         routes (or (:routes options)
                    (route/expand-routes (graphql-routes compiled-schema options)))]
@@ -437,7 +475,7 @@
                 ;; the request, response, and the ws-map. In sample code, the ws-map
                 ;; has callbacks such as :on-connect and :on-text, but in our scenario
                 ;; the callbacks are created by the listener-fn, so the value is nil.
-                #(ws/add-ws-endpoints % {"/graphql-ws" nil}
+                #(ws/add-ws-endpoints % {subscriptions-path nil}
                                       {:listener-fn
                                        (subscriptions/listener-fn-factory compiled-schema options)}))
 

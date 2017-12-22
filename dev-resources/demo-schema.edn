@@ -1,0 +1,22 @@
+{:objects
+ {:tick
+  {:description "A subscription response."
+   :fields {:time_ms {:type String
+                      :description "Time when tick is emittied (as string-ified long milliseconds since epoch)."
+                      :resolve :tick/time-ms}
+            :count {:type Int
+                    :descripion "Countdown on number of ticks after this one (e.g., 0 is the last tick before the subscription closes)."}}}}
+
+ :queries
+ {:hello
+  {:description "Simplest possible query."
+   :type String
+   :resolve :query/hello}}
+
+ :subscriptions
+ {:ticks
+  {:type :tick
+   :args {:count {:type Int
+                  :default 5
+                  :description "Number of ticks to send via subscription."}}
+   :stream :subscriptions/ticks}}}
