@@ -306,10 +306,7 @@
   : The base application context provided to Lacinia when executing a query."
   {:added "0.3.0"}
   [compiled-schema options]
-  (let [index-handler (when (:graphiql options)
-                        (fn [request]
-                          (response/redirect "/index.html")))
-        query-parser (query-parser-interceptor compiled-schema)
+  (let [query-parser (query-parser-interceptor compiled-schema)
         inject-app-context (inject-app-context-interceptor (:app-context options))
         executor (if (:async options)
                    async-query-executor-handler
