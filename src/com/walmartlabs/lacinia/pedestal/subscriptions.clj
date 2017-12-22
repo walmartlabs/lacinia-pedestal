@@ -252,7 +252,7 @@
   (let [ch (chan 1)]
     (-> context
         :request
-        :lacina-app-context
+        :lacinia-app-context
         (assoc constants/parsed-query-key parsed-query)
         executor/execute-query
         (resolve/on-deliver! (fn [response]
