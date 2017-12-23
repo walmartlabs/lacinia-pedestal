@@ -11,7 +11,6 @@
     [clojure.string :as str]
     [clojure.java.io :as io]
     [io.pedestal.http :as http]
-    [io.pedestal.http.route :as route]
     [ring.util.response :as response]
     [com.walmartlabs.lacinia.resolve :as resolve]
     [com.walmartlabs.lacinia.parser :as parser]
@@ -347,12 +346,12 @@
 (defn ^:private read-index-html
   "Reads the index.html resource, then injects new content into it, and ultimately returns a canned
   response map."
-  [path options]
-  (let [{:keys [subscriptions-path api-key]
+  [path asset-path options]
+  (let [{:keys [subscriptions-path assets-path api-key ]
          :or {subscriptions-path default-subscriptions-path
               api-key "graphiql"}} options
         replacements {:apikey api-key
-                      :asset-path ""
+                      :asset-path asset-path
                       :path path
                       :subscriptions-path subscriptions-path}]
     (-> "com/walmartlabs/lacinia/pedestal/graphiql-index.html"
@@ -364,8 +363,10 @@
         (response/content-type "text/html"))))
 
 (defn graphql-routes
-  "Creates default routes for handling GET and POST requests (at `/graphql`) and
-  (optionally) the GraphiQL IDE (at `/`).
+  "Creates default routes for handling GET and POST requests and
+  (optionally) the GraphiQL IDE.
+
+  The paths for the routes are determined by the options.
 
   Returns a set of route vectors, compatible with
   `io.pedestal.http.route.definition.table/table-routes`.
@@ -387,6 +388,9 @@
   :ide-path (default: \"/\")
   : Path from which the GraphiQL IDE, if enabled, can be loaded.
 
+  :asset-path (default: \"\")
+  : Path from which the JavaScript and CSS assets may be loaded.
+
   :api-key (default: \"graphiql\")
   : Passed back in requests from the IDE as the \"apikey\" header.
 
@@ -399,19 +403,34 @@
     channel rather than blocking.
 
   :app-context
-  : The base application context provided to Lacinia when executing a query."
+  : The base application context provided to Lacinia when executing a query.
+
+  Asset paths use wildcard matching; you should be careful to ensure that the asset path does not
+  overlap the paths for request, the IDE, or subscriptions (or the asset handler will override the others
+  and deliver 404 responses)."
   [compiled-schema options]
-  (let [{:keys [path ide-path subscriptions-path]
+  (let [{:keys [path ide-path asset-path graphiql]
          :or {path "/graphql"
+              asset-path "/assets/graphiql"
               ide-path "/"}} options
         get-interceptor-map (or (:interceptors options)
                                 (graphql-interceptors compiled-schema options))
-        index-handler (when (:graphiql options)
-                        (let [index-response (read-index-html path options)]
+
+        index-handler (when graphiql
+                        (let [index-response (read-index-html path asset-path options)]
                           (fn [request]
-                            index-response)))]
+                            index-response)))
+        asset-path' (str asset-path "/*path")
+        asset-get-handler (fn [request]
+                            (response/resource-response (-> request :path-params :path)
+                                                        {:root "graphiql"}))
+        asset-head-handler #(-> %
+                                asset-get-handler
+                                (assoc :body nil))]
     (cond-> (routes-from-interceptor-map path get-interceptor-map)
-      index-handler (conj [ide-path :get index-handler :route-name ::graphiql-ide-index]))))
+      graphiql (conj [ide-path :get index-handler :route-name ::graphiql-ide-index]
+                     [asset-path' :get asset-get-handler :route-name ::graphiql-get-assets]
+                     [asset-path' :head asset-head-handler :route-name ::graphiql-head-assets]))))
 
 (defn service-map
   "Creates and returns a Pedestal service map.
@@ -437,8 +456,8 @@
 
   :routes (default: via [[graphql-routes]])
   : Used when explicitly setting up the routes.
-    It is usually easier to configure the interceptors than to set up
-    the routes explicitly.
+    It is significantly easier to configure the interceptors than to set up
+    the routes explicitly, this option exists primarily for backwards compatibility.
 
   :subscriptions (default: false)
   : If enabled, then support for WebSocket-based subscriptions is added.
@@ -446,7 +465,7 @@
 
   :subscriptions-path (default: \"/graphql-ws\")
   : If subscriptions are enabled, the path at which to service GraphQL websocket requests.
-    This must be a distinct path.
+    This must be a distinct path (not the same as the main path or the GraphiQL IDE path).
 
   :port (default: 8888)
   : HTTP port to use.
@@ -462,7 +481,7 @@
               subscriptions-path default-subscriptions-path
               env :dev}} options
         routes (or (:routes options)
-                   (route/expand-routes (graphql-routes compiled-schema options)))]
+                   (graphql-routes compiled-schema options))]
     (cond-> {:env env
              ::http/routes routes
              ::http/port port
@@ -480,8 +499,7 @@
                                        (subscriptions/listener-fn-factory compiled-schema options)}))
 
       graphiql
-      (assoc ::http/resource-path "graphiql"
-             ::http/secure-headers nil))))
+      (assoc ::http/secure-headers nil))))
 
 (defn pedestal-service
   "This function has been deprecated in favor of [[service-map]], but is being maintained for
