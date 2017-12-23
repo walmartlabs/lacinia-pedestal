@@ -1,4 +1,4 @@
-## 0.5.0 -- UNRELEASED
+## 0.6.0 -- UNRELEASED
 
 It is now possible to configure the paths used to access the GraphQL endpoint and
 the GraphiQL IDE.
