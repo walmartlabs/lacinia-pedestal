@@ -343,8 +343,8 @@
        (interceptors/order-by-dependency get-interceptor-map)
        :route-name ::graphql-get]}))
 
-(defn ^:private read-index-html
-  "Reads the index.html resource, then injects new content into it, and ultimately returns a canned
+(defn ^:private read-graphiql-html
+  "Reads the graphiql.html resource, then injects new content into it, and ultimately returns a canned
   response map."
   [path asset-path options]
   (let [{:keys [subscriptions-path assets-path api-key]
@@ -354,7 +354,7 @@
                       :asset-path asset-path
                       :path path
                       :subscriptions-path subscriptions-path}]
-    (-> "com/walmartlabs/lacinia/pedestal/graphiql-index.html"
+    (-> "com/walmartlabs/lacinia/pedestal/graphiql.html"
         io/resource
         slurp
         (str/replace #"\{\{(.+?)}}" (fn [[_ key]]
@@ -417,7 +417,7 @@
                                 (graphql-interceptors compiled-schema options))
 
         index-handler (when graphiql
-                        (let [index-response (read-index-html path asset-path options)]
+                        (let [index-response (read-graphiql-html path asset-path options)]
                           (fn [request]
                             index-response)))
         asset-path' (str asset-path "/*path")
