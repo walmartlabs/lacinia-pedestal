@@ -43,11 +43,11 @@
     {:content-type (keyword type)
      :content-type-params
      (->> (str/split (str raw-params) #"\s*;\s*")
-        (keep identity)
-        (remove str/blank?)
-        (map #(str/split % #"="))
-        (mapcat (fn [[k v]] [(keyword (str/lower-case k)) (str/trim v)]))
-        (apply hash-map))}))
+          (keep identity)
+          (remove str/blank?)
+          (map #(str/split % #"="))
+          (mapcat (fn [[k v]] [(keyword (str/lower-case k)) (str/trim v)]))
+          (apply hash-map))}))
 
 
 (defn content-type
@@ -79,7 +79,7 @@
      :graphql-vars variables
      :graphql-operation-name operation-name}))
 
-(defmethod extract-query  :application/graphql [request]
+(defmethod extract-query :application/graphql [request]
   (let [query (:body request)
         variables (when-let [vars (get-in request [:query-params :variables])]
                     (cheshire/parse-string vars true))]
@@ -107,9 +107,9 @@
 (def body-data-interceptor
   "Converts the POSTed body from a input stream into a string."
   (interceptor
-   {:name ::body-data
-    :enter (fn [context]
-             (update-in context [:request :body] slurp))}))
+    {:name ::body-data
+     :enter (fn [context]
+              (update-in context [:request :body] slurp))}))
 
 (def graphql-data-interceptor
   "Extracts the raw data (query and variables) from the request using [[extract-query]]."
@@ -347,7 +347,7 @@
   "Reads the index.html resource, then injects new content into it, and ultimately returns a canned
   response map."
   [path asset-path options]
-  (let [{:keys [subscriptions-path assets-path api-key ]
+  (let [{:keys [subscriptions-path assets-path api-key]
          :or {subscriptions-path default-subscriptions-path
               api-key "graphiql"}} options
         replacements {:apikey api-key
