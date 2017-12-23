@@ -17,6 +17,6 @@
  {:ticks
   {:type :tick
    :args {:count {:type Int
-                  :default 5
+                  :default-value 5
                   :description "Number of ticks to send via subscription."}}
    :stream :subscriptions/ticks}}}

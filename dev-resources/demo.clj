@@ -13,11 +13,10 @@
 
 (defn ticks-streamer
   [context args source-stream]
-  (prn `ticks-streamer args)
   (let [abort-ch (chan)]
     (go
       (loop [countdown (-> args :count dec)]
-        (if (< 0 countdown)
+        (if (<= 0 countdown)
           (do
             (source-stream {:count countdown :time-ms (System/currentTimeMillis)})
             (alt!
