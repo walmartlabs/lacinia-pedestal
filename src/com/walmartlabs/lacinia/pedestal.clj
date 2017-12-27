@@ -442,6 +442,9 @@
   However, in many cases, further extensions to the service map are needed before
   creating and starting the server.
 
+  `compiled-schema` may be the actual compiled schema, or a no-arguments function
+  that returns the compiled schema.
+
   Options:
 
   :graphiql (default: false)
