@@ -4,6 +4,7 @@
   {:added "0.3.0"}
   (:require
     [com.walmartlabs.lacinia.util :as util]
+    [com.walmartlabs.lacinia.internal-utils :refer [cond-let to-message]]
     [clojure.core.async :as async
      :refer [chan put! close! go-loop <! >! alt! thread]]
     [cheshire.core :as cheshire]
@@ -151,48 +152,66 @@
 
 (defn ^:private fix-up-message
   [s]
-  (-> s
-      str/trim
-      (str/replace #"\s*\.?$" "")
-      str/capitalize))
+  (when-not (str/blank? s)
+    (-> s
+        str/trim
+        (str/replace #"\s*\.+$" "")
+        str/capitalize)))
 
-(defn ^:private construct-exception-message
-  [e]
-  (loop [result ""
-         prev nil
-         current ^Throwable e]
-    (if
-      (or (= prev current)
-          (nil? current))
-      (str (str/trim result) ".")
-      (let [message (.getMessage e)
-            next-e (.getCause e)]
-        (if (or (str/blank? message)
-                (str/includes? result message))
-          (recur result e next-e)
-          (recur (str result
-                      (when-not (str/blank? result) ": ")
-                      message
-                      (when-let [errors (->> e ex-data :errors
-                                             (map :parse-error)
-                                             distinct
-                                             (map fix-up-message))]
-                        (str " "
-                             (str/join "; " errors))))
-                 e next-e))))))
+(defn ^:private ex-data-seq
+  "Uses the exception root causes to build a sequence of non-nil ex-data from each
+  exception in the exception stack."
+  [t]
+  (loop [stack []
+         current ^Throwable t]
+    (let [stack' (conj stack current)
+          next-t (.getCause current)]
+      ;; Sometime .getCause returns this, sometimes nil, when the end of the stack is
+      ;; reached.
+      (if (or (nil? next-t)
+              (= current next-t))
+        (keep ex-data stack')
+        (recur stack' next-t)))))
+
+(defn ^:private construct-exception-payload
+  [^Throwable t]
+  (cond-let
+    :let [errors (->> t
+                      ex-data-seq
+                      (keep ::errors)
+                      first)
+          parse-errors (->> errors
+                            (keep :parse-error)
+                            distinct)]
+
+    (seq parse-errors)
+    {:message (str "Failed to parse GraphQL query. "
+                   (->> parse-errors
+                        (keep fix-up-message)
+                        (str/join "; "))
+                   ".")}
+
+    ;; Apollo spec only has room for one error, so just use the first
+
+    (seq errors)
+    (first errors)
+
+    :else
+    ;; Strip off the exception added by Pedestal and convert
+    ;; the message into an error map
+    {:message (to-message t)}))
 
 (def exception-handler-interceptor
   "An interceptor that implements the :error callback, to send an \"error\" message to the client."
   (interceptor
     {:name ::exception-handler
-     :error (fn [context ^Throwable e]
-              (log/debug :event ::exception :exception e)
+     :error (fn [context ^Throwable t]
               (let [{:keys [id response-data-ch]} (:request context)
-                    ;; Strip off the outer layer because that's "Interceptor Exception"
-                    message (construct-exception-message (.getCause e))]
+                    ;; Strip off the wrapper exception added by Pedestal
+                    payload (construct-exception-payload (.getCause t))]
                 (put! response-data-ch {:type :error
                                         :id id
-                                        :payload {:message message}})
+                                        :payload payload})
                 (close! response-data-ch)))}))
 
 (def send-operation-response-interceptor
@@ -227,11 +246,17 @@
                       actual-schema (if (map? compiled-schema)
                                       compiled-schema
                                       (compiled-schema))
-                      parsed-query (parser/parse-query actual-schema query operation-name)
+                      parsed-query (try
+                                     (parser/parse-query actual-schema query operation-name)
+                                     (catch Throwable t
+                                       (throw (ex-info (to-message t)
+                                                       {::errors (-> t ex-data :errors)}
+                                                       t))))
                       prepared (parser/prepare-with-query-variables parsed-query variables)
                       errors (validator/validate actual-schema prepared {})]
+
                   (if (seq errors)
-                    (throw (ex-info "Query validation errors." {:errors errors}))
+                    (throw (ex-info "Query validation errors." {::errors errors}))
                     (assoc-in context [:request :parsed-lacinia-query] prepared))))}
       interceptor
       (ordered-after [::exception-handler])))
