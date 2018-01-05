@@ -17,13 +17,13 @@
         overflow: hidden;
       }
     </style>
-    <link rel="stylesheet" href="./graphiql.css" />
+    <link rel="stylesheet" href="{{asset-path}}/graphiql.css" />
     <script src="//cdn.jsdelivr.net/fetch/0.9.0/fetch.min.js"></script>
     <script src="//cdn.jsdelivr.net/react/0.14.7/react.min.js"></script>
     <script src="//cdn.jsdelivr.net/react/0.14.7/react-dom.min.js"></script>
     <script src="//unpkg.com/subscriptions-transport-ws@0.8.2/browser/client.js"></script>
     <script src="//unpkg.com/graphiql-subscriptions-fetcher@0.0.2/browser/client.js"></script>
-    <script src="./graphiql.js"></script>
+    <script src="{{asset-path}}/graphiql.js"></script>
   </head>
   <body>
     Loading...
@@ -85,14 +85,14 @@
 
       // Defines a GraphQL fetcher using the fetch API.
       function graphQLFetcher(graphQLParams) {
-        console.log(graphQLParams);
-        return fetch(window.location.origin + '/graphql' + computeParams(), {
+        return fetch(window.location.origin + '{{path}}', {
           method: 'post',
           headers: {
-            'Content-Type': 'application/graphql',
-            'apikey': 'graphiql'
+            'Content-Type': 'application/json',
+            'apikey': '{{apikey}}'
           },
-          body: graphQLParams.query
+          body: JSON.stringify({ query: graphQLParams.query,
+                                 variables: graphQLParams.variables })
         }).then(function (response) {
           return response.text();
         }).then(function (responseBody) {
@@ -103,7 +103,9 @@
           }
         });
       }
-      var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(window.location.origin.replace('http', 'ws') + '/graphql-ws', { reconnect: true });
+      var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(
+        window.location.origin.replace('http', 'ws') + '{{subscriptions-path}}',
+        { reconnect: true });
       var subscriptionsFetcher = window.GraphiQLSubscriptionsFetcher.graphQLFetcher(subscriptionsClient, graphQLFetcher);
 
       // Render <GraphiQL /> into the body.

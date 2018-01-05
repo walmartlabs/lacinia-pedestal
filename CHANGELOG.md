@@ -1,3 +1,8 @@
+## 0.6.0 -- UNRELEASED
+
+It is now possible to configure the paths used to access the GraphQL endpoint and
+the GraphiQL IDE.
+
 ## 0.5.0 -- 5 Dec 2017
 
 New function `com.walmartlabs.lacinia.pedestal/service-map` is now preferred
