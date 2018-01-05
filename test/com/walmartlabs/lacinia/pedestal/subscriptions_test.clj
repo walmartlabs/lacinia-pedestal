@@ -70,6 +70,29 @@
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscription has been cleaned up.")))
 
+(deftest client-query-validation-error
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "Any prior subscribes have been cleaned up.")
+
+  (let [id (swap! *subscriber-id inc)]
+    (send-data {:id id
+                :type :start
+                :payload
+                ;; Note: missing selections inside ping field
+                {:query "subscription { ping(message: \"short\", count: 2 ) }"}})
+
+    (expect-message {:id id
+                     :payload {:locations [{:column 13
+                                            :line 1}]
+                               :message "Field `ping' (of type `Ping') must have at least one selection."}
+                     :type "error"})
+
+    (is (= @*ping-subscribes @*ping-cleanups)
+        "The completed subscription has been cleaned up.")))
+
 (deftest client-stop
   (send-init)
   (expect-message {:type "connection_ack"})
@@ -239,7 +262,7 @@
     (is (str/includes? (-> message :payload :message)
                        "Unexpected character"))))
 
-(deftest client-invalid-payload
+(deftest client-query-parse-error
 
   (send-init)
   (expect-message {:type "connection_ack"})
