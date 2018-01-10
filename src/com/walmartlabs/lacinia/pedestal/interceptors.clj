@@ -23,21 +23,23 @@
                        #(into (or % #{}) dependencies)))))
 
 (defn dependencies
-  "Returns the set of dependencies for an interceptor, as provided by [[ordered-after]]."
+  "Returns the set of dependencies for an interceptor, as provided by [[ordered-after]].
+
+  Returns nil if there are no dependencies."
   [interceptor]
   (-> interceptor meta ::dependencies))
 
 (defn order-by-dependency
   "Orders an interceptor *map* by dependencies.
   The keys of the map are arbitrary keywords (generally the same as the :name
-  key of the interceptor map), and each value is an interceptor that has been
+  key of the interceptor map), and each value is an interceptor that may have been
   augmented via [[ordered-after]].
 
   The result is an ordered list of just the non-empty interceptors.
 
   By intention, it is possible to remove an interceptor before ordering by
   `assoc`-ing nil, or an empty map, into the dependency map. The distinction
-  between nil and empty exists because an empty map can still have dependencies
+  between nil and an empty map exists because an empty map can still have dependencies
   on other interceptors, but nil can not, which may affect the ordering of
   intereceptors that depend on the removed interceptor."
   [dependency-map]
@@ -64,13 +66,13 @@
   (zipmap (map :name interceptors) interceptors))
 
 (defn splice
-  "Overwrites an existing interceptor in the map with a replacement interceptor.
+  "Overwrites an existing interceptor in the dependency map with a replacement interceptor.
 
   Throws an exception if the interceptor does not already exist.
 
-  The replacement's dependencies are merged with the dependency it is replacing: this
-  ensures that interceptor ordering is not affected, even if it was based on transitive
-  dependencies through the replaced interceptor."
+  The replacement's dependencies (if any) are merged with the depenencies of the replaced interceptor (if any):
+  this ensures that the ordering of other interceptors (which may depend on the replaced interceptor)
+  are not affected."
   {:added "0.4.0"}
   [dependency-map interceptor-name replacement]
   (update dependency-map interceptor-name
@@ -80,4 +82,20 @@
                               {:dependency-map dependency-map
                                :interceptor-name interceptor-name})))
 
-            (ordered-after replacement (dependencies existing)))))
+            (if-some [existing-dependencies (dependencies existing)]
+              (ordered-after replacement (dependencies existing))
+              replacement))))
+
+(defn add
+  "Adds a new interceptor to an dependency map, using the
+  :name of the interceptor as the key.
+
+  The new interceptor may have optional ordering dependencies."
+  {:added "0.6.0"}
+  [dependency-map interceptor & dependencies]
+  {:pre [(map? dependency-map)
+         (some? interceptor)]}
+  (assoc dependency-map (:name interceptor)
+         (if (seq dependencies)
+           (ordered-after interceptor dependencies)
+           interceptor)))

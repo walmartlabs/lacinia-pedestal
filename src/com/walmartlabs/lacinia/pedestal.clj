@@ -388,7 +388,7 @@
   :ide-path (default: \"/\")
   : Path from which the GraphiQL IDE, if enabled, can be loaded.
 
-  :asset-path (default: \"\")
+  :asset-path (default: \"/assets/graphiql\")
   : Path from which the JavaScript and CSS assets may be loaded.
 
   :api-key (default: \"graphiql\")
