@@ -466,6 +466,9 @@
   : If enabled, then support for WebSocket-based subscriptions is added.
   : See [[listener-fn-factory]] for further options related to subscriptions.
 
+  :app-context
+  : The base application context provided to Lacinia when executing a query.
+
   :subscriptions-path (default: \"/graphql-ws\")
   : If subscriptions are enabled, the path at which to service GraphQL websocket requests.
     This must be a distinct path (not the same as the main path or the GraphiQL IDE path).
