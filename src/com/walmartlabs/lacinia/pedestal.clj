@@ -7,7 +7,7 @@
     [io.pedestal.interceptor :refer [interceptor]]
     [com.walmartlabs.lacinia.pedestal.interceptors
      :as interceptors
-     :refer [ordered-after]]
+     :refer [ordered-after add]]
     [clojure.string :as str]
     [clojure.java.io :as io]
     [io.pedestal.http :as http]
@@ -23,7 +23,7 @@
 
 (def ^:private default-subscriptions-path "/graphql-ws")
 
-(defn bad-request
+(defn ^:private bad-request
   "Generates a bad request Ring response."
   ([body]
    (bad-request 400 body))
@@ -36,7 +36,7 @@
   [message]
   {:errors [{:message message}]})
 
-(defn parse-content-type
+(defn ^:no-doc parse-content-type
   "Parse `s` as an RFC 2616 media type."
   [s]
   (if-let [[_ type _ _ raw-params] (re-matches #"\s*(([^/]+)/([^ ;]+))\s*(\s*;.*)?" (str s))]
@@ -50,7 +50,7 @@
           (apply hash-map))}))
 
 
-(defn content-type
+(defn ^:private content-type
   "Gets the content-type of a request. (without encoding)"
   [request]
   (if-let [content-type (get-in request [:headers "content-type"])]
@@ -276,7 +276,8 @@
                 ch))}))
 
 (def ^{:added "0.3.0"} disallow-subscriptions-interceptor
-  "Handles requests for subscriptions."
+  "Handles requests for subscriptions.  Subscription requests must only be sent to the subscriptions web-socket, not the
+  general query endpoint, so any subscription request received in this pipeline is a bad request."
   (-> {:name ::disallow-subscriptions
        :enter (fn [context]
                 (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
@@ -333,8 +334,7 @@
   {:added "0.3.0"}
   [route-path get-interceptor-map]
   (let [post-interceptor-map (-> get-interceptor-map
-                                 (assoc ::body-data
-                                        (ordered-after body-data-interceptor [::json-response]))
+                                 (add body-data-interceptor ::json-response)
                                  (update ::graphql-data ordered-after [::body-data]))]
     #{[route-path :post
        (interceptors/order-by-dependency post-interceptor-map)
@@ -466,6 +466,26 @@
   : If enabled, then support for WebSocket-based subscriptions is added.
   : See [[listener-fn-factory]] for further options related to subscriptions.
 
+  :path (default: \"/graphql\")
+  : Path at which GraphQL requests are services (distinct from the GraphQL IDE).
+
+  :ide-path (default: \"/\")
+  : Path from which the GraphiQL IDE, if enabled, can be loaded.
+
+  :asset-path (default: \"/assets/graphiql\")
+  : Path from which the JavaScript and CSS assets may be loaded.
+
+  :api-key (default: \"graphiql\")
+  : Passed back in requests from the IDE as the \"apikey\" header.
+
+  :interceptors
+  : The map of interceptors to be passed to [[routes-from-interceptor-map]].
+    If not provided, [[graphql-interceptors]] is invoked.
+
+  :async (default: false)
+  : If true, the query will execute asynchronously; the handler will return a clojure.core.async
+    channel rather than blocking.
+
   :app-context
   : The base application context provided to Lacinia when executing a query.
 
@@ -477,7 +497,9 @@
   : HTTP port to use.
 
   :env (default: :dev)
-  : Environment being started."
+  : Environment being started.
+
+  See further notes in [[graphql-routes]] and [[graphql-interceptors]]."
   {:added "0.5.0"}
   [compiled-schema options]
   (let [{:keys [graphiql subscriptions port env subscriptions-path]
