@@ -1,12 +1,13 @@
 (ns com.walmartlabs.lacinia.pedestal-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
-    [com.walmartlabs.lacinia.pedestal :as lp]
+    [com.walmartlabs.lacinia.pedestal :as lp :refer [inject]]
     [clj-http.client :as client]
     [clojure.string :as str]
     [com.walmartlabs.lacinia.test-utils :refer [test-server-fixture
                                                 send-request
-                                                send-json-request]]))
+                                                send-json-request]])
+  (:import (clojure.lang ExceptionInfo)))
 
 
 (use-fixtures :once (test-server-fixture {:graphiql true}))
@@ -111,3 +112,28 @@
     (is (= {:body {:errors [{:message "Subscription queries must be processed by the WebSockets endpoint."}]}
             :status 400}
            (select-keys response [:status :body])))))
+
+(deftest inject-not-found
+  (is (thrown-with-msg? ExceptionInfo #"Could not find existing interceptor"
+                        (inject [{:name :fred}] {:name :barney} :before :bam-bam))))
+
+(deftest inject-before
+  (let [fred {:name :fred}
+        barney {:name :barney}
+        wilma {:name :wilma}]
+    (is (= [fred wilma barney]
+           (inject [fred barney] wilma :before :barney)))))
+
+(deftest inject-after
+  (let [fred {:name :fred}
+        barney {:name :barney}
+        wilma {:name :wilma}]
+    (is (= [fred barney wilma]
+           (inject [fred barney] wilma :after :barney)))))
+
+(deftest inject-replace
+  (let [fred {:name :fred}
+        barney {:name :barney}
+        wilma {:name :wilma}]
+    (is (= [fred wilma]
+           (inject [fred barney] wilma :replace :barney)))))
