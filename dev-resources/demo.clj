@@ -61,3 +61,8 @@
   []
   (alter-var-root #'server stop-server)
   :stopped)
+
+(comment
+  (start)
+  (stop)
+  )

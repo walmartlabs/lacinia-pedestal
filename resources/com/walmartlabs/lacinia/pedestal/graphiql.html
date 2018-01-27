@@ -89,7 +89,7 @@
           method: 'post',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': '{{apikey}}'
+            '{{apikey-header}}': '{{apikey}}'
           },
           body: JSON.stringify({ query: graphQLParams.query,
                                  variables: graphQLParams.variables })

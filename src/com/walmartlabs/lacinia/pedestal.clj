@@ -347,10 +347,12 @@
   "Reads the graphiql.html resource, then injects new content into it, and ultimately returns a canned
   response map."
   [path asset-path options]
-  (let [{:keys [subscriptions-path assets-path api-key]
+  (let [{:keys [subscriptions-path assets-path api-key api-key-header]
          :or {subscriptions-path default-subscriptions-path
+              api-key-header "apikey"
               api-key "graphiql"}} options
         replacements {:apikey api-key
+                      :apikey-header api-key-header
                       :asset-path asset-path
                       :path path
                       :subscriptions-path subscriptions-path}]
@@ -392,7 +394,10 @@
   : Path from which the JavaScript and CSS assets may be loaded.
 
   :api-key (default: \"graphiql\")
-  : Passed back in requests from the IDE as the \"apikey\" header.
+  : Passed back in requests from the IDE in a header (specified by :api-key-header).
+
+  :api-key-header (default \"apikey\")
+  : Specifies the header in which the API key will be passed.
 
   :interceptors
   : The map of interceptors to be passed to [[routes-from-interceptor-map]].
@@ -415,22 +420,32 @@
               ide-path "/"}} options
         get-interceptor-map (or (:interceptors options)
                                 (graphql-interceptors compiled-schema options))
+        base-routes (routes-from-interceptor-map path get-interceptor-map)]
+    (if-not graphiql
+      base-routes
+      (let [index-handler (let [index-response (read-graphiql-html path asset-path options)]
+                            (fn [request]
+                              index-response))
 
-        index-handler (when graphiql
-                        (let [index-response (read-graphiql-html path asset-path options)]
-                          (fn [request]
-                            index-response)))
-        asset-path' (str asset-path "/*path")
-        asset-get-handler (fn [request]
-                            (response/resource-response (-> request :path-params :path)
-                                                        {:root "graphiql"}))
-        asset-head-handler #(-> %
-                                asset-get-handler
-                                (assoc :body nil))]
-    (cond-> (routes-from-interceptor-map path get-interceptor-map)
-      graphiql (conj [ide-path :get index-handler :route-name ::graphiql-ide-index]
-                     [asset-path' :get asset-get-handler :route-name ::graphiql-get-assets]
-                     [asset-path' :head asset-head-handler :route-name ::graphiql-head-assets]))))
+            api-key-handler (fn [request]
+                              (let [api-key (-> request :path-params :api-key)]
+                                (read-graphiql-html path asset-path (assoc options :api-key api-key))))
+
+            asset-path' (str asset-path "/*path")
+
+            asset-get-handler (fn [request]
+                                (response/resource-response (-> request :path-params :path)
+                                                            {:root "graphiql"}))
+            asset-head-handler #(-> %
+                                    asset-get-handler
+                                    (assoc :body nil))]
+        (conj base-routes
+              ;; Startup IDE using default API key
+              [ide-path :get index-handler :route-name ::graphiql-ide-index]
+              ;; Startup IDE using API key specified in the URL
+              [(str ide-path "/:api-key") :get api-key-handler :route-name ::graphiql-ide-api-key]
+              [asset-path' :get asset-get-handler :route-name ::graphiql-get-assets]
+              [asset-path' :head asset-head-handler :route-name ::graphiql-head-assets])))))
 
 (defn service-map
   "Creates and returns a Pedestal service map.
@@ -476,7 +491,10 @@
   : Path from which the JavaScript and CSS assets may be loaded.
 
   :api-key (default: \"graphiql\")
-  : Passed back in requests from the IDE as the \"apikey\" header.
+  : Passed back in requests from the IDE in a header (specified by :api-key-header).
+
+  :api-key-header (default \"apikey\")
+  : Specifies the header in which the API key will be passed.
 
   :interceptors
   : The map of interceptors to be passed to [[routes-from-interceptor-map]].
