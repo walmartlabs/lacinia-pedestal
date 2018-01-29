@@ -41,6 +41,7 @@
                    (lp/service-map {:graphiql true
                                     :path "/"
                                     :ide-path "/ui"
+                                    :ide-headers {"apikey" "mean mister mustard"}
                                     :subscriptions true
                                     :subscriptions-path "/ws"})
                    http/create-server

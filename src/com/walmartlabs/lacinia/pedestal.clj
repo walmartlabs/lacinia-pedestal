@@ -21,6 +21,10 @@
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]))
 
+(def ^:private default-path "/graphql")
+
+(def ^:private default-asset-path "/assets/graphiql")
+
 (def ^:private default-subscriptions-path "/graphql-ws")
 
 (defn ^:private bad-request
@@ -343,19 +347,32 @@
        (interceptors/order-by-dependency get-interceptor-map)
        :route-name ::graphql-get]}))
 
-(defn ^:private read-graphiql-html
-  "Reads the graphiql.html resource, then injects new content into it, and ultimately returns a canned
-  response map."
-  [path asset-path options]
-  (let [{:keys [subscriptions-path assets-path api-key api-key-header]
-         :or {subscriptions-path default-subscriptions-path
-              api-key-header "apikey"
-              api-key "graphiql"}} options
-        replacements {:apikey api-key
-                      :apikey-header api-key-header
-                      :asset-path asset-path
+
+(defn graphiql-ide-response
+  "Reads the graphiql.html resource, then injects new content into it, and ultimately returns a Ring
+  response map.
+
+  This function is used when creating customized Pedestal routers that expose the GraphiQL IDE.
+
+  Options are as specified in [[graphql-routes]].
+
+  Reads the template file, makes necessary substitutions, and returns a Ring response."
+  {:added "0.7.0"}
+  [options]
+  (let [{:keys [path asset-path subscriptions-path ide-headers]
+         :or {path default-path
+              asset-path default-asset-path
+              subscriptions-path default-subscriptions-path}} options
+        ide-headers' (assoc ide-headers "Content-Type" "application/json")
+        replacements {:asset-path asset-path
                       :path path
-                      :subscriptions-path subscriptions-path}]
+                      :subscriptions-path subscriptions-path
+                      :request-headers (str "{"
+                                            (->> ide-headers'
+                                                 (map (fn [[k v]]
+                                                        (str \" (name k) "\": \"" (name v) \")))
+                                                 (str/join ", "))
+                                            "}")}]
     (-> "com/walmartlabs/lacinia/pedestal/graphiql.html"
         io/resource
         slurp
@@ -393,11 +410,11 @@
   :asset-path (default: \"/assets/graphiql\")
   : Path from which the JavaScript and CSS assets may be loaded.
 
-  :api-key (default: \"graphiql\")
-  : Passed back in requests from the IDE in a header (specified by :api-key-header).
-
-  :api-key-header (default \"apikey\")
-  : Specifies the header in which the API key will be passed.
+  :ide-headers
+  : A map from header name to header value. Keys and values may be strings, keywords,
+    or symbols and are converted to strings using clojure.core/name.
+    These define additional headers to be included in the requests from the IDE.
+    Typically, the headers are used to identify and authenticate the requests.
 
   :interceptors
   : The map of interceptors to be passed to [[routes-from-interceptor-map]].
@@ -411,25 +428,21 @@
   : The base application context provided to Lacinia when executing a query.
 
   Asset paths use wildcard matching; you should be careful to ensure that the asset path does not
-  overlap the paths for request, the IDE, or subscriptions (or the asset handler will override the others
+  overlap the paths for query request handling, the IDE, or subscriptions (or the asset handler will override the others
   and deliver 404 responses)."
   [compiled-schema options]
   (let [{:keys [path ide-path asset-path graphiql]
-         :or {path "/graphql"
-              asset-path "/assets/graphiql"
+         :or {path default-path
+              asset-path default-asset-path
               ide-path "/"}} options
         get-interceptor-map (or (:interceptors options)
                                 (graphql-interceptors compiled-schema options))
         base-routes (routes-from-interceptor-map path get-interceptor-map)]
     (if-not graphiql
       base-routes
-      (let [index-handler (let [index-response (read-graphiql-html path asset-path options)]
+      (let [index-handler (let [index-response (graphiql-ide-response options)]
                             (fn [request]
                               index-response))
-
-            api-key-handler (fn [request]
-                              (let [api-key (-> request :path-params :api-key)]
-                                (read-graphiql-html path asset-path (assoc options :api-key api-key))))
 
             asset-path' (str asset-path "/*path")
 
@@ -440,10 +453,7 @@
                                     asset-get-handler
                                     (assoc :body nil))]
         (conj base-routes
-              ;; Startup IDE using default API key
               [ide-path :get index-handler :route-name ::graphiql-ide-index]
-              ;; Startup IDE using API key specified in the URL
-              [(str ide-path "/:api-key") :get api-key-handler :route-name ::graphiql-ide-api-key]
               [asset-path' :get asset-get-handler :route-name ::graphiql-get-assets]
               [asset-path' :head asset-head-handler :route-name ::graphiql-head-assets])))))
 
@@ -490,11 +500,11 @@
   :asset-path (default: \"/assets/graphiql\")
   : Path from which the JavaScript and CSS assets may be loaded.
 
-  :api-key (default: \"graphiql\")
-  : Passed back in requests from the IDE in a header (specified by :api-key-header).
-
-  :api-key-header (default \"apikey\")
-  : Specifies the header in which the API key will be passed.
+  :ide-headers
+  : A map from header name to header value. Keys and values may be strings, keywords,
+    or symbols and are converted to strings using clojure.core/name.
+    These define additional headers to be included in the requests from the IDE.
+    Typically, the headers are used to identify and authenticate the requests.
 
   :interceptors
   : The map of interceptors to be passed to [[routes-from-interceptor-map]].

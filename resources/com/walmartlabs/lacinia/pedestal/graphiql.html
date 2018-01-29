@@ -87,10 +87,7 @@
       function graphQLFetcher(graphQLParams) {
         return fetch(window.location.origin + '{{path}}', {
           method: 'post',
-          headers: {
-            'Content-Type': 'application/json',
-            '{{apikey-header}}': '{{apikey}}'
-          },
+          headers: {{request-headers}},
           body: JSON.stringify({ query: graphQLParams.query,
                                  variables: graphQLParams.variables })
         }).then(function (response) {
