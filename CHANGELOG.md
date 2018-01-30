@@ -1,9 +1,11 @@
-## 0.6.0 -- UNRELEASED
+## 0.6.0 -- 30 Jan 2018
 
 It is now possible to configure the paths used to access the GraphQL endpoint and
 the GraphiQL IDE.
 
 A few functions that were inadventently made public have been made private.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/5?closed=1)
 
 ## 0.5.0 -- 5 Dec 2017
 
