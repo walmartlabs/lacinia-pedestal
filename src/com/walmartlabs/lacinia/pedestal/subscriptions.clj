@@ -76,7 +76,7 @@
           (>! cleanup-ch id))))
 
     ;; Execute the chain, for side-effects.
-    (chain/execute (assoc context :request request))
+    (chain/execute (update context :request merge request))
 
     ;; Return a shutdown channel that the CSP can close to shutdown the subscription
     shutdown-ch))
