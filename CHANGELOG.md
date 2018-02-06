@@ -1,3 +1,8 @@
+## 0.7.0 -- UNRELEASED
+
+The :api-key option has been removed, replaced with the :ide-headers option.
+This is a more general approach that supports multiple headers with arbitrary names.
+
 ## 0.6.0 -- 30 Jan 2018
 
 It is now possible to configure the paths used to access the GraphQL endpoint and
