@@ -25,7 +25,7 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 ;;  `lein new pedestal-service graphql-demo`
 
 (ns graphql-demo.server
-  (:require [io.pedestal.http :as http]
+  (:require [io.pedestal.http :as server]
             [com.walmartlabs.lacinia.pedestal :as lacinia]
             [com.walmartlabs.lacinia.schema :as schema]))
 
