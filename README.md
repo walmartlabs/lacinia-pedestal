@@ -25,7 +25,7 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 ;;  `lein new pedestal-service graphql-demo`
 
 (ns graphql-demo.server
-  (:require [io.pedestal.http :as server]
+  (:require [io.pedestal.http :as http]
             [com.walmartlabs.lacinia.pedestal :as lacinia]
             [com.walmartlabs.lacinia.schema :as schema]))
 
@@ -39,7 +39,7 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 
 ;; This is an adapted service map, that can be started and stopped
 ;; From the REPL you can call server/start and server/stop on this service
-(defonce runnable-service (server/create-server service))
+(defonce runnable-service (http/create-server service))
 
 (defn -main
   "The entry-point for 'lein run'"
