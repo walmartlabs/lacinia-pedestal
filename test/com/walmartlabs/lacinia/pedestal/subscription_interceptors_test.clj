@@ -31,7 +31,7 @@
   (interceptor
    {:name ::user-agent
     :enter (fn [context]
-             (reset! *user-agent (:user-agent context))
+             (reset! *user-agent (get-in context [:request :user-agent]))
              context)}))
 
 (defn ^:private options-builder
@@ -49,7 +49,7 @@
    (fn [ctx ^ServletUpgradeRequest req resp]
      (reset! *invoke-count 0)
      (reset! *user-agent nil)
-     (assoc ctx :user-agent (.getHeader (.getHttpServletRequest req) "User-Agent")))})
+     (assoc-in ctx [:request :user-agent] (.getHeader (.getHttpServletRequest req) "User-Agent")))})
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}
