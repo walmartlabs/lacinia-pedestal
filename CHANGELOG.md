@@ -8,6 +8,9 @@ interceptors.
 The `interceptors` namespace, and other functions related to interceptor maps, will be removed
 in the 0.8.0 release.  All functions scheduled for removal have been so marked in their docstrings.
 
+The :api-key option has been removed, replaced with the :ide-headers option.
+This is a more general approach that supports multiple headers with arbitrary names.
+
 ## 0.6.0 -- 30 Jan 2018
 
 It is now possible to configure the paths used to access the GraphQL endpoint and
@@ -46,9 +49,7 @@ used to substitute an existing interceptor with a replacement.
 ## 0.3.0 -- 7 Aug 2017
 
 Added support for GraphQL subscriptions!
-Subscriptions are patt
-
-erned after [Apollo GraphQL](http://dev.apollodata.com/tools/graphql-subscriptions/index.html).
+Subscriptions are patterned after [Apollo GraphQL](http://dev.apollodata.com/tools/graphql-subscriptions/index.html).
 lacinia-pedestal should be a drop-in replacement for Apollo GraphQL server.
 
 The default interceptor stack has been reordered, slightly.
