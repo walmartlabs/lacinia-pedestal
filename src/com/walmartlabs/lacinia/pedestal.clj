@@ -19,7 +19,8 @@
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
     [io.pedestal.http.jetty.websockets :as ws]
-    [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]))
+    [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
+    [clojure.spec.alpha :as s]))
 
 (def ^:private default-path "/graphql")
 
@@ -310,8 +311,11 @@
   : If true, the query will execute asynchronously.
 
   :app-context
-  : The base application context provided to Lacinia when executing a query."
-  {:added "0.3.0"}
+  : The base application context provided to Lacinia when executing a query.
+
+  This function will be removed in 0.8.0.  Use [[default-interceptors]] instead."
+  {:added "0.3.0"
+   :deprecated "0.7.0"}
   [compiled-schema options]
   (let [query-parser (query-parser-interceptor compiled-schema)
         inject-app-context (inject-app-context-interceptor (:app-context options))
@@ -329,23 +333,71 @@
         (assoc ::query-executor
                (ordered-after executor [::inject-app-context ::disallow-subscriptions])))))
 
+(defn default-interceptors
+  "Returns the default set of GraphQL interceptors, as a seq:
+
+    * ::json-response [[json-response-interceptor]]
+    * ::graphql-data [[graphql-data-interceptor]]
+    * ::status-conversion [[status-conversion-interceptor]]
+    * ::missing-query [[missing-query-interceptor]]
+    * ::query-parser [[query-parser-interceptor]]
+    * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
+    * ::inject-app-context [[inject-app-context-interceptor]]
+    * ::query-executor [[query-executor-handler]] or [[async-query-executor-handler]]
+
+  `compiled-schema` may be the actual compiled schema, or a no-arguments function that returns the compiled schema.
+
+  Often, this list of interceptors is augemented by calls to [[inject]].
+
+  Options:
+
+  :async (default false)
+  : If true, the query will execute asynchronously (return a core.async channel).
+
+  :app-context
+  : The base application context provided to Lacinia when executing a query.
+  "
+  {:added "0.7.0"}
+  [compiled-schema options]
+  (-> (graphql-interceptors compiled-schema options)
+      interceptors/order-by-dependency))
+
+(defn routes-from-interceptors
+  "Returns a set of route vectors from a primary seq of interceptors.
+  This returns a two element set, one for GET (using the seq as is),
+  and one for POST (prefixing with [[body-data-interceptor]].
+
+  Options:
+
+  :get-enabled (default true)
+  : If true, then a route for the GET method is included."
+  {:added "0.7.0"}
+  [route-path interceptors options]
+  (let [{:keys [get-enabled]
+         :or {get-enabled true}} options
+        post-interceptors (-> (cons body-data-interceptor interceptors)
+                              ;; Absolutely needs to be a vector, under penalty of
+                              ;; https://github.com/pedestal/pedestal/issues/308
+                              vec)]
+    (cond-> #{[route-path :post post-interceptors
+               :route-name ::graphql-post]}
+      get-enabled (conj [route-path :get interceptors
+                         :route-name ::graphql-get]))))
+
 (defn routes-from-interceptor-map
   "Returns a set of route vectors from a primary interceptor dependency map.
   This uses a standard rule for splicing in the POST support.
 
   This function is useful as an alternative to [[graphql-routes]] when the
-  default interceptor dependency map (from [[graphql-interceptors]]) is modified."
-  {:added "0.3.0"}
+  default interceptor dependency map (from [[graphql-interceptors]]) is modified.
+
+  This function will be removed in 0.8.0."
+  {:added "0.3.0"
+   :deprecated "0.7.0"}
   [route-path get-interceptor-map]
-  (let [post-interceptor-map (-> get-interceptor-map
-                                 (add body-data-interceptor ::json-response)
-                                 (update ::graphql-data ordered-after [::body-data]))]
-    #{[route-path :post
-       (interceptors/order-by-dependency post-interceptor-map)
-       :route-name ::graphql-post]
-      [route-path :get
-       (interceptors/order-by-dependency get-interceptor-map)
-       :route-name ::graphql-get]}))
+  (routes-from-interceptors route-path
+                            (interceptors/order-by-dependency get-interceptor-map)
+                            nil))
 
 
 (defn graphiql-ide-response
@@ -390,8 +442,8 @@
   Returns a set of route vectors, compatible with
   `io.pedestal.http.route.definition.table/table-routes`.
 
-  Uses [[graphql-interceptors]] to define the base set of interceptors and
-  dependencies.  For the POST route, [[body-data-interceptor]] is spliced in.
+  Uses [[default-interceptors]] to define the base seq of interceptors.
+  For the POST route, [[body-data-interceptor]] is prepended.
 
   `compiled-schema` may be the actual compiled schema, or a no-arguments function
   that returns the compiled schema.
@@ -417,7 +469,8 @@
     Typically, the headers are used to identify and authenticate the requests.
 
   :interceptors
-  : The map of interceptors to be passed to [[routes-from-interceptor-map]].
+  : A seq of interceptors, to be passed to [[routes-from-interceptors]].
+  : Alternately (deprected but supported), the map of interceptors to be passed to [[routes-from-interceptor-map]].
     If not provided, [[graphql-interceptors]] is invoked.
 
   :async (default: false)
@@ -478,7 +531,7 @@
     that Pedestal 0.5.3 generates by default.
 
   :interceptors
-  : Map of interceptor names to interceptors, with dependencies.
+  : A seq of interceptors, or a dependency map of interceptor names to interceptors, with dependencies.
     If not provided, default is via [[graphql-interceptors]].
     Used to build the routes (via [[routes-from-interceptor-map]]).
 
@@ -507,8 +560,9 @@
     Typically, the headers are used to identify and authenticate the requests.
 
   :interceptors
-  : The map of interceptors to be passed to [[routes-from-interceptor-map]].
-    If not provided, [[graphql-interceptors]] is invoked.
+  : A seq of interceptors to be used in GraphQL routes; passed to [[routes-from-interceptors]].
+  : Alternately (deprecated, but supported) the map of interceptors to be passed to [[routes-from-interceptor-map]].
+    If not provided, [[default-interceptors]] is invoked.
 
   :async (default: false)
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
@@ -527,7 +581,7 @@
   :env (default: :dev)
   : Environment being started.
 
-  See further notes in [[graphql-routes]] and [[graphql-interceptors]]."
+  See further notes in [[graphql-routes]] and [[default-interceptors]]."
   {:added "0.5.0"}
   [compiled-schema options]
   (let [{:keys [graphiql subscriptions port env subscriptions-path]
@@ -561,7 +615,56 @@
   "This function has been deprecated in favor of [[service-map]], but is being maintained for
   compatibility.
 
-  This simply invokes [[service-map]] and passes the resulting map through `io.pedestal.http/create-server`."
+  This simply invokes [[service-map]] and passes the resulting map through `io.pedestal.http/create-server`.
+
+  To be removed in 0.8.0."
   {:deprecated "0.5.0"}
   [compiled-schema options]
   (http/create-server (service-map compiled-schema options)))
+
+(defn inject
+  "Locates the named interceptor in the list of interceptors and adds (or replaces)
+  the new interceptor to the list.
+
+  relative-position may be :before, :after, or :replace.
+
+  The named interceptor must exist, or an exception is thrown."
+  {:added "0.7.0"}
+  [interceptors new-interceptor relative-position interceptor-name]
+  (let [*found? (volatile! false)
+        final-result (reduce (fn [result interceptor]
+                               (if-not (= interceptor-name (:name interceptor))
+                                 (conj result interceptor)
+                                 (do
+                                   (vreset! *found? true)
+                                   (case relative-position
+                                     :before
+                                     (conj result new-interceptor interceptor)
+
+                                     :after
+                                     (conj result interceptor new-interceptor)
+
+                                     :replace
+                                     (conj result new-interceptor)))))
+                             []
+                             interceptors)]
+    (when-not @*found?
+      (throw (ex-info "Could not find existing interceptor."
+                      {:interceptors interceptors
+                       :new-interceptor new-interceptor
+                       :relative-position relative-position
+                       :interceptor-name interceptor-name})))
+
+    final-result))
+
+(s/def ::interceptor (s/keys :req-un [::name]))
+(s/def ::interceptors (s/coll-of ::interceptor))
+;; The name of an interceptor; typically this is namespaced, but that is not a requirement.
+(s/def ::name keyword?)
+
+(s/fdef inject
+        :ret ::interceptors
+        :args (s/cat :interceptors ::interceptors
+                     :new-interceptor ::interceptor
+                     :relative-position #{:before :after :replace}
+                     :interceptor-name keyword?))

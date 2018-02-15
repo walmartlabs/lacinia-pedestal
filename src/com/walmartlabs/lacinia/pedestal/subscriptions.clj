@@ -350,6 +350,44 @@
       interceptor
       (ordered-after [::inject-app-context ::query-parser ::send-operation-response])))
 
+(defn default-subscription-interceptors
+  "Processing of operation requests from the client is passed through interceptor pipeline.
+  The context for the pipeline includes special keys for the necessary channels.
+
+  The :request key is the payload sent from the client, along with additional keys:
+
+  :response-data-ch
+  : Channel to which Clojure data destined for the client should be written.
+  : This should be closed when the subscription data is exhausted.
+
+  :shutdown-ch
+  : This channel will be closed if the client terminates the connection.
+    For subscriptions, this ensures that the subscription is cleaned up.
+
+  :id
+  : The client-provided string that must be included in the response.
+
+  For mutation and query operations, a :response key is added to the context, which triggers
+  a response to the client.
+
+  For subscription operations, it's a bit different; there's no immediate response, but a new CSP
+  will work with the streamer defined by the subscription to send a sequence of \"data\" messages
+  to the client.
+
+  * ::exception-handler [[exception-handler-interceptor]]
+  * ::send-operation-response [[send-operation-response-interceptor]]
+  * ::query-parser [query-parser-interceptor]]
+  * ::inject-app-context [inject-app-context-interceptor]]
+  * ::execute-operation [[execute-operation-interceptor]]
+
+  Returns a vector of interceptors."
+  [compiled-schema app-context]
+  [exception-handler-interceptor
+   send-operation-response-interceptor
+   (query-parser-interceptor compiled-schema)
+   (inject-app-context-interceptor app-context)
+   execute-operation-interceptor])
+
 (defn default-interceptors
   "Processing of operation requests from the client is passed through interceptor pipeline.
   The context for the pipeline includes special keys for the necessary channels.
@@ -380,14 +418,12 @@
   * ::inject-app-context [inject-app-context-interceptor]]
   * ::execute-operation [[execute-operation-interceptor]]
 
-  Returns a map of interceptor ids to interceptors, with dependencies."
+  Returns a map of interceptor ids to interceptors, with dependencies.
+
+  To be removed in 0.8.0."
+  {:deprecated "0.7.0"}
   [compiled-schema app-context]
-  (let [interceptors [exception-handler-interceptor
-                      send-operation-response-interceptor
-                      (query-parser-interceptor compiled-schema)
-                      (inject-app-context-interceptor app-context)
-                      execute-operation-interceptor]]
-    (interceptors/as-dependency-map interceptors)))
+  (interceptors/as-dependency-map (default-subscription-interceptors compiled-schema app-context)))
 
 (defn listener-fn-factory
   "A factory for the function used to create a WS listener.
@@ -405,7 +441,8 @@
 
   :subscription-interceptors
   : A seq of interceptors for processing queries.  The default is
-    derived from [[default-interceptors]].
+    derived from [[default-subscription-interceptors]].
+  : Alternately (deprecated but supported) a dependency map of intereceptors.
 
   :init-context
   : A function returning the base context for the subscription-interceptors to operate on.
@@ -419,9 +456,12 @@
          :or {keep-alive-ms 30000
               init-context (fn [ctx & args] ctx)}} options
         interceptors (or (:subscription-interceptors options)
-                         (interceptors/order-by-dependency (default-interceptors compiled-schema app-context)))
+                         (default-interceptors compiled-schema app-context))
+        interceptors' (if (map? interceptors)
+                        (interceptors/order-by-dependency interceptors)
+                        interceptors)
         base-context (chain/enqueue {::chain/terminators [:response]}
-                                    interceptors)]
+                                    interceptors')]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [req resp ws-map]
       (.setAcceptedSubProtocol resp "graphql-ws")

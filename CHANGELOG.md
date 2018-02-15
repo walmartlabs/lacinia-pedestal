@@ -1,5 +1,13 @@
 ## 0.7.0 -- UNRELEASED
 
+The `com.walmartlabs.lacina.pedestal.interceptors` namespace has been deprecated; it will be removed
+in the 0.8.0 release.
+Instead, use the new `inject` function, which adds (or replaces) an interceptor to a seq of
+interceptors.
+
+The `interceptors` namespace, and other functions related to interceptor maps, will be removed
+in the 0.8.0 release.  All functions scheduled for removal have been so marked in their docstrings.
+
 The :api-key option has been removed, replaced with the :ide-headers option.
 This is a more general approach that supports multiple headers with arbitrary names.
 

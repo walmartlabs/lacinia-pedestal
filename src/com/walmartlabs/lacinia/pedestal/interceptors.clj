@@ -1,6 +1,9 @@
 (ns com.walmartlabs.lacinia.pedestal.interceptors
-  "Utilities for building interceptor chains that are ordered based on dependencies."
-  {:added "0.3.0"}
+  "Utilities for building interceptor chains that are ordered based on dependencies.
+
+  This namespace has been deprecated; the single function [[inject]] is easier to use."
+  {:added "0.3.0"
+   :deprecated "0.7.0"}
   (:require
     [com.stuartsierra.dependency :as d]))
 
