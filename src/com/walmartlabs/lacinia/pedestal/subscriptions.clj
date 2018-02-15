@@ -288,7 +288,7 @@
 
 (defn ^:private execute-subscription
   [context parsed-query]
-  (let [source-stream-ch (chan 1)
+  (let [source-stream-ch (chan (async/sliding-buffer 1))
         {:keys [id shutdown-ch response-data-ch]} (:request context)
         source-stream (fn [value]
                         (if (some? value)
