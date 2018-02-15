@@ -1,4 +1,4 @@
-## 0.7.0 -- UNRELEASED
+## 0.7.0 -- 15 Feb 2018
 
 The `com.walmartlabs.lacina.pedestal.interceptors` namespace has been deprecated; it will be removed
 in the 0.8.0 release.
@@ -10,6 +10,8 @@ in the 0.8.0 release.  All functions scheduled for removal have been so marked i
 
 The :api-key option has been removed, replaced with the :ide-headers option.
 This is a more general approach that supports multiple headers with arbitrary names.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/6?closed=1)
 
 ## 0.6.0 -- 30 Jan 2018
 
