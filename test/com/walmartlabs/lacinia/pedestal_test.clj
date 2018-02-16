@@ -10,7 +10,11 @@
   (:import (clojure.lang ExceptionInfo)))
 
 
-(use-fixtures :once (test-server-fixture {:graphiql true}))
+(use-fixtures :once (test-server-fixture {:graphiql true}
+                                         (fn [schema]
+                                           ;; Force things to work as they will in 0.8.0,
+                                           ;; where the interceptors are a seq (not a map).
+                                           {:interceptors (lp/default-interceptors schema nil)})))
 
 (deftest simple-get-query
   (let [response (send-request "{ echo(value: \"hello\") { value method }}")]
