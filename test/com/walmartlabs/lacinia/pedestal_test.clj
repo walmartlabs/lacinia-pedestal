@@ -6,9 +6,11 @@
     [clojure.string :as str]
     [com.walmartlabs.lacinia.test-utils :refer [test-server-fixture
                                                 send-request
-                                                send-json-request]])
+                                                send-json-request]]
+    [clojure.spec.test.alpha :as stest])
   (:import (clojure.lang ExceptionInfo)))
 
+(stest/instrument)
 
 (use-fixtures :once (test-server-fixture {:graphiql true}))
 
@@ -133,6 +135,13 @@
 
 (deftest inject-replace
   (let [fred {:name :fred}
+        barney {:name :barney}
+        wilma {:name :wilma}]
+    (is (= [fred wilma]
+           (inject [fred barney] wilma :replace :barney)))))
+
+(deftest inject-skips-fns
+  (let [fred identity
         barney {:name :barney}
         wilma {:name :wilma}]
     (is (= [fred wilma]

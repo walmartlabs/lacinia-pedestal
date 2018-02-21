@@ -633,7 +633,9 @@
   [interceptors new-interceptor relative-position interceptor-name]
   (let [*found? (volatile! false)
         final-result (reduce (fn [result interceptor]
-                               (if-not (= interceptor-name (:name interceptor))
+                               ;; An interceptor can also be a bare handler function, which is 'nameless'
+                               (if-not (= interceptor-name (when (map? interceptor)
+                                                             (:name interceptor)))
                                  (conj result interceptor)
                                  (do
                                    (vreset! *found? true)
@@ -657,10 +659,12 @@
 
     final-result))
 
-(s/def ::interceptor (s/keys :req-un [::name]))
+(s/def ::interceptor (s/or :interceptor (s/keys :req-un [::name])
+                           :handler fn?))
 (s/def ::interceptors (s/coll-of ::interceptor))
 ;; The name of an interceptor; typically this is namespaced, but that is not a requirement.
-(s/def ::name keyword?)
+;; The name may be nil in some cases (typically, the interceptor formed around a bare handler function).
+(s/def ::name (s/nilable keyword?))
 
 (s/fdef inject
         :ret ::interceptors
