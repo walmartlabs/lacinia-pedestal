@@ -488,9 +488,14 @@
          :or {path default-path
               asset-path default-asset-path
               ide-path "/"}} options
-        get-interceptor-map (or (:interceptors options)
-                                (graphql-interceptors compiled-schema options))
-        base-routes (routes-from-interceptor-map path get-interceptor-map)]
+        ;; In 0.7.0 interceptors may be either a map (old style) or a seq (new style).
+        ;; In 0.8.0, support for maps goes away and we delete a bunch of related functions
+        interceptors (or (:interceptors options)
+                         ;; Change to default-interceptors in 0.8.0:
+                         (graphql-interceptors compiled-schema options))
+        base-routes (if (map? interceptors)
+                      (routes-from-interceptor-map path interceptors)
+                      (routes-from-interceptors path interceptors options))]
     (if-not graphiql
       base-routes
       (let [index-handler (let [index-response (graphiql-ide-response options)]
