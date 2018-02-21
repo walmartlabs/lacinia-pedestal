@@ -323,7 +323,8 @@
                                                :id id
                                                :payload response})))
                   ;; Don't execute the query in a limited go block thread
-                 thread)
+                 thread
+                 async/<!)
              (recur))
            (do
               ;; The streamer has signalled that it has exhausted the subscription.
