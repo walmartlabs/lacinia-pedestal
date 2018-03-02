@@ -1,4 +1,4 @@
-## 0.7.0 -- 15 Feb 2018
+## 0.7.0 -- 2 Mar 2018
 
 The `com.walmartlabs.lacina.pedestal.interceptors` namespace has been deprecated; it will be removed
 in the 0.8.0 release.
