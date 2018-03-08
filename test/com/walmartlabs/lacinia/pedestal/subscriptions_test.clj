@@ -283,3 +283,41 @@
   (dotimes [_ 2]
     (is (= {:type "ka"}
            (<message!! 250)))))
+
+(deftest client-duplicates-subscription
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "Any prior subscribes have been cleaned up.")
+
+  (let [init-subs @*ping-subscribes
+        sub-id (swap! *subscriber-id inc)]
+
+    (send-data {:id sub-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"original\", count: 2 ) { message }}"}})
+
+    (expect-message {:id sub-id
+                     :payload {:data {:ping {:message "original #1"}}}
+                     :type "data"})
+
+    (Thread/sleep 20)
+
+    (send-data {:id sub-id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"duplicate\", count: 2 ) { message }}"}})
+
+    (is (= 1 (- @*ping-subscribes init-subs)))
+
+    (expect-message {:id sub-id
+                     :payload {:data {:ping {:message "original #2"}}}
+                     :type "data"})
+
+    (expect-message {:id sub-id
+                     :type "complete"})
+
+    (is (= @*ping-subscribes @*ping-cleanups)
+        "The completed subscriptions have been cleaned up.")))
