@@ -88,6 +88,7 @@
         return fetch(window.location.origin + '{{path}}', {
           method: 'post',
           headers: {{request-headers}},
+          credentials: 'include',
           body: JSON.stringify({ query: graphQLParams.query,
                                  variables: graphQLParams.variables })
         }).then(function (response) {
