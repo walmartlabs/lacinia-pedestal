@@ -120,9 +120,11 @@
                 ;; TODO: Track state, don't allow start, etc. until after connection_init
 
                "start"
-               (do
-                 (log/debug :event ::start :id id)
-                 (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context))))
+               (if (contains? subs id)
+                 (do (log/debug :event ::ignoring-duplicate :id id)
+                     (recur subs))
+                 (do (log/debug :event ::start :id id)
+                     (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch context)))))
 
                "stop"
                (do
