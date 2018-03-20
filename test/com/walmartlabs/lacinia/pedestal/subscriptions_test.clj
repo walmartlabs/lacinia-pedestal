@@ -2,7 +2,7 @@
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [com.walmartlabs.lacinia.test-utils :as tu
-     :refer [test-server-fixture *ping-subscribes *ping-cleanups
+     :refer [test-server-fixture *ping-subscribes *ping-cleanups *ping-context
              ws-uri *session* subscriptions-fixture
              send-data send-init <message!! expect-message
              *subscriber-id]]
@@ -321,3 +321,18 @@
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
+
+(deftest connection-params
+  (let [connection-params {:authentication "token"}
+        id (swap! *subscriber-id inc)]
+    (send-init connection-params)
+    (expect-message {:type "connection_ack"})
+    (send-data {:id id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"stop\", count: 1 ) { message }}"}})
+    (<message!! 250) ;; block until streamer has been called
+    (assert (= connection-params (:connection-params @*ping-context)))))
+
+
+

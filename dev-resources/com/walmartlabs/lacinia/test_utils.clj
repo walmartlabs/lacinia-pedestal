@@ -26,10 +26,12 @@
 
 (def *ping-subscribes (atom 0))
 (def *ping-cleanups (atom 0))
+(def *ping-context (atom nil))
 
 (defn ^:private stream-ping
   [context args source-stream]
   (swap! *ping-subscribes inc)
+  (reset! *ping-context context)
   (let [{:keys [message count]} args
         runnable ^Runnable (fn []
                              (dotimes [i count]
@@ -140,8 +142,12 @@
               (cheshire/generate-string data)))
 
 (defn send-init
-  []
-  (send-data {:type :connection_init}))
+  ([]
+   (send-init nil))
+  ([payload]
+   (send-data {:type :connection_init
+               :payload payload})))
+
 
 (defn <message!!
   ([]
