@@ -281,8 +281,8 @@
   [context parsed-query]
   (let [ch (chan 1)]
     (-> context
-        :request
-        :lacinia-app-context
+        (get-in [:request :lacinia-app-context])
+        (assoc :connection-params (:connection-params context))
         (assoc constants/parsed-query-key parsed-query)
         executor/execute-query
         (resolve/on-deliver! (fn [response]
@@ -301,7 +301,7 @@
                           (close! source-stream-ch)))
         app-context (-> context
                         (get-in [:request :lacinia-app-context])
-                        (merge {:connection-params (:connection-params context)})
+                        (assoc :connection-params (:connection-params context))
                         (assoc constants/parsed-query-key parsed-query))
         cleanup-fn (executor/invoke-streamer app-context source-stream)]
     (go-loop []
