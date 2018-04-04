@@ -94,7 +94,7 @@
         cleanup-ch
         ([id]
          (log/debug :event ::cleanup-ch :id id)
-         (recur (dissoc subs id) {}))
+         (recur (dissoc subs id) connection-payload))
 
         ;; TODO: Maybe only after connection_init?
         (async/timeout keep-alive-ms)

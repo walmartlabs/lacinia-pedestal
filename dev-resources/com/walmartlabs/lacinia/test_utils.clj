@@ -14,8 +14,11 @@
     [io.pedestal.log :as log]
     [cheshire.core :as cheshire]))
 
+(def *echo-context (atom nil))
+
 (defn ^:private resolve-echo
   [context args _]
+  (reset! *echo-context context)
   (let [{:keys [value error]} args
         error-map (when error
                     {:message "Forced error."
