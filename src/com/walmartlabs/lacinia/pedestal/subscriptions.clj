@@ -17,8 +17,6 @@
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.resolve :as resolve]
-    [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors
-     :refer [ordered-after]]
     [clojure.string :as str]))
 
 (defn ^:private xform-channel
@@ -241,27 +239,26 @@
   `compiled-schema` may be the actual compiled schema, or a no-arguments function
   that returns the compiled schema."
   [compiled-schema]
-  (-> {:name ::query-parser
-       :enter (fn [context]
-                (let [{operation-name :operationName
-                       :keys [query variables]} (:request context)
-                      actual-schema (if (map? compiled-schema)
-                                      compiled-schema
-                                      (compiled-schema))
-                      parsed-query (try
-                                     (parser/parse-query actual-schema query operation-name)
-                                     (catch Throwable t
-                                       (throw (ex-info (to-message t)
-                                                       {::errors (-> t ex-data :errors)}
-                                                       t))))
-                      prepared (parser/prepare-with-query-variables parsed-query variables)
-                      errors (validator/validate actual-schema prepared {})]
+  (interceptor
+    {:name ::query-parser
+     :enter (fn [context]
+              (let [{operation-name :operationName
+                     :keys [query variables]} (:request context)
+                    actual-schema (if (map? compiled-schema)
+                                    compiled-schema
+                                    (compiled-schema))
+                    parsed-query (try
+                                   (parser/parse-query actual-schema query operation-name)
+                                   (catch Throwable t
+                                     (throw (ex-info (to-message t)
+                                                     {::errors (-> t ex-data :errors)}
+                                                     t))))
+                    prepared (parser/prepare-with-query-variables parsed-query variables)
+                    errors (validator/validate actual-schema prepared {})]
 
-                  (if (seq errors)
-                    (throw (ex-info "Query validation errors." {::errors errors}))
-                    (assoc-in context [:request :parsed-lacinia-query] prepared))))}
-      interceptor
-      (ordered-after [::exception-handler])))
+                (if (seq errors)
+                  (throw (ex-info "Query validation errors." {::errors errors}))
+                  (assoc-in context [:request :parsed-lacinia-query] prepared))))}))
 
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.
@@ -341,16 +338,15 @@
 (def execute-operation-interceptor
   "Executes a mutation or query operation and sets the :response key of the context,
   or executes a long-lived subscription operation."
-  (-> {:name ::execute-operation
-       :enter (fn [context]
-                (let [request (:request context)
-                      parsed-query (:parsed-lacinia-query request)
-                      operation-type (-> parsed-query parser/operations :type)]
-                  (if (= operation-type :subscription)
-                    (execute-subscription context parsed-query)
-                    (execute-operation context parsed-query))))}
-      interceptor
-      (ordered-after [::inject-app-context ::query-parser ::send-operation-response])))
+  (interceptor
+    {:name ::execute-operation
+     :enter (fn [context]
+              (let [request (:request context)
+                    parsed-query (:parsed-lacinia-query request)
+                    operation-type (-> parsed-query parser/operations :type)]
+                (if (= operation-type :subscription)
+                  (execute-subscription context parsed-query)
+                  (execute-operation context parsed-query))))}))
 
 (defn default-subscription-interceptors
   "Processing of operation requests from the client is passed through interceptor pipeline.
@@ -390,43 +386,6 @@
    (inject-app-context-interceptor app-context)
    execute-operation-interceptor])
 
-(defn default-interceptors
-  "Processing of operation requests from the client is passed through interceptor pipeline.
-  The context for the pipeline includes special keys for the necessary channels.
-
-  The :request key is the payload sent from the client, along with additional keys:
-
-  :response-data-ch
-  : Channel to which Clojure data destined for the client should be written.
-  : This should be closed when the subscription data is exhausted.
-
-  :shutdown-ch
-  : This channel will be closed if the client terminates the connection.
-    For subscriptions, this ensures that the subscription is cleaned up.
-
-  :id
-  : The client-provided string that must be included in the response.
-
-  For mutation and query operations, a :response key is added to the context, which triggers
-  a response to the client.
-
-  For subscription operations, it's a bit different; there's no immediate response, but a new CSP
-  will work with the streamer defined by the subscription to send a sequence of \"data\" messages
-  to the client.
-
-  * ::exception-handler [[exception-handler-interceptor]]
-  * ::send-operation-response [[send-operation-response-interceptor]]
-  * ::query-parser [query-parser-interceptor]]
-  * ::inject-app-context [inject-app-context-interceptor]]
-  * ::execute-operation [[execute-operation-interceptor]]
-
-  Returns a map of interceptor ids to interceptors, with dependencies.
-
-  To be removed in 0.8.0."
-  {:deprecated "0.7.0"}
-  [compiled-schema app-context]
-  (interceptors/as-dependency-map (default-subscription-interceptors compiled-schema app-context)))
-
 (defn listener-fn-factory
   "A factory for the function used to create a WS listener.
 
@@ -458,12 +417,9 @@
          :or {keep-alive-ms 30000
               init-context (fn [ctx & args] ctx)}} options
         interceptors (or (:subscription-interceptors options)
-                         (default-interceptors compiled-schema app-context))
-        interceptors' (if (map? interceptors)
-                        (interceptors/order-by-dependency interceptors)
-                        interceptors)
+                         (default-subscription-interceptors compiled-schema app-context))
         base-context (chain/enqueue {::chain/terminators [:response]}
-                                    interceptors')]
+                                    interceptors)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [req resp ws-map]
       (.setAcceptedSubProtocol resp "graphql-ws")

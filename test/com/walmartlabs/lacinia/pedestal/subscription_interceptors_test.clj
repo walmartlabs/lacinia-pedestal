@@ -2,6 +2,7 @@
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [clojure.core.async :refer [chan alt!! put! timeout]]
+    [com.walmartlabs.lacinia.pedestal :refer [inject]]
     [com.walmartlabs.lacinia.test-utils
      :refer [test-server-fixture *ping-subscribes *ping-cleanups
              ws-uri
@@ -9,7 +10,6 @@
              send-data send-init <message!! expect-message]]
     [io.pedestal.interceptor :refer [interceptor]]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as s]
-    [com.walmartlabs.lacinia.pedestal.interceptors :as i]
     [cheshire.core :as cheshire]
     [clojure.string :as str])
   (:import [org.eclipse.jetty.websocket.servlet ServletUpgradeRequest]))
@@ -38,12 +38,9 @@
   [schema]
   {:subscription-interceptors
    ;; Add ::invoke-count, and ensure it executes before ::execute-operation.
-   (-> (s/default-interceptors schema nil)
-       (assoc ::invoke-count invoke-count-interceptor)
-       (update ::s/execute-operation i/ordered-after [::invoke-count])
-       (assoc ::user-agent user-agent-interceptor)
-       (update ::s/execute-operation i/ordered-after [::user-agent])
-       i/order-by-dependency)
+   (-> (s/default-subscription-interceptors schema nil)
+       (inject invoke-count-interceptor :before ::s/execute-operation)
+       (inject user-agent-interceptor :before ::s/execute-operation))
 
    :init-context
    (fn [ctx ^ServletUpgradeRequest req resp]
