@@ -31,7 +31,9 @@
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.resolve :as resolve]
-    [clojure.string :as str]))
+    [clojure.string :as str])
+  (:import
+    (org.eclipse.jetty.websocket.api UpgradeResponse)))
 
 (defn ^:private xform-channel
   [input-ch output-ch xf]
@@ -187,45 +189,43 @@
         (keep ex-data stack')
         (recur stack' next-t)))))
 
-(defn ^:private construct-exception-payload
+(defn ^:private exception->errors
   [^Throwable t]
   (cond-let
     :let [errors (->> t
                       ex-data-seq
-                      (keep ::errors)
-                      first)
+                      (mapcat ::errors))
           parse-errors (->> errors
                             (keep :parse-error)
                             distinct)]
 
     (seq parse-errors)
-    {:message (str "Failed to parse GraphQL query. "
-                   (->> parse-errors
-                        (keep fix-up-message)
-                        (str/join "; "))
-                   ".")}
-
-    ;; Apollo spec only has room for one error, so just use the first
+    [{:message (str "Failed to parse GraphQL query. "
+                    (->> parse-errors
+                         (keep fix-up-message)
+                         (str/join "; "))
+                    ".")}]
 
     (seq errors)
-    (first errors)
+    errors
 
     :else
-    ;; Strip off the exception added by Pedestal and convert
-    ;; the message into an error map
-    {:message (to-message t)}))
+    ;;Convert the message into a minimal error map
+    [{:message (to-message t)}]))
 
 (def exception-handler-interceptor
-  "An interceptor that implements the :error callback, to send an \"error\" message to the client."
+  "An interceptor that implements the :error callback, to send an \"error\" message to the client.
+
+  The payload of the response contains just an :errors key, a seq of error maps."
   (interceptor
     {:name ::exception-handler
      :error (fn [context ^Throwable t]
               (let [{:keys [id response-data-ch]} (:request context)
                     ;; Strip off the wrapper exception added by Pedestal
-                    payload (construct-exception-payload (.getCause t))]
+                    errors (exception->errors (.getCause t))]
                 (put! response-data-ch {:type :error
                                         :id id
-                                        :payload payload})
+                                        :payload {:errors errors}})
                 (close! response-data-ch)))}))
 
 (def send-operation-response-interceptor
@@ -436,7 +436,7 @@
                                     interceptors)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [req resp ws-map]
-      (.setAcceptedSubProtocol resp "graphql-ws")
+      (.setAcceptedSubProtocol ^UpgradeResponse resp "graphql-ws")
       (log/debug :event ::upgrade-requested)
       (let [response-data-ch (chan 10)                      ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server

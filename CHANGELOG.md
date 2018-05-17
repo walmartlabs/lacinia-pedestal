@@ -4,6 +4,12 @@ The `com.walmartlabs.lacinia.pedestal.interceptors' namespaces has been
 removed outright, and with it, support for interceptor dependency maps.
 A scattering of other functions related to dependency maps have also been removed.
 
+The format of the message returned, via a web socket, when an exception occurs
+while processing a subscription request has altered to be compatible with
+Apollo clients.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/7?closed=1)
+
 ## 0.7.0 -- 2 Mar 2018
 
 The `com.walmartlabs.lacina.pedestal.interceptors` namespace has been deprecated; it will be removed
