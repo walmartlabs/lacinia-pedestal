@@ -387,11 +387,11 @@
   will work with the streamer defined by the subscription to send a sequence of \"data\" messages
   to the client.
 
-  * ::exception-handler [[exception-handler-interceptor]]
-  * ::send-operation-response [[send-operation-response-interceptor]]
-  * ::query-parser [query-parser-interceptor]]
-  * ::inject-app-context [inject-app-context-interceptor]]
-  * ::execute-operation [[execute-operation-interceptor]]
+  * ::exception-handler -- [[exception-handler-interceptor]]
+  * ::send-operation-response -- [[send-operation-response-interceptor]]
+  * ::query-parser -- [[query-parser-interceptor]]
+  * ::inject-app-context -- [[inject-app-context-interceptor]]
+  * ::execute-operation -- [[execute-operation-interceptor]]
 
   Returns a vector of interceptors."
   [compiled-schema app-context]
@@ -440,6 +440,7 @@
      - the minimal viable context for operation
      - the ServletUpgradeRequest that initiated this connection
      - the ServletUpgradeResponse to the upgrade request
+    Defaults to returning the context unchanged.
 
   :response-chan-fn
   : A function that returns a new channel. Responses to be written to client are put into this
@@ -452,9 +453,7 @@
 
   :send-buffer-or-n
   : Used to create the channel of text responses sent to the client. The default is 10 (a non-lossy
-    channel).
-
-  Defaults to returning the context unchanged."
+    channel)."
   [compiled-schema options]
   (let [{:keys [keep-alive-ms app-context init-context send-buffer-or-n response-chan-fn values-chan-fn]
          :or {keep-alive-ms 30000
