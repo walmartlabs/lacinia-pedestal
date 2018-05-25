@@ -88,7 +88,7 @@
     ;; Keep track of subscriptions by (client-supplied) unique id.
     ;; The value is a shutdown channel that, when closed, triggers
     ;; a cleanup of the subscription.
-    (go-loop [connection-state {:subs {} :connection-payload nil}]
+    (go-loop [connection-state {:subs {} :connection-params nil}]
       (alt!
         cleanup-ch
         ([id]
@@ -115,7 +115,7 @@
              (case type
                "connection_init"
                (when (>! response-data-ch {:type :connection_ack})
-                 (recur (assoc connection-state :connection-payload payload)))
+                 (recur (assoc connection-state :connection-params payload)))
 
                 ;; TODO: Track state, don't allow start, etc. until after connection_init
 
@@ -126,7 +126,7 @@
                    (recur connection-state))
                  (do
                    (log/debug :event ::start :id id)
-                   (let [merged-context (assoc context :connection-params (:connection-payload connection-state))
+                   (let [merged-context (assoc context :connection-params (:connection-params connection-state))
                          sub-shutdown-ch (execute-query-interceptors id payload response-data-ch cleanup-ch merged-context)]
                      (recur (assoc-in connection-state [:subs id] sub-shutdown-ch)))))
 
