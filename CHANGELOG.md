@@ -5,7 +5,7 @@ removed outright, and with it, support for interceptor dependency maps.
 A scattering of other functions related to dependency maps have also been removed.
 
 For subscription requests, the connection parameters are now captured at connection time,
-and available as the `:connection-params` key of the application context.
+and available as the `:com.walmartlabs.lacinia/connection-params` key of the application context.
 
 ## 0.7.0 -- 2 Mar 2018
 

@@ -11,7 +11,7 @@
                  [com.stuartsierra/dependency "0.2.0"]]
   :profiles
   {:dev {:dependencies [[clj-http "2.3.0"]
-
+                        [com.walmartlabs/test-reporting "0.1.0"]
                         ;; Overrides to match version of Jetty via Pedestal:
                         [org.eclipse.jetty.websocket/websocket-client "9.4.0.v20161208"]
                         [stylefruits/gniazdo "1.0.1"

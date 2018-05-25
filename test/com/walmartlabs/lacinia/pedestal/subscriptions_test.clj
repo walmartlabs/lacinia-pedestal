@@ -15,14 +15,14 @@
 (ns com.walmartlabs.lacinia.pedestal.subscriptions-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
+    [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.test-utils :as tu
      :refer [test-server-fixture *ping-subscribes *ping-cleanups *ping-context *echo-context
              ws-uri *session* subscriptions-fixture
              send-data send-init <message!! expect-message
              *subscriber-id]]
-    [cheshire.core :as cheshire]
+    [com.walmartlabs.test-reporting :refer [reporting]]
     [gniazdo.core :as g]
-    [io.pedestal.log :as log]
     [clojure.string :as str]))
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
@@ -356,20 +356,24 @@
     (send-data query)
     (expect-message response)
     (expect-message complete)
-    (is (= connection-params (:connection-params @*echo-context)))
+    (reporting {:context @*echo-context}
+      (is (= connection-params (::lacinia/connection-params @*echo-context))))
 
     ;; connection-params are kept for following queries
     (send-data query)
     (expect-message response)
     (expect-message complete)
-    (is (= connection-params (:connection-params @*echo-context)))
+    (reporting {:context @*echo-context}
+      (is (= connection-params (::lacinia/connection-params @*echo-context))))
 
     ;; connection-params are kept for following subscriptions
     (send-data {:id (swap! *subscriber-id inc)
                 :type :start
                 :payload
                 {:query "subscription { ping(message: \"stop\", count: 1 ) { message }}"}})
-    (<message!! 250) ;; block until streamer has been called
-    (is (= connection-params (:connection-params @*ping-context)))))
+    ;; block until streamer has been called
+    (<message!! 250)
+    (reporting {:context @*ping-context}
+      (is (= connection-params (::lacinia/connection-params @*ping-context))))))
 
 

@@ -17,6 +17,7 @@
   of the Apollo client and server."
   {:added "0.3.0"}
   (:require
+    [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.util :as util]
     [com.walmartlabs.lacinia.internal-utils :refer [cond-let to-message]]
     [clojure.core.async :as async
@@ -129,7 +130,7 @@
                (when (>! response-data-ch {:type :connection_ack})
                  (recur (assoc connection-state :connection-params payload)))
 
-                ;; TODO: Track state, don't allow start, etc. until after connection_init
+               ;; TODO: Track state, don't allow start, etc. until after connection_init
 
                "start"
                (if (contains? (:subs connection-state) id)
@@ -156,7 +157,7 @@
                   ;; This shuts down the connection entirely.
                  (close! response-data-ch))
 
-                ;; Not recognized!
+               ;; Not recognized!
                (let [response (cond-> {:type :error
                                        :payload {:message "Unrecognized message type."
                                                  :type type}}
@@ -295,7 +296,7 @@
     (-> context
         (get-in [:request :lacinia-app-context])
         (assoc
-          :connection-params (:connection-params context)
+          ::lacinia/connection-params (:connection-params context)
           constants/parsed-query-key parsed-query)
         executor/execute-query
         (resolve/on-deliver! (fn [response]
@@ -315,7 +316,7 @@
         app-context (-> context
                         (get-in [:request :lacinia-app-context])
                         (assoc
-                          :connection-params (:connection-params context)
+                          ::lacinia/connection-params (:connection-params context)
                           constants/parsed-query-key parsed-query))
         cleanup-fn (executor/invoke-streamer app-context source-stream)]
     (go-loop []
@@ -435,13 +436,13 @@
   [compiled-schema options]
   (let [{:keys [keep-alive-ms app-context init-context]
          :or {keep-alive-ms 30000
-              init-context (fn [ctx & args] ctx)}} options
+              init-context (fn [ctx & _args] ctx)}} options
         interceptors (or (:subscription-interceptors options)
                          (default-subscription-interceptors compiled-schema app-context))
         base-context (chain/enqueue {::chain/terminators [:response]}
                                     interceptors)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
-    (fn [req resp ws-map]
+    (fn [req resp _ws-map]
       (.setAcceptedSubProtocol resp "graphql-ws")
       (log/debug :event ::upgrade-requested)
       (let [response-data-ch (chan 10)                      ; server data -> client
@@ -452,14 +453,13 @@
                        (close! response-data-ch)
                        (close! ws-data-ch))
             base-context (init-context base-context req resp)
-            on-connect (fn [session send-ch]
+            on-connect (fn [_session send-ch]
                          (log/debug :event ::connected)
                          (response-encode-loop response-data-ch send-ch)
                          (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
                          (connection-loop keep-alive-ms ws-data-ch response-data-ch base-context))]
         (ws/make-ws-listener
           {:on-connect (ws/start-ws-connection on-connect)
-           ;; TODO: Back-pressure?
            :on-text #(put! ws-text-ch %)
            :on-error #(log/error :event ::error :exception %)
            :on-close on-close})))))
