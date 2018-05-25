@@ -306,7 +306,7 @@
 
 (defn ^:private execute-subscription
   [context parsed-query]
-  (let [source-stream-ch (chan 1)
+  (let [source-stream-ch (chan (async/sliding-buffer 1))
         {:keys [id shutdown-ch response-data-ch]} (:request context)
         source-stream (fn [value]
                         (if (some? value)
@@ -342,7 +342,8 @@
                                                :id id
                                                :payload response})))
                   ;; Don't execute the query in a limited go block thread
-                 thread)
+                 thread
+                 async/<!)
              (recur))
            (do
               ;; The streamer has signalled that it has exhausted the subscription.

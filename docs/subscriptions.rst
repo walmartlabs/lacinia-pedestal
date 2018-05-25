@@ -84,3 +84,17 @@ Subscription requests are not allowed in ``/graphql``.
   the server to signal to the client that the subscription has completed.
 
   The Apollo project also provides `clients in several languages <https://github.com/apollographql>`_.
+
+Resolution
+----------
+
+When a streamer invokes its callback, the value passed as an argument will either:
+
+* Be sent down the websocket connection to the client when there are no resolvers for the subscription root
+
+* Be passed as the "parent" value into the resolver specified for the subscription root
+
+Both cases occur asynchronously; the callback function returns immediately while further resolution of the graph occurs on another thread.
+If the callback is called again before the previous query has been resolved it will be queued in a LIFO buffer of 1; that is to say,
+if your graph is updating faster than it can be resolved then intermediate values will be dropped and the most recent value will be
+sent to the client.
