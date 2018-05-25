@@ -88,20 +88,19 @@
     ;; Keep track of subscriptions by (client-supplied) unique id.
     ;; The value is a shutdown channel that, when closed, triggers
     ;; a cleanup of the subscription.
-    (go-loop [subs {}
-              connection-payload nil]
+    (go-loop [connection-state {:subs {} :connection-payload nil}]
       (alt!
         cleanup-ch
         ([id]
          (log/debug :event ::cleanup-ch :id id)
-         (recur (dissoc subs id) connection-payload))
+         (recur (update connection-state :subs dissoc id)))
 
         ;; TODO: Maybe only after connection_init?
         (async/timeout keep-alive-ms)
         (do
           (log/debug :event ::timeout)
           (>! response-data-ch {:type :ka})
-          (recur subs connection-payload))
+          (recur connection-state))
 
         ws-data-ch
         ([data]
@@ -110,36 +109,38 @@
             ;; shutdown and cleanup.
            (do
              (log/debug :event ::client-close)
-             (run! close! (vals subs)))
+             (run! close! (-> connection-state :subs vals)))
             ;; Otherwise it's a message from the client to be acted upon.
            (let [{:keys [id payload type]} data]
              (case type
                "connection_init"
                (when (>! response-data-ch {:type :connection_ack})
-                 (recur subs payload))
+                 (recur (assoc connection-state :connection-payload payload)))
 
                 ;; TODO: Track state, don't allow start, etc. until after connection_init
 
                "start"
-               (if (contains? subs id)
-                 (do (log/debug :event ::ignoring-duplicate :id id)
-                     (recur subs connection-payload))
-                 (let [merged-context (merge context {:connection-params connection-payload})]
+               (if (contains? (:subs connection-state) id)
+                 (do
+                   (log/debug :event ::ignoring-duplicate :id id)
+                   (recur connection-state))
+                 (do
                    (log/debug :event ::start :id id)
-                   (recur (assoc subs id (execute-query-interceptors id payload response-data-ch cleanup-ch merged-context))
-                          connection-payload)))
+                   (let [merged-context (assoc context :connection-params (:connection-payload connection-state))
+                         sub-shutdown-ch (execute-query-interceptors id payload response-data-ch cleanup-ch merged-context)]
+                     (recur (assoc-in connection-state [:subs id] sub-shutdown-ch)))))
 
                "stop"
                (do
                  (log/debug :event ::stop :id id)
-                 (when-some [sub-shutdown-ch (get subs id)]
+                 (when-some [sub-shutdown-ch (get-in connection-state [:subs id])]
                    (close! sub-shutdown-ch))
-                 (recur subs connection-payload))
+                 (recur connection-state))
 
                "connection_terminate"
                (do
                  (log/debug :event ::terminate)
-                 (run! close! (vals subs))
+                 (run! close! (-> connection-state :subs vals))
                   ;; This shuts down the connection entirely.
                  (close! response-data-ch))
 
@@ -150,7 +151,7 @@
                                 id (assoc :id id))]
                  (log/debug :event ::unknown-type :type type)
                  (>! response-data-ch response)
-                 (recur subs connection-payload))))))))))
+                 (recur connection-state))))))))))
 
 ;; We try to keep the interceptors here and in the main namespace as similar as possible, but
 ;; there are distinctions that can't be readily smoothed over.
