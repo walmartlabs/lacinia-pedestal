@@ -16,7 +16,7 @@
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [com.walmartlabs.lacinia.test-utils :as tu
-     :refer [test-server-fixture *ping-subscribes *ping-cleanups
+     :refer [test-server-fixture *ping-subscribes *ping-cleanups *ping-context *echo-context
              ws-uri *session* subscriptions-fixture
              send-data send-init <message!! expect-message
              *subscriber-id]]
@@ -333,3 +333,41 @@
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
+
+(deftest connection-params
+  (let [connection-params {:authentication "token"}
+        id (swap! *subscriber-id inc)
+        query {:id id
+               :type :start
+               :payload
+               {:query "{ echo(value: \"ws\") { value }}"}}
+        response {:id id
+                  :payload {:data {:echo {:value "ws"}}}
+                  :type "data"}
+        complete {:id id
+                  :type "complete"}]
+    ;; send connection-params that will be kept during the whole session
+    (send-init connection-params)
+    (expect-message {:type "connection_ack"})
+
+    ;; connection params are available in query context
+    (send-data query)
+    (expect-message response)
+    (expect-message complete)
+    (is (= connection-params (:connection-params @*echo-context)))
+
+    ;; connection-params are kept for following queries
+    (send-data query)
+    (expect-message response)
+    (expect-message complete)
+    (is (= connection-params (:connection-params @*echo-context)))
+
+    ;; connection-params are kept for following subscriptions
+    (send-data {:id (swap! *subscriber-id inc)
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"stop\", count: 1 ) { message }}"}})
+    (<message!! 250) ;; block until streamer has been called
+    (is (= connection-params (:connection-params @*ping-context)))))
+
+
