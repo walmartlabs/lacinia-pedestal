@@ -1,6 +1,6 @@
 (ns demo
   "Used to demonstrate a simple GraphQL application."
-  (require
+  (:require
     [com.walmartlabs.lacinia.pedestal :as lp]
     [clojure.java.io :as io]
     [clojure.core.async :refer [chan close! go alt! timeout]]

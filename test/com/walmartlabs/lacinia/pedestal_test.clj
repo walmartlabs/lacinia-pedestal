@@ -107,7 +107,7 @@
     (is (= {:body {:data {:echo {:value "Baked."}}
                    :errors [{:arguments {:error "420"
                                          :value "Baked."}
-                             :locations [{:column 0
+                             :locations [{:column 3
                                           :line 1}]
                              :message "Forced error."
                              :query-path ["echo"]}]}

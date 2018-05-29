@@ -4,6 +4,8 @@ The `com.walmartlabs.lacinia.pedestal.interceptors` namespaces has been
 removed outright, and with it, support for interceptor dependency maps.
 A scattering of other functions related to dependency maps have also been removed.
 
+Dependencies have been updated to latest, including bundling of GraphiQL 0.11.11.
+
 For subscription requests, the connection parameters are now captured at connection time,
 and available as the `:connection-params` key of the application context.
 

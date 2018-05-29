@@ -89,8 +89,7 @@
           method: 'post',
           headers: {{request-headers}},
           credentials: 'include',
-          body: JSON.stringify({ query: graphQLParams.query,
-                                 variables: graphQLParams.variables })
+          body: JSON.stringify(graphQLParams)
         }).then(function (response) {
           return response.text();
         }).then(function (responseBody) {
