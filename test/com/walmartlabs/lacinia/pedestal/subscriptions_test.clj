@@ -20,9 +20,7 @@
              ws-uri *session* subscriptions-fixture
              send-data send-init <message!! expect-message
              *subscriber-id]]
-    [cheshire.core :as cheshire]
     [gniazdo.core :as g]
-    [io.pedestal.log :as log]
     [clojure.string :as str]))
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
