@@ -7,6 +7,8 @@ A scattering of other functions related to dependency maps have also been remove
 Added a number of options to control the creation of core.async channels used
 to manage the flow of data for subscriptions.
 
+Dependencies have been updated to latest, including bundling of GraphiQL 0.11.11.
+
 For subscription requests, the connection parameters are now captured at connection time,
 and available as the `:connection-params` key of the application context.
 

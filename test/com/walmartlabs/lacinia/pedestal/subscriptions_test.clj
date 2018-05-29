@@ -97,7 +97,7 @@
                 {:query "subscription { ping(message: \"short\", count: 2 ) }"}})
 
     (expect-message {:id id
-                     :payload {:locations [{:column 13
+                     :payload {:locations [{:column 16
                                             :line 1}]
                                :message "Field `ping' (of type `Ping') must have at least one selection."}
                      :type "error"})
