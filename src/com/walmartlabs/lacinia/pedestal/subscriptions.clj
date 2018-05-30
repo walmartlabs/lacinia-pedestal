@@ -17,6 +17,7 @@
   of the Apollo client and server."
   {:added "0.3.0"}
   (:require
+    [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.util :as util]
     [com.walmartlabs.lacinia.internal-utils :refer [cond-let to-message]]
     [clojure.core.async :as async
@@ -31,7 +32,9 @@
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.resolve :as resolve]
-    [clojure.string :as str]))
+    [clojure.string :as str])
+  (:import
+    (org.eclipse.jetty.websocket.api UpgradeResponse)))
 
 (defn ^:private xform-channel
   [input-ch output-ch xf]
@@ -129,7 +132,7 @@
                (when (>! response-data-ch {:type :connection_ack})
                  (recur (assoc connection-state :connection-params payload)))
 
-                ;; TODO: Track state, don't allow start, etc. until after connection_init
+               ;; TODO: Track state, don't allow start, etc. until after connection_init
 
                "start"
                (if (contains? (:subs connection-state) id)
@@ -156,7 +159,7 @@
                   ;; This shuts down the connection entirely.
                  (close! response-data-ch))
 
-                ;; Not recognized!
+               ;; Not recognized!
                (let [response (cond-> {:type :error
                                        :payload {:message "Unrecognized message type."
                                                  :type type}}
@@ -295,7 +298,7 @@
     (-> context
         (get-in [:request :lacinia-app-context])
         (assoc
-          :connection-params (:connection-params context)
+          ::lacinia/connection-params (:connection-params context)
           constants/parsed-query-key parsed-query)
         executor/execute-query
         (resolve/on-deliver! (fn [response]
@@ -316,7 +319,7 @@
         app-context (-> context
                         (get-in [:request :lacinia-app-context])
                         (assoc
-                          :connection-params (:connection-params context)
+                          ::lacinia/connection-params (:connection-params context)
                           constants/parsed-query-key parsed-query))
         cleanup-fn (executor/invoke-streamer app-context source-stream)]
     (go-loop []
@@ -438,7 +441,6 @@
   :subscription-interceptors
   : A seq of interceptors for processing queries.  The default is
     derived from [[default-subscription-interceptors]].
-  : Alternately (deprecated but supported) a dependency map of intereceptors.
 
   :init-context
   : A function returning the base context for the subscription-interceptors to operate on.
@@ -474,9 +476,8 @@
                                     interceptors)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [req resp _ws-map]
-      (.setAcceptedSubProtocol resp "graphql-ws")
+      (.setAcceptedSubProtocol ^UpgradeResponse resp "graphql-ws")
       (log/debug :event ::upgrade-requested)
-
       (let [response-data-ch (response-chan-fn)             ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
             ws-data-ch (chan 10)                            ; client text -> client data
@@ -492,7 +493,6 @@
                          (connection-loop keep-alive-ms ws-data-ch response-data-ch base-context'))]
         (ws/make-ws-listener
           {:on-connect (ws/start-ws-connection on-connect send-buffer-or-n)
-           ;; TODO: Back-pressure?
            :on-text #(put! ws-text-ch %)
            :on-error #(log/error :event ::error :exception %)
            :on-close on-close})))))

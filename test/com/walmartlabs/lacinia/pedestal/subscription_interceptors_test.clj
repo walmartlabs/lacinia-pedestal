@@ -23,9 +23,7 @@
              subscriptions-fixture
              send-data send-init <message!! expect-message]]
     [io.pedestal.interceptor :refer [interceptor]]
-    [com.walmartlabs.lacinia.pedestal.subscriptions :as s]
-    [cheshire.core :as cheshire]
-    [clojure.string :as str])
+    [com.walmartlabs.lacinia.pedestal.subscriptions :as s])
   (:import [org.eclipse.jetty.websocket.servlet ServletUpgradeRequest]))
 
 (def ^:private *invoke-count (atom 0))
