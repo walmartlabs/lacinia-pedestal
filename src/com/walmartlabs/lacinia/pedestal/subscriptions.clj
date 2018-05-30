@@ -32,7 +32,9 @@
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.resolve :as resolve]
-    [clojure.string :as str]))
+    [clojure.string :as str])
+  (:import
+    (org.eclipse.jetty.websocket.api UpgradeResponse)))
 
 (defn ^:private xform-channel
   [input-ch output-ch xf]
@@ -439,7 +441,6 @@
   :subscription-interceptors
   : A seq of interceptors for processing queries.  The default is
     derived from [[default-subscription-interceptors]].
-  : Alternately (deprecated but supported) a dependency map of intereceptors.
 
   :init-context
   : A function returning the base context for the subscription-interceptors to operate on.
@@ -475,9 +476,8 @@
                                     interceptors)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [req resp _ws-map]
-      (.setAcceptedSubProtocol resp "graphql-ws")
+      (.setAcceptedSubProtocol ^UpgradeResponse resp "graphql-ws")
       (log/debug :event ::upgrade-requested)
-
       (let [response-data-ch (response-chan-fn)             ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
             ws-data-ch (chan 10)                            ; client text -> client data
