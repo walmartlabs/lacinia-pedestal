@@ -307,8 +307,9 @@
 
 (defn ^:private execute-subscription
   [context parsed-query]
-  (let [source-stream-ch (chan 1)
-        {:keys [id shutdown-ch response-data-ch]} (:request context)
+  (let [{:keys [::values-chan-fn request]} context
+        source-stream-ch (values-chan-fn)
+        {:keys [id shutdown-ch response-data-ch]} request
         source-stream (fn [value]
                         (if (some? value)
                           (put! source-stream-ch value)
@@ -393,11 +394,11 @@
   will work with the streamer defined by the subscription to send a sequence of \"data\" messages
   to the client.
 
-  * ::exception-handler [[exception-handler-interceptor]]
-  * ::send-operation-response [[send-operation-response-interceptor]]
-  * ::query-parser [query-parser-interceptor]]
-  * ::inject-app-context [inject-app-context-interceptor]]
-  * ::execute-operation [[execute-operation-interceptor]]
+  * ::exception-handler -- [[exception-handler-interceptor]]
+  * ::send-operation-response -- [[send-operation-response-interceptor]]
+  * ::query-parser -- [[query-parser-interceptor]]
+  * ::inject-app-context -- [[inject-app-context-interceptor]]
+  * ::execute-operation -- [[execute-operation-interceptor]]
 
   Returns a vector of interceptors."
   [compiled-schema app-context]
@@ -407,11 +408,25 @@
    (inject-app-context-interceptor app-context)
    execute-operation-interceptor])
 
+
 (defn listener-fn-factory
   "A factory for the function used to create a WS listener.
 
+  This function is invoked for each new client connecting to the service.
+
   `compiled-schema` may be the actual compiled schema, or a no-arguments function
   that returns the compiled schema.
+
+  Once a subscription is initiated, the flow is:
+
+  streamer -> values channel -> resolver -> response channel -> send channel
+
+  The default channels are all buffered and non-lossy, which means that a very active streamer
+  may be able to saturate the web socket used to send responses to the client.
+  By introducing lossiness or different buffers, the behavior can be tuned.
+
+  Each new subscription from the same client will invoke a new streamer and create a
+  corresponding values channel, but there is only one response channel per client.
 
   Options:
 
@@ -432,34 +447,52 @@
      - the minimal viable context for operation
      - the ServletUpgradeRequest that initiated this connection
      - the ServletUpgradeResponse to the upgrade request
-    Defaults to returning the context unchanged.."
+    Defaults to returning the context unchanged.
+
+  :response-chan-fn
+  : A function that returns a new channel. Responses to be written to client are put into this
+    channel. The default is a non-lossy channel with a buffer size of 10.
+
+  :values-chan-fn
+  : A function that returns a new channel. The channel conveys the values provided by the
+    subscription's streamer. The values are executed as queries, then transformed into responses that are
+    put into the response channel. The default is a non-lossy channel with a buffer size of 1.
+
+  :send-buffer-or-n
+  : Used to create the channel of text responses sent to the client. The default is 10 (a non-lossy
+    channel)."
   [compiled-schema options]
-  (let [{:keys [keep-alive-ms app-context init-context]
+  (let [{:keys [keep-alive-ms app-context init-context send-buffer-or-n response-chan-fn values-chan-fn]
          :or {keep-alive-ms 30000
+              send-buffer-or-n 10
+              response-chan-fn #(chan 10)
+              values-chan-fn #(chan 1)
               init-context (fn [ctx & _args] ctx)}} options
         interceptors (or (:subscription-interceptors options)
                          (default-subscription-interceptors compiled-schema app-context))
-        base-context (chain/enqueue {::chain/terminators [:response]}
+        base-context (chain/enqueue {::chain/terminators [:response]
+                                     ::values-chan-fn values-chan-fn}
                                     interceptors)]
     (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [req resp _ws-map]
       (.setAcceptedSubProtocol resp "graphql-ws")
       (log/debug :event ::upgrade-requested)
-      (let [response-data-ch (chan 10)                      ; server data -> client
+
+      (let [response-data-ch (response-chan-fn)             ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
-            ws-data-ch (chan 10)                            ; text -> data
+            ws-data-ch (chan 10)                            ; client text -> client data
             on-close (fn [_ _]
                        (log/debug :event ::closed)
                        (close! response-data-ch)
                        (close! ws-data-ch))
-            base-context (init-context base-context req resp)
+            base-context' (init-context base-context req resp)
             on-connect (fn [_session send-ch]
                          (log/debug :event ::connected)
                          (response-encode-loop response-data-ch send-ch)
                          (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
-                         (connection-loop keep-alive-ms ws-data-ch response-data-ch base-context))]
+                         (connection-loop keep-alive-ms ws-data-ch response-data-ch base-context'))]
         (ws/make-ws-listener
-          {:on-connect (ws/start-ws-connection on-connect)
+          {:on-connect (ws/start-ws-connection on-connect send-buffer-or-n)
            :on-text #(put! ws-text-ch %)
            :on-error #(log/error :event ::error :exception %)
            :on-close on-close})))))
