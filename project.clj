@@ -1,10 +1,10 @@
-(defproject com.walmartlabs/lacinia-pedestal "0.8.0-rc-1"
+(defproject com.walmartlabs/lacinia-pedestal "0.8.0-rc-2"
   :description "Pedestal infrastructure supporting Lacinia GraphQL"
   :url "https://github.com/walmartlabs/pedestal-lacinia"
   :license {:name "Apache Software License 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [com.walmartlabs/lacinia "0.27.0-rc-1"]
+                 [com.walmartlabs/lacinia "0.27.0-rc-2"]
                  [com.fasterxml.jackson.core/jackson-core "2.9.5"]
                  [io.pedestal/pedestal.service "0.5.3"]
                  [io.pedestal/pedestal.jetty "0.5.3"]]
