@@ -20,7 +20,8 @@
     [clojure.string :as str]
     [com.walmartlabs.lacinia.test-utils :refer [test-server-fixture
                                                 send-request
-                                                send-json-request]]
+                                                send-json-request
+                                                send-json-string-request]]
     [clojure.spec.test.alpha :as stest])
   (:import (clojure.lang ExceptionInfo)))
 
@@ -47,6 +48,10 @@
     (is (= {:data {:echo {:method "post"
                           :value "hello"}}}
            (:body response)))))
+
+(deftest invalid-json-post-query
+  (let [response (send-json-string-request :post "f" "application/json")]
+    (is (= 400 (:status response)))))
 
 (deftest includes-content-type-check-on-post
   (let [response

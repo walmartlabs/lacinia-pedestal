@@ -130,6 +130,21 @@
                   (cheshire/parse-string % true)
                   (catch Exception t %))))))
 
+(defn send-json-string-request
+  ([method json]
+   (send-json-string-request method json "application/json; charset=utf-8"))
+  ([method json content-type]
+   (-> {:method method
+        :url "http://localhost:8888/graphql"
+        :throw-exceptions false
+        :headers {"Content-Type" content-type}
+        :body json}
+       client/request
+       (update :body
+               #(try
+                  (cheshire/parse-string % true)
+                  (catch Exception t %))))))
+
 (def ws-uri "ws://localhost:8888/graphql-ws")
 
 (def ^:dynamic *messages-ch* nil)
