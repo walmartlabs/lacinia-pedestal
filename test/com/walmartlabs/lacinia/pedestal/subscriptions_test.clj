@@ -1,14 +1,28 @@
+; Copyright (c) 2017-present Walmart, Inc.
+;
+; Licensed under the Apache License, Version 2.0 (the "License")
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+;
+;     http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
+
 (ns com.walmartlabs.lacinia.pedestal.subscriptions-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
+    [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.test-utils :as tu
-     :refer [test-server-fixture *ping-subscribes *ping-cleanups
+     :refer [test-server-fixture *ping-subscribes *ping-cleanups *ping-context *echo-context
              ws-uri *session* subscriptions-fixture
              send-data send-init <message!! expect-message
              *subscriber-id]]
-    [cheshire.core :as cheshire]
+    [com.walmartlabs.test-reporting :refer [reporting]]
     [gniazdo.core :as g]
-    [io.pedestal.log :as log]
     [clojure.string :as str]))
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
@@ -85,7 +99,7 @@
                 {:query "subscription { ping(message: \"short\", count: 2 ) }"}})
 
     (expect-message {:id id
-                     :payload {:locations [{:column 13
+                     :payload {:locations [{:column 16
                                             :line 1}]
                                :message "Field `ping' (of type `Ping') must have at least one selection."}
                      :type "error"})
@@ -321,3 +335,45 @@
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
+
+(deftest connection-params
+  (let [connection-params {:authentication "token"}
+        id (swap! *subscriber-id inc)
+        query {:id id
+               :type :start
+               :payload
+               {:query "{ echo(value: \"ws\") { value }}"}}
+        response {:id id
+                  :payload {:data {:echo {:value "ws"}}}
+                  :type "data"}
+        complete {:id id
+                  :type "complete"}]
+    ;; send connection-params that will be kept during the whole session
+    (send-init connection-params)
+    (expect-message {:type "connection_ack"})
+
+    ;; connection params are available in query context
+    (send-data query)
+    (expect-message response)
+    (expect-message complete)
+    (reporting {:context @*echo-context}
+      (is (= connection-params (::lacinia/connection-params @*echo-context))))
+
+    ;; connection-params are kept for following queries
+    (send-data query)
+    (expect-message response)
+    (expect-message complete)
+    (reporting {:context @*echo-context}
+      (is (= connection-params (::lacinia/connection-params @*echo-context))))
+
+    ;; connection-params are kept for following subscriptions
+    (send-data {:id (swap! *subscriber-id inc)
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"stop\", count: 1 ) { message }}"}})
+    ;; block until streamer has been called
+    (<message!! 250)
+    (reporting {:context @*ping-context}
+      (is (= connection-params (::lacinia/connection-params @*ping-context))))))
+
+

@@ -1,17 +1,29 @@
+; Copyright (c) 2017-present Walmart, Inc.
+;
+; Licensed under the Apache License, Version 2.0 (the "License")
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+;
+;     http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
+
 (ns com.walmartlabs.lacinia.pedestal.subscription-interceptors-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [clojure.core.async :refer [chan alt!! put! timeout]]
+    [com.walmartlabs.lacinia.pedestal :refer [inject]]
     [com.walmartlabs.lacinia.test-utils
      :refer [test-server-fixture *ping-subscribes *ping-cleanups
              ws-uri
              subscriptions-fixture
              send-data send-init <message!! expect-message]]
     [io.pedestal.interceptor :refer [interceptor]]
-    [com.walmartlabs.lacinia.pedestal.subscriptions :as s]
-    [com.walmartlabs.lacinia.pedestal.interceptors :as i]
-    [cheshire.core :as cheshire]
-    [clojure.string :as str])
+    [com.walmartlabs.lacinia.pedestal.subscriptions :as s])
   (:import [org.eclipse.jetty.websocket.servlet ServletUpgradeRequest]))
 
 (def ^:private *invoke-count (atom 0))
@@ -38,12 +50,9 @@
   [schema]
   {:subscription-interceptors
    ;; Add ::invoke-count, and ensure it executes before ::execute-operation.
-   (-> (s/default-interceptors schema nil)
-       (assoc ::invoke-count invoke-count-interceptor)
-       (update ::s/execute-operation i/ordered-after [::invoke-count])
-       (assoc ::user-agent user-agent-interceptor)
-       (update ::s/execute-operation i/ordered-after [::user-agent])
-       i/order-by-dependency)
+   (-> (s/default-subscription-interceptors schema nil)
+       (inject invoke-count-interceptor :before ::s/execute-operation)
+       (inject user-agent-interceptor :before ::s/execute-operation))
 
    :init-context
    (fn [ctx ^ServletUpgradeRequest req resp]

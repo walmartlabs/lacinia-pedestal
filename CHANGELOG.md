@@ -1,3 +1,19 @@
+## 0.8.0 -- 6 Jun 2018
+
+The `com.walmartlabs.lacinia.pedestal.interceptors` namespaces has been
+removed outright, and with it, support for interceptor dependency maps.
+A scattering of other functions related to dependency maps have also been removed.
+
+Added a number of options to control the creation of core.async channels used
+to manage the flow of data for subscriptions.
+
+Dependencies have been updated to latest.
+
+For subscription requests, the connection parameters are now captured at connection time,
+and available as the `:com.walmartlabs.lacinia/connection-params` key of the application context.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/7?closed=1)
+
 ## 0.7.0 -- 2 Mar 2018
 
 The `com.walmartlabs.lacina.pedestal.interceptors` namespace has been deprecated; it will be removed

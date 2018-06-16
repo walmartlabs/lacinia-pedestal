@@ -66,6 +66,13 @@ The following keys are used:
     A seq of interceptors used when processing GraphQL query, mutation, or subscription requests
     via the WebSocket connection. This is used when overriding the default interceptors.
 
+Connection Parameters
+---------------------
+
+When the client creates a connection, it may pass a payload in the ``connection_init`` message;
+this is the connection parameters, and is made available to the streamer and resolver in
+the context under the ``:com.walmartlabs.lacinia/connection-parameters`` key.
+
 Endpoint
 --------
 

@@ -1,3 +1,17 @@
+; Copyright (c) 2017-present Walmart, Inc.
+;
+; Licensed under the Apache License, Version 2.0 (the "License")
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+;
+;     http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
+
 (ns com.walmartlabs.lacinia.pedestal
   "Defines Pedestal interceptors and supporting code."
   (:require
@@ -5,9 +19,6 @@
     [com.walmartlabs.lacinia :as lacinia]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
-    [com.walmartlabs.lacinia.pedestal.interceptors
-     :as interceptors
-     :refer [ordered-after add]]
     [clojure.string :as str]
     [clojure.java.io :as io]
     [io.pedestal.http :as http]
@@ -127,14 +138,13 @@
 
 (def graphql-data-interceptor
   "Extracts the raw data (query and variables) from the request using [[extract-query]]."
-  (-> {:name ::graphql-data
-       :enter (fn [context]
-                (let [request (:request context)
-                      q (extract-query request)]
-                  (assoc context :request
-                         (merge request q))))}
-      interceptor
-      (ordered-after [::json-response])))
+  (interceptor
+    {:name ::graphql-data
+     :enter (fn [context]
+              (let [request (:request context)
+                    q (extract-query request)]
+                (assoc context :request
+                       (merge request q))))}))
 
 (defn ^:private query-not-found-error
   [request]
@@ -151,14 +161,13 @@
   "Rejects the request when there's no GraphQL query in the request map.
 
    This must come after [[graphql-data-interceptor]], which is responsible for adding the query to the request map."
-  (-> {:name ::missing-query
-       :enter (fn [context]
-                (if (-> context :request :graphql-query str/blank?)
-                  (assoc context :response
-                         (bad-request (query-not-found-error (:request context))))
-                  context))}
-      interceptor
-      (ordered-after [::status-conversion])))
+  (interceptor
+    {:name ::missing-query
+     :enter (fn [context]
+              (if (-> context :request :graphql-query str/blank?)
+                (assoc context :response
+                       (bad-request (query-not-found-error (:request context))))
+                context))}))
 
 (defn ^:private as-errors
   [exception]
@@ -175,47 +184,45 @@
    Adds a new request key, :parsed-lacinia-query, containing the parsed and prepared
    query."
   [compiled-schema]
-  (-> {:name ::query-parser
-       :enter (fn [context]
-                (try
-                  (let [request (:request context)
-                        {q :graphql-query
-                         vars :graphql-vars
-                         operation-name :graphql-operation-name} request
-                        actual-schema (if (map? compiled-schema)
-                                        compiled-schema
-                                        (compiled-schema))
-                        parsed-query (parser/parse-query actual-schema q operation-name)
-                        prepared (parser/prepare-with-query-variables parsed-query vars)
-                        errors (validator/validate actual-schema prepared {})]
-                    (if (seq errors)
-                      (assoc context :response (bad-request {:errors errors}))
-                      (assoc-in context [:request :parsed-lacinia-query] prepared)))
-                  (catch Exception e
-                    (assoc context :response
-                           (bad-request (as-errors e))))))}
-      interceptor
-      (ordered-after [::missing-query])))
+  (interceptor
+    {:name ::query-parser
+     :enter (fn [context]
+              (try
+                (let [request (:request context)
+                      {q :graphql-query
+                       vars :graphql-vars
+                       operation-name :graphql-operation-name} request
+                      actual-schema (if (map? compiled-schema)
+                                      compiled-schema
+                                      (compiled-schema))
+                      parsed-query (parser/parse-query actual-schema q operation-name)
+                      prepared (parser/prepare-with-query-variables parsed-query vars)
+                      errors (validator/validate actual-schema prepared {})]
+                  (if (seq errors)
+                    (assoc context :response (bad-request {:errors errors}))
+                    (assoc-in context [:request :parsed-lacinia-query] prepared)))
+                (catch Exception e
+                  (assoc context :response
+                         (bad-request (as-errors e))))))}))
 
 (def status-conversion-interceptor
   "Checks to see if any error map in the :errors key of the response
   contains a :status value.  If so, the maximum status value of such errors
   is found and used as the status of the overall response, and the
   :status key is dissoc'ed from all errors."
-  (-> {:name ::status-conversion
-       :leave (fn [context]
-                (let [response (:response context)
-                      errors (get-in response [:body :errors])
-                      statuses (keep :status errors)]
-                  (if (seq statuses)
-                    (let [max-status (reduce max (:status response) statuses)]
-                      (-> context
-                          (assoc-in [:response :status] max-status)
-                          (assoc-in [:response :body :errors]
-                                    (map #(dissoc % :status) errors))))
-                    context)))}
-      interceptor
-      (ordered-after [::graphql-data])))
+  (interceptor
+    {:name ::status-conversion
+     :leave (fn [context]
+              (let [response (:response context)
+                    errors (get-in response [:body :errors])
+                    statuses (keep :status errors)]
+                (if (seq statuses)
+                  (let [max-status (reduce max (:status response) statuses)]
+                    (-> context
+                        (assoc-in [:response :status] max-status)
+                        (assoc-in [:response :body :errors]
+                                  (map #(dissoc % :status) errors))))
+                  context)))}))
 
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.
@@ -227,12 +234,11 @@
   from the request and expose that as app-context keys."
   {:added "0.2.0"}
   [app-context]
-  (-> {:name ::inject-app-context
-       :enter (fn [context]
-                (assoc-in context [:request :lacinia-app-context]
-                          (assoc app-context :request (:request context))))}
-      interceptor
-      (ordered-after [::query-parser])))
+  (interceptor
+    {:name ::inject-app-context
+     :enter (fn [context]
+              (assoc-in context [:request :lacinia-app-context]
+                        (assoc app-context :request (:request context))))}))
 
 (defn ^:private apply-result-to-context
   [context result]
@@ -292,55 +298,12 @@
 (def ^{:added "0.3.0"} disallow-subscriptions-interceptor
   "Handles requests for subscriptions.  Subscription requests must only be sent to the subscriptions web-socket, not the
   general query endpoint, so any subscription request received in this pipeline is a bad request."
-  (-> {:name ::disallow-subscriptions
-       :enter (fn [context]
-                (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
-                  (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
-                  context))}
-      interceptor
-      (ordered-after [::query-parser])))
-
-(defn graphql-interceptors
-  "Returns a dependency map of the GraphQL interceptors:
-
-  * ::json-response [[json-response-interceptor]]
-  * ::graphql-data [[graphql-data-interceptor]]
-  * ::status-conversion [[status-conversion-interceptor]]
-  * ::missing-query [[missing-query-interceptor]]
-  * ::query-parser [[query-parser-interceptor]]
-  * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
-  * ::inject-app-context [[inject-app-context-interceptor]]
-  * ::query-executor [[query-executor-handler]] or [[async-query-executor-handler]]
-
-  `compiled-schema` may be the actual compiled schema, or a no-arguments function that returns the compiled schema.
-
-  Options:
-
-  :async (default false)
-  : If true, the query will execute asynchronously.
-
-  :app-context
-  : The base application context provided to Lacinia when executing a query.
-
-  This function will be removed in 0.8.0.  Use [[default-interceptors]] instead."
-  {:added "0.3.0"
-   :deprecated "0.7.0"}
-  [compiled-schema options]
-  (let [query-parser (query-parser-interceptor compiled-schema)
-        inject-app-context (inject-app-context-interceptor (:app-context options))
-        executor (if (:async options)
-                   async-query-executor-handler
-                   query-executor-handler)]
-    (-> [json-response-interceptor
-         graphql-data-interceptor
-         status-conversion-interceptor
-         missing-query-interceptor
-         query-parser
-         disallow-subscriptions-interceptor
-         inject-app-context]
-        interceptors/as-dependency-map
-        (assoc ::query-executor
-               (ordered-after executor [::inject-app-context ::disallow-subscriptions])))))
+  (interceptor
+    {:name ::disallow-subscriptions
+     :enter (fn [context]
+              (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
+                (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
+                context))}))
 
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
@@ -368,8 +331,19 @@
   "
   {:added "0.7.0"}
   [compiled-schema options]
-  (-> (graphql-interceptors compiled-schema options)
-      interceptors/order-by-dependency))
+  (let [query-parser (query-parser-interceptor compiled-schema)
+        inject-app-context (inject-app-context-interceptor (:app-context options))
+        executor (if (:async options)
+                   async-query-executor-handler
+                   query-executor-handler)]
+    [json-response-interceptor
+     graphql-data-interceptor
+     status-conversion-interceptor
+     missing-query-interceptor
+     query-parser
+     disallow-subscriptions-interceptor
+     inject-app-context
+     executor]))
 
 (defn routes-from-interceptors
   "Returns a set of route vectors from a primary seq of interceptors.
@@ -392,22 +366,6 @@
                :route-name ::graphql-post]}
       get-enabled (conj [route-path :get interceptors
                          :route-name ::graphql-get]))))
-
-(defn routes-from-interceptor-map
-  "Returns a set of route vectors from a primary interceptor dependency map.
-  This uses a standard rule for splicing in the POST support.
-
-  This function is useful as an alternative to [[graphql-routes]] when the
-  default interceptor dependency map (from [[graphql-interceptors]]) is modified.
-
-  This function will be removed in 0.8.0."
-  {:added "0.3.0"
-   :deprecated "0.7.0"}
-  [route-path get-interceptor-map]
-  (routes-from-interceptors route-path
-                            (interceptors/order-by-dependency get-interceptor-map)
-                            nil))
-
 
 (defn graphiql-ide-response
   "Reads the graphiql.html resource, then injects new content into it, and ultimately returns a Ring
@@ -479,8 +437,6 @@
 
   :interceptors
   : A seq of interceptors, to be passed to [[routes-from-interceptors]].
-  : Alternately (deprected but supported), the map of interceptors to be passed to [[routes-from-interceptor-map]].
-    If not provided, [[graphql-interceptors]] is invoked.
 
   :async (default: false)
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
@@ -497,14 +453,9 @@
          :or {path default-path
               asset-path default-asset-path
               ide-path "/"}} options
-        ;; In 0.7.0 interceptors may be either a map (old style) or a seq (new style).
-        ;; In 0.8.0, support for maps goes away and we delete a bunch of related functions
         interceptors (or (:interceptors options)
-                         ;; Change to default-interceptors in 0.8.0:
-                         (graphql-interceptors compiled-schema options))
-        base-routes (if (map? interceptors)
-                      (routes-from-interceptor-map path interceptors)
-                      (routes-from-interceptors path interceptors options))]
+                         (default-interceptors compiled-schema options))
+        base-routes (routes-from-interceptors path interceptors options)]
     (if-not graphiql
       base-routes
       (let [index-handler (let [index-response (graphiql-ide-response options)]
@@ -544,11 +495,6 @@
     This includes disabling the Content-Security-Policy headers
     that Pedestal 0.5.3 generates by default.
 
-  :interceptors
-  : A seq of interceptors, or a dependency map of interceptor names to interceptors, with dependencies.
-    If not provided, default is via [[graphql-interceptors]].
-    Used to build the routes (via [[routes-from-interceptor-map]]).
-
   :routes (default: via [[graphql-routes]])
   : Used when explicitly setting up the routes.
     It is significantly easier to configure the interceptors than to set up
@@ -575,7 +521,6 @@
 
   :interceptors
   : A seq of interceptors to be used in GraphQL routes; passed to [[routes-from-interceptors]].
-  : Alternately (deprecated, but supported) the map of interceptors to be passed to [[routes-from-interceptor-map]].
     If not provided, [[default-interceptors]] is invoked.
 
   :async (default: false)
