@@ -12,6 +12,7 @@
     [clojure.java.io :as io]
     [io.pedestal.http :as http]
     [ring.util.response :as response]
+    [ring.util.request :as req]
     [com.walmartlabs.lacinia.resolve :as resolve]
     [com.walmartlabs.lacinia.parser :as parser]
     [com.walmartlabs.lacinia.util :as util]
@@ -109,12 +110,20 @@
                       (update-in [:response :body] cheshire/generate-string))
                   context)))}))
 
+(defn multipart-form?
+  "Does a request have a multipart form?"
+  [request]
+  (= (req/content-type request) "multipart/form-data"))
+
 (def body-data-interceptor
   "Converts the POSTed body from a input stream into a string."
   (interceptor
     {:name ::body-data
      :enter (fn [context]
-              (update-in context [:request :body] slurp))}))
+              (let [{:keys [request]} context]
+                (if (multipart-form? request)
+                    context
+                    (update-in context [:request :body] slurp))))}))
 
 (def graphql-data-interceptor
   "Extracts the raw data (query and variables) from the request using [[extract-query]]."
