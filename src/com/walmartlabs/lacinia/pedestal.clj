@@ -132,15 +132,18 @@
   (interceptor
     {:name ::graphql-data
      :enter (fn [context]
-              (let [request (:request context)
-                    q (extract-query request)]
-                (assoc context :request
-                       (merge request q))))}))
+              (try
+                (let [request (:request context)
+                      q (extract-query request)]
+                  (assoc context :request
+                         (merge request q)))
+                (catch Exception e
+                  (assoc context :response
+                         (bad-request {:message (str "Invalid request: " (.getMessage e))})))))}))
 
 (defn ^:private query-not-found-error
   [request]
   (let [request-method (get request :request-method)
-        content-type (get-in request [:headers "content-type"])
         body (get request :body)
         message (cond
                   (= request-method :get) "Query parameter 'query' is missing or blank."
