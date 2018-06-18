@@ -1,3 +1,10 @@
+## 0.9.0 -- UNRELEASED
+
+Invalid JSON sent to lacinia-pedestal now results in proper 400 reponse,
+rather than throwing an exception (and a 500 response).
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/8?closed=1)
+
 ## 0.8.0 -- 6 Jun 2018
 
 The `com.walmartlabs.lacinia.pedestal.interceptors` namespaces has been
