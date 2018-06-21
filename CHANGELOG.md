@@ -1,3 +1,7 @@
+## 0.10.0 -- UNRELEASED
+
+A spec for the `service-map` function is now provided.
+
 ## 0.9.0 -- UNRELEASED
 
 Invalid JSON sent to lacinia-pedestal now results in proper 400 reponse,
