@@ -17,7 +17,7 @@
   {:added "0.10.0"}
   (:require
     [clojure.core.async.impl.protocols :refer [Buffer]]
-    io.pedestal.interceptor                                 ; for Intercepto
+    io.pedestal.interceptor                                 ; for Interceptor
     [clojure.spec.alpha :as s])
   (:import
     (com.walmartlabs.lacinia.schema CompiledSchema)
