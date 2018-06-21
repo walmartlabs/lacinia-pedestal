@@ -17,16 +17,26 @@
   {:added "0.10.0"}
   (:require
     [clojure.core.async.impl.protocols :refer [Buffer]]
-    [io.pedestal.interceptor :refer [IntoInterceptor]]
+    io.pedestal.interceptor                                 ; for Intercepto
     [clojure.spec.alpha :as s])
   (:import
-    (com.walmartlabs.lacinia.schema CompiledSchema)))
+    (com.walmartlabs.lacinia.schema CompiledSchema)
+    (io.pedestal.interceptor Interceptor)))
 
 (s/def ::compiled-schema (s/or :direct #(instance? CompiledSchema %)
                                :indirect fn?))
 
 (s/def ::interceptors (s/coll-of ::interceptor))
-(s/def ::interceptor #(satisfies? IntoInterceptor %))
+
+;; This is a bit narrower than io.pedestal.interceptor's definition; we are excluding
+;; things that can be turned into an interceptor (outside of map), to focus on there
+;; being a valid name, which is important for com.walmartlabs.lacinia.pedestal/inject.
+;; Lastly, we support a handler, which is typically at the end, and is like a nameless interceptor.
+
+(s/def ::interceptor (s/or :handler fn?
+                           :interceptor (s/and (s/nonconforming (s/or :interceptor #(instance? Interceptor %)
+                                                                      :map map?))
+                                               #(-> % :name keyword?))))
 
 (s/def ::app-context map?)
 

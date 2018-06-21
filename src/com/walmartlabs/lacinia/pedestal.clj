@@ -642,16 +642,9 @@
 
     final-result))
 
-(s/def ::interceptor (s/or :interceptor (s/keys :req-un [::name])
-                           :handler fn?))
-(s/def ::interceptors (s/coll-of ::interceptor))
-;; The name of an interceptor; typically this is namespaced, but that is not a requirement.
-;; The name may be nil in some cases (typically, the interceptor formed around a bare handler function).
-(s/def ::name (s/nilable keyword?))
-
 (s/fdef inject
-        :ret ::interceptors
-        :args (s/cat :interceptors ::interceptors
-                     :new-interceptor ::interceptor
+        :ret ::spec/interceptors
+        :args (s/cat :interceptors ::spec/interceptors
+                     :new-interceptor ::spec/interceptor
                      :relative-position #{:before :after :replace}
                      :interceptor-name keyword?))
