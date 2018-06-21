@@ -16,7 +16,6 @@
   "Defines Pedestal interceptors and supporting code."
   (:require
     [clojure.core.async :refer [chan put!]]
-    [com.walmartlabs.lacinia :as lacinia]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
@@ -31,7 +30,9 @@
     [com.walmartlabs.lacinia.constants :as constants]
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
-    [clojure.spec.alpha :as s]))
+    [clojure.spec.alpha :as s])
+  (:import (com.walmartlabs.lacinia.schema CompiledSchema)
+           (io.pedestal.interceptor IntoInterceptor)))
 
 (def ^:private default-path "/graphql")
 
@@ -563,6 +564,42 @@
 
       graphiql
       (assoc ::http/secure-headers nil))))
+
+(s/fdef service-map
+  :args (s/cat :compiled-schema ::compiled-schema
+               :options (s/nilable ::service-map-options)))
+
+(s/def ::compiled-schema (s/or :direct #(instance? CompiledSchema %)
+                               :indirect fn?))
+
+(s/def ::service-map-options (s/keys :opt-un [::graphiql
+                                              ::routes
+                                              ::subscriptions
+                                              ::path
+                                              ::ide-path
+                                              ::asset-path
+                                              ::ide-headers
+                                              ::interceptors
+                                              ::async
+                                              ::app-context
+                                              ::subscriptions-path
+                                              ::port
+                                              ::env]))
+(s/def ::graphiql boolean?)
+(s/def ::routes some?)                                      ; Details are far too complicated
+(s/def ::subscriptions boolean?)
+(s/def ::path (s/and string?
+                     #(str/starts-with? % "/")))
+(s/def ::ide-path ::path)
+(s/def ::asset-path ::path)
+(s/def ::ide-headers map?)
+(s/def ::interceptors (s/coll-of ::interceptor))
+(s/def ::interceptor #(satisfies? IntoInterceptor %))
+(s/def ::async boolean?)
+(s/def ::app-context map?)
+(s/def ::subscriptions-path ::path)
+(s/def ::port pos-int?)
+(s/def ::env keyword?)
 
 (defn pedestal-service
   "This function has been deprecated in favor of [[service-map]], but is being maintained for
