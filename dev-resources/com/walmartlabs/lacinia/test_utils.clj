@@ -47,9 +47,9 @@
   ;; Return a cleanup fn:
   #(swap! *ping-cleanups inc))
 
-(defn ^:private make-service
+(defn make-service
   "The special option :indirect-schema wraps the schema in a function; this exercises some
-  logic that allows a compiled schema to actually be a  function that returns the compiled schema."
+  logic that allows a compiled schema to actually be a function that returns the compiled schema."
   [options options-builder]
   (let [schema (-> (io/resource "sample-schema.edn")
                    slurp

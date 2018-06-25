@@ -15,7 +15,7 @@
 (ns com.walmartlabs.lacinia.pedestal
   "Defines Pedestal interceptors and supporting code."
   (:require
-    [clojure.core.async :refer [chan put!]]
+    [clojure.core.async :refer [chan put! go <!]]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
@@ -28,9 +28,11 @@
     [com.walmartlabs.lacinia.validator :as validator]
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
+    [com.walmartlabs.lacinia.internal-utils :refer [cond-let]]
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
     [clojure.spec.alpha :as s]
+    [clojure.core.cache :as cache :refer [CacheProtocol]]
     [com.walmartlabs.lacinia.pedestal.spec :as spec]))
 
 (def ^:private default-path "/graphql")
@@ -38,6 +40,8 @@
 (def ^:private default-asset-path "/assets/graphiql")
 
 (def ^:private default-subscriptions-path "/graphql-ws")
+
+(def ^:private parsed-query-key-path [:request :parsed-lacinia-query])
 
 (defn ^:private bad-request
   "Generates a bad request Ring response."
@@ -167,6 +171,18 @@
   [exception]
   {:errors [(util/as-error-map exception)]})
 
+(defn ^:private parse-query-document
+  [context compiled-schema q operation-name]
+  (try
+    (let [actual-schema (if (map? compiled-schema)
+                          compiled-schema
+                          (compiled-schema))
+          parsed-query (parser/parse-query actual-schema q operation-name)]
+      (assoc-in context parsed-query-key-path parsed-query))
+    (catch Exception e
+      (assoc context :response
+             (bad-request (as-errors e))))))
+
 (defn query-parser-interceptor
   "Given an schema, returns an interceptor that parses the query.
 
@@ -175,26 +191,45 @@
 
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
-   Adds a new request key, :parsed-lacinia-query, containing the parsed and prepared
-   query."
+   [[query-store-interceptor]] may provide the parsed query instead, in which case
+   this interceptor returns the context unchanged.
+
+   Adds a new request key, :parsed-lacinia-query, containing the parsed query.
+
+   Before execution, [[prepare-query-interceptor]] injects query variables and performs
+   validations."
   [compiled-schema]
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
+              ;; TEMPORARY!
+              (let [request (:request context)
+                    {parsed-query :parsed-lacinia-query} request]
+                ;; The query may have come out of a cache:
+                (if (some? parsed-query)
+                  context
+                  (parse-query-document context
+                                        compiled-schema
+                                        (:graphql-query request)
+                                        (:graphql-operation-name request)))))}))
+
+(def ^{:added "0.10.0"} prepare-query-interceptor
+  "Prepares (with query variables) and validates the query, previously parsed
+  by [[query-parsed-interceptor]] (or provided via [[query-store-interceptor]]).
+
+  In earlier releases of lacinia-pedestal, this logic was combined with [[query-parser-interceptor]]."
+  (interceptor
+    {:name ::prepare-query
+     :enter (fn [context]
               (try
-                (let [request (:request context)
-                      {q :graphql-query
-                       vars :graphql-vars
-                       operation-name :graphql-operation-name} request
-                      actual-schema (if (map? compiled-schema)
-                                      compiled-schema
-                                      (compiled-schema))
-                      parsed-query (parser/parse-query actual-schema q operation-name)
+                (let [{parsed-query :parsed-lacinia-query
+                       vars :graphql-vars} (:request context)
                       prepared (parser/prepare-with-query-variables parsed-query vars)
-                      errors (validator/validate actual-schema prepared {})]
+                      compiled-schema (get prepared constants/schema-key)
+                      errors (validator/validate compiled-schema prepared {})]
                   (if (seq errors)
                     (assoc context :response (bad-request {:errors errors}))
-                    (assoc-in context [:request :parsed-lacinia-query] prepared)))
+                    (assoc-in context parsed-query-key-path prepared)))
                 (catch Exception e
                   (assoc context :response
                          (bad-request (as-errors e))))))}))
@@ -299,6 +334,66 @@
                 (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
                 context))}))
 
+(defn ^:private pass-query-through-query-store
+  [compiled-schema query-store query-cache]
+  (let [*cache (atom query-cache)]
+    (fn [context]
+      (cond-let
+        :let [{q :graphql-query
+               operation-name :graphql-operation-name} (:request context)
+              ;; Often, the q here is a full query document, resulting in a cache miss.
+              ;; Only when q identifies a valid query document will the *parsed* query be
+              ;; present in the cache.
+              cache-key [q operation-name]
+              cached (cache/lookup (swap! *cache
+                                          #(if (cache/has? % cache-key)
+                                             (cache/hit % cache-key)
+                                             (cache/miss % cache-key nil)))
+                                   cache-key)]
+
+        (some? cached)
+        (assoc-in context parsed-query-key-path cached)
+
+        :let [store-result (query-store q)]
+
+        ;; Not a query name, an actual query; continue as normal.
+        (nil? store-result)
+        context
+
+        :else
+        (go
+          (if-some [query-doc (<! store-result)]
+            (let [context' (parse-query-document context compiled-schema query-doc operation-name)
+                  parsed (get-in context' parsed-query-key-path)]
+              (when (some? parsed)
+                (swap! *cache cache/miss cache-key parsed))
+              context')
+
+            ;; A nil here means the query-store recognized the query as indicating a stored query
+            ;; (e.g., starts with a slash is a likely implementation) BUT it couldn't locate
+            ;; the requested query. This is different than a simple nil, which means it's not
+            ;; a stored query at all.
+            (assoc context :response (bad-request (message-as-errors "Stored query not found.")))))))))
+
+(defn query-store-interceptor
+  "An interceptor that checks if a query is actually a name of a query in a server-side query store; it also
+  manages a cache of such queries, compiled to executable form."
+  [compiled-schema options]
+  {:added "0.10.0"}
+  (let [{:keys [query-store query-cache]
+         :or {query-cache (cache/ttl-cache-factory {} :ttl 600000)}} options
+        enter (if-not query-store
+                identity
+                (pass-query-through-query-store compiled-schema query-store query-cache))]
+    (interceptor
+      {:name ::query-source
+       :enter enter})))
+
+(def ^:private check-for-response-interceptor
+  (interceptor
+    {:name ::check-for-response
+     :enter identity}))
+
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
 
@@ -306,38 +401,35 @@
     * ::graphql-data [[graphql-data-interceptor]]
     * ::status-conversion [[status-conversion-interceptor]]
     * ::missing-query [[missing-query-interceptor]]
+    * ::query-store [[query-store-interceptor]]
     * ::query-parser [[query-parser-interceptor]]
     * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
+    * ::prepare-query [[prepare-query-interceptor]]
     * ::inject-app-context [[inject-app-context-interceptor]]
     * ::query-executor [[query-executor-handler]] or [[async-query-executor-handler]]
 
   `compiled-schema` may be the actual compiled schema, or a no-arguments function that returns the compiled schema.
 
-  Often, this list of interceptors is augemented by calls to [[inject]].
+  Often, this list of interceptors is augmented by calls to [[inject]].
 
-  Options:
-
-  :async (default false)
-  : If true, the query will execute asynchronously (return a core.async channel).
-
-  :app-context
-  : The base application context provided to Lacinia when executing a query.
-  "
+  Options are as defined by [[service-map]]."
   {:added "0.7.0"}
   [compiled-schema options]
-  (let [query-parser (query-parser-interceptor compiled-schema)
-        inject-app-context (inject-app-context-interceptor (:app-context options))
-        executor (if (:async options)
-                   async-query-executor-handler
-                   query-executor-handler)]
-    [json-response-interceptor
-     graphql-data-interceptor
-     status-conversion-interceptor
-     missing-query-interceptor
-     query-parser
-     disallow-subscriptions-interceptor
-     inject-app-context
-     executor]))
+  [json-response-interceptor
+   graphql-data-interceptor
+   status-conversion-interceptor
+   missing-query-interceptor
+   (query-store-interceptor compiled-schema options)
+   ;; This ensures that the chain terminates if a :response is added by query-store-interceptor
+   ;; See https://github.com/pedestal/pedestal/issues/581
+   check-for-response-interceptor
+   (query-parser-interceptor compiled-schema)
+   disallow-subscriptions-interceptor
+   prepare-query-interceptor
+   (inject-app-context-interceptor (:app-context options))
+   (if (:async options)
+     async-query-executor-handler
+     query-executor-handler)])
 
 (defn routes-from-interceptors
   "Returns a set of route vectors from a primary seq of interceptors.
@@ -406,38 +498,7 @@
   Uses [[default-interceptors]] to define the base seq of interceptors.
   For the POST route, [[body-data-interceptor]] is prepended.
 
-  `compiled-schema` may be the actual compiled schema, or a no-arguments function
-  that returns the compiled schema.
-
-  Options:
-
-  :graphiql (default: false)
-  : If true, enables routes for the GraphiQL IDE.
-
-  :path (default: \"/graphql\")
-  : Path at which GraphQL requests are services (distinct from the GraphQL IDE).
-
-  :ide-path (default: \"/\")
-  : Path from which the GraphiQL IDE, if enabled, can be loaded.
-
-  :asset-path (default: \"/assets/graphiql\")
-  : Path from which the JavaScript and CSS assets may be loaded.
-
-  :ide-headers
-  : A map from header name to header value. Keys and values may be strings, keywords,
-    or symbols and are converted to strings using clojure.core/name.
-    These define additional headers to be included in the requests from the IDE.
-    Typically, the headers are used to identify and authenticate the requests.
-
-  :interceptors
-  : A seq of interceptors, to be passed to [[routes-from-interceptors]].
-
-  :async (default: false)
-  : If true, the query will execute asynchronously; the handler will return a clojure.core.async
-    channel rather than blocking.
-
-  :app-context
-  : The base application context provided to Lacinia when executing a query.
+  The options for this function are described by [[service-map]].
 
   Asset paths use wildcard matching; you should be careful to ensure that the asset path does not
   overlap the paths for query request handling, the IDE, or subscriptions (or the asset handler will override the others
@@ -453,7 +514,7 @@
     (if-not graphiql
       base-routes
       (let [index-handler (let [index-response (graphiql-ide-response options)]
-                            (fn [request]
+                            (fn [_]
                               index-response))
 
             asset-path' (str asset-path "/*path")
@@ -516,6 +577,29 @@
   :interceptors
   : A seq of interceptors to be used in GraphQL routes; passed to [[routes-from-interceptors]].
     If not provided, [[default-interceptors]] is invoked.
+
+  :query-store
+  : A function that supports server-side queries.
+    The GraphQL query string extracted from the request is provided to the function, which may
+    return one of the following:
+    * `nil` if the value is not recognized as a server-side query name. Typically, a regular expression
+       is used to exclude normal queries.
+    * A channel that conveys the result of looking up the query by its name; the conveyed value
+      is either nil (the query does not exist), or
+      a string (the GraphQL query document to be parsed).
+
+  :query-cache
+  : A cache, used for in-memory caching of the parsed queries.
+    Only named server-side queries obtained via the query-store are cached.
+
+    A cache is an instance of clojure.core.cache/CacheProtocol.
+
+    The default cache is a TTL cache with a 10 minute expiration.
+    This is very likely incorrect for your application and should be overridden.
+
+    When the compiled schema is provided as a function (typically, during REPL-oriented development),
+    the query cache TTL should be very short, otherwise the parsed query may be cached with an old version
+    of the schema even after the schema has changed.
 
   :async (default: false)
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
@@ -580,6 +664,9 @@
                                               ::spec/app-context
                                               ::subscriptions-path
                                               ::port
+                                              ::stored-query-regexp
+                                              ::query-store
+                                              ::query-cache
                                               ::env]))
 (s/def ::graphiql boolean?)
 (s/def ::routes some?)                                      ; Details are far too complicated
@@ -593,17 +680,8 @@
 (s/def ::subscriptions-path ::path)
 (s/def ::port pos-int?)
 (s/def ::env keyword?)
-
-(defn pedestal-service
-  "This function has been deprecated in favor of [[service-map]], but is being maintained for
-  compatibility.
-
-  This simply invokes [[service-map]] and passes the resulting map through `io.pedestal.http/create-server`.
-
-  To be removed in 0.8.0."
-  {:deprecated "0.5.0"}
-  [compiled-schema options]
-  (http/create-server (service-map compiled-schema options)))
+(s/def ::query-store fn?)
+(s/def ::query-cache #(satisfies? CacheProtocol %))
 
 (defn inject
   "Locates the named interceptor in the list of interceptors and adds (or replaces)
