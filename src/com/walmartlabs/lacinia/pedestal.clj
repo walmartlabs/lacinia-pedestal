@@ -15,7 +15,7 @@
 (ns com.walmartlabs.lacinia.pedestal
   "Defines Pedestal interceptors and supporting code."
   (:require
-    [clojure.core.async :refer [chan put! go <!]]
+    [clojure.core.async :refer [chan put!]]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
@@ -360,24 +360,24 @@
         (nil? store-result)
         context
 
-        :else
-        (go
-          (if-some [query-doc (<! store-result)]
-            (let [context' (parse-query-document context compiled-schema query-doc operation-name)
-                  parsed (get-in context' parsed-query-key-path)]
-              (when (some? parsed)
-                (swap! *cache cache/miss cache-key parsed))
-              context')
+        (= :not-found store-result)
+        (assoc context :response (bad-request (message-as-errors "Stored query not found.")))
 
-            ;; A nil here means the query-store recognized the query as indicating a stored query
-            ;; (e.g., starts with a slash is a likely implementation) BUT it couldn't locate
-            ;; the requested query. This is different than a simple nil, which means it's not
-            ;; a stored query at all.
-            (assoc context :response (bad-request (message-as-errors "Stored query not found.")))))))))
+        (not (string? store-result))
+        (throw (ex-info "Query store returned an invalid value."
+                        {:query q
+                         :query-store-result store-result}))
+
+        :else
+        (let [context' (parse-query-document context compiled-schema store-result operation-name)
+              parsed (get-in context' parsed-query-key-path)]
+          (when (some? parsed)
+            (swap! *cache cache/miss cache-key parsed))
+          context')))))
 
 (defn query-store-interceptor
-  "An interceptor that checks if a query is actually a name of a query in a server-side query store; it also
-  manages a cache of such queries, compiled to executable form."
+  "An interceptor that passes the query through the query store (the external source of named queries)
+  and manages parsing and caching of named queries.."
   [compiled-schema options]
   {:added "0.10.0"}
   (let [{:keys [query-store query-cache]
@@ -388,11 +388,6 @@
     (interceptor
       {:name ::query-source
        :enter enter})))
-
-(def ^:private check-for-response-interceptor
-  (interceptor
-    {:name ::check-for-response
-     :enter identity}))
 
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
@@ -420,9 +415,6 @@
    status-conversion-interceptor
    missing-query-interceptor
    (query-store-interceptor compiled-schema options)
-   ;; This ensures that the chain terminates if a :response is added by query-store-interceptor
-   ;; See https://github.com/pedestal/pedestal/issues/581
-   check-for-response-interceptor
    (query-parser-interceptor compiled-schema)
    disallow-subscriptions-interceptor
    prepare-query-interceptor
@@ -584,9 +576,8 @@
     return one of the following:
     * `nil` if the value is not recognized as a server-side query name. Typically, a regular expression
        is used to exclude normal queries.
-    * A channel that conveys the result of looking up the query by its name; the conveyed value
-      is either nil (the query does not exist), or
-      a string (the GraphQL query document to be parsed).
+    * `:not-found` if the query is in the format of a query name, but no matching query could be found.
+    * A string that is the GraphQL query document to be parsed.
 
   :query-cache
   : A cache, used for in-memory caching of the parsed queries.

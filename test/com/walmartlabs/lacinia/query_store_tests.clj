@@ -15,7 +15,6 @@
 (ns com.walmartlabs.lacinia.query-store-tests
   (:require
     [clojure.test :refer [deftest is]]
-    [clojure.core.async :refer [chan >!! close!]]
     [com.walmartlabs.lacinia.test-utils :refer [send-json-request test-server-fixture]]
     [clojure.string :as str]))
 
@@ -27,13 +26,6 @@
   (-> (send-json-request :post body)
       (select-keys [:status :body])))
 
-(defn ^:private as-chan
-  [v]
-  (let [ch (chan 1)]
-    (when (some? v)
-      (>!! ch v))
-    (close! ch)
-    ch))
 
 (deftest all-miss-store
   (with-service {:query-store (constantly nil)}
@@ -46,8 +38,7 @@
         data {"/echo/v1" "query ($v: String!) { echo(value: $v) { value } }"}
         query-store (fn [k]
                       (swap! *count inc)
-                      (when-let [q (get data k)]
-                        (as-chan q)))]
+                      (get data k))]
     (with-service {:query-store query-store}
       (is (= {:body {:data {:echo {:value "fred"}}}
               :status 200}
@@ -72,7 +63,7 @@
   (with-service {:query-store (fn [k]
                                 (if (str/starts-with? k "/")
                                   ;; i.e., it looked like a document, but the document is not in the store
-                                  (as-chan nil)
+                                  :not-found
                                   nil))}
     (is (= {:body {:errors [{:message "Stored query not found."}]}
             :status 400}

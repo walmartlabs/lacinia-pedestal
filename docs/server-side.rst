@@ -16,7 +16,9 @@ on the server.
 In most cases, the client will also send up GraphQL query variables.
 
 This results in a much smaller request; hundreds or even thousands of characters of
-in-request GraphQL query reduced to a few tens of characters of query name.
+in-request GraphQL query reduced to a few tens of characters for the query name.
+This can make a considerable difference for clients, especially mobile clients with
+narrow upload bandwidth.
 
 Further, the server can cache the parsed representation of the GraphQL query; clients that use
 the same named query will see a modest (perhaps two or three millisecond) boost as the normal parsing stage can be
@@ -35,15 +37,19 @@ a query name can be easily recognized using a regular expression.
 
 The function returns ``nil`` if the value is an in-request query and not a query name.
 
-When the value is a query name, then the function must return a core.async channel.
-The channel must convey ``nil`` if the name does not match a query document in the store.
+The function returns ``:not-found`` if no matching query could be found in the external store.
 
-Otherwise, the channel must convey the GraphQL query document, as a string.
+Finally, the function may return the query document, as a string.
+The query document will be parsed and cached.
 
 Query Cache
 -----------
 
-The GraphQL query document is parsed and, if valid, the parsed representation will be stored into a cache.
+A valid GraphQL query, once parsed, will be stored into an in-memory cache.
+
+The cache is an instance of `clojure.core.cache <https://github.com/clojure/core.cache/>`_
+CacheProtocol.
+
 The default cache simply sets a 10 minute TTL (time to live); you will almost always want to override
 this with something that makes more sense for your particular application.
 
