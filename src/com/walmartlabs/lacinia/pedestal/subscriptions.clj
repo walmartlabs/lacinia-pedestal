@@ -32,7 +32,9 @@
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.resolve :as resolve]
-    [clojure.string :as str])
+    [clojure.string :as str]
+    [clojure.spec.alpha :as s]
+    [com.walmartlabs.lacinia.pedestal.spec :as spec])
   (:import
     (org.eclipse.jetty.websocket.api UpgradeResponse)))
 
@@ -496,3 +498,22 @@
            :on-text #(put! ws-text-ch %)
            :on-error #(log/error :event ::error :exception %)
            :on-close on-close})))))
+
+(s/fdef listener-fn-factory
+  :args (s/cat :compiled-schema ::spec/compiled-schema
+               :options (s/nilable ::listener-fn-factory-options)))
+
+(s/def ::listener-fn-factory-options (s/keys :opt-un [::keep-alive-ms
+                                                      ::spec/app-context
+                                                      ::subscription-interceptors
+                                                      ::init-context
+                                                      ::response-ch-fn
+                                                      ::values-chan-fn
+                                                      ::send-buffer-or-n]))
+
+(s/def ::keep-alive-ms pos-int?)
+(s/def ::subscription-interceptors ::spec/interceptors)
+(s/def ::init-context fn?)
+(s/def ::response-chan-fn fn?)
+(s/def ::values-chan-fn fn?)
+(s/def ::send-buffer-or-n ::spec/buffer-or-n)

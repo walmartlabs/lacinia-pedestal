@@ -16,7 +16,6 @@
   "Defines Pedestal interceptors and supporting code."
   (:require
     [clojure.core.async :refer [chan put!]]
-    [com.walmartlabs.lacinia :as lacinia]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
@@ -31,7 +30,8 @@
     [com.walmartlabs.lacinia.constants :as constants]
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
-    [clojure.spec.alpha :as s]))
+    [clojure.spec.alpha :as s]
+    [com.walmartlabs.lacinia.pedestal.spec :as spec]))
 
 (def ^:private default-path "/graphql")
 
@@ -564,6 +564,36 @@
       graphiql
       (assoc ::http/secure-headers nil))))
 
+(s/fdef service-map
+  :args (s/cat :compiled-schema ::spec/compiled-schema
+               :options (s/nilable ::service-map-options)))
+
+(s/def ::service-map-options (s/keys :opt-un [::graphiql
+                                              ::routes
+                                              ::subscriptions
+                                              ::path
+                                              ::ide-path
+                                              ::asset-path
+                                              ::ide-headers
+                                              ::spec/interceptors
+                                              ::async
+                                              ::spec/app-context
+                                              ::subscriptions-path
+                                              ::port
+                                              ::env]))
+(s/def ::graphiql boolean?)
+(s/def ::routes some?)                                      ; Details are far too complicated
+(s/def ::subscriptions boolean?)
+(s/def ::path (s/and string?
+                     #(str/starts-with? % "/")))
+(s/def ::ide-path ::path)
+(s/def ::asset-path ::path)
+(s/def ::ide-headers map?)
+(s/def ::async boolean?)
+(s/def ::subscriptions-path ::path)
+(s/def ::port pos-int?)
+(s/def ::env keyword?)
+
 (defn pedestal-service
   "This function has been deprecated in favor of [[service-map]], but is being maintained for
   compatibility.
@@ -612,16 +642,9 @@
 
     final-result))
 
-(s/def ::interceptor (s/or :interceptor (s/keys :req-un [::name])
-                           :handler fn?))
-(s/def ::interceptors (s/coll-of ::interceptor))
-;; The name of an interceptor; typically this is namespaced, but that is not a requirement.
-;; The name may be nil in some cases (typically, the interceptor formed around a bare handler function).
-(s/def ::name (s/nilable keyword?))
-
 (s/fdef inject
-        :ret ::interceptors
-        :args (s/cat :interceptors ::interceptors
-                     :new-interceptor ::interceptor
+        :ret ::spec/interceptors
+        :args (s/cat :interceptors ::spec/interceptors
+                     :new-interceptor ::spec/interceptor
                      :relative-position #{:before :after :replace}
                      :interceptor-name keyword?))

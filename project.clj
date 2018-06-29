@@ -1,4 +1,4 @@
-(defproject com.walmartlabs/lacinia-pedestal "0.9.0"
+(defproject com.walmartlabs/lacinia-pedestal "0.10.0-snapshot"
   :description "Pedestal infrastructure supporting Lacinia GraphQL"
   :url "https://github.com/walmartlabs/pedestal-lacinia"
   :license {:name "Apache Software License 2.0"
@@ -11,6 +11,7 @@
   :profiles
   {:dev {:dependencies [[clj-http "2.3.0"]
                         [com.walmartlabs/test-reporting "0.1.0"]
+                        [expound "0.7.0"]
                         ;; Overrides to match version of Jetty via Pedestal:
                         [org.eclipse.jetty.websocket/websocket-client "9.4.0.v20161208"]
                         [stylefruits/gniazdo "1.0.1"

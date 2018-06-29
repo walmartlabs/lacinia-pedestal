@@ -1,4 +1,9 @@
 (ns user
   (:require
-    ;; Fix a problem in Lacinia 0.14.0 that shows up sometimes in tests:
-    [clojure.set]))
+    com.walmartlabs.lacinia.expound
+    [clojure.spec.alpha :as s]
+    [expound.alpha :as expound]))
+
+(s/check-asserts true)
+
+(alter-var-root #'s/*explain-out* (constantly expound/printer))
