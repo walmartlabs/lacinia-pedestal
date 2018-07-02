@@ -47,9 +47,9 @@
   ;; Return a cleanup fn:
   #(swap! *ping-cleanups inc))
 
-(defn ^:private make-service
+(defn make-service
   "The special option :indirect-schema wraps the schema in a function; this exercises some
-  logic that allows a compiled schema to actually be a  function that returns the compiled schema."
+  logic that allows a compiled schema to actually be a function that returns the compiled schema."
   [options options-builder]
   (let [schema (-> (io/resource "sample-schema.edn")
                    slurp
@@ -118,8 +118,10 @@
   ([method json]
    (send-json-request method json "application/json; charset=utf-8"))
   ([method json content-type]
+   (send-json-request method "/graphql" json content-type))
+  ([method path json content-type]
    (-> {:method method
-        :url "http://localhost:8888/graphql"
+        :url (str "http://localhost:8888" path)
         :throw-exceptions false
         :headers {"Content-Type" content-type}}
        (cond->

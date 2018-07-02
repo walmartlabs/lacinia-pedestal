@@ -15,7 +15,7 @@
 (ns com.walmartlabs.lacinia.pedestal-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
-    [com.walmartlabs.lacinia.pedestal :as lp :refer [inject]]
+    [com.walmartlabs.lacinia.pedestal :refer [inject]]
     [clj-http.client :as client]
     [clojure.string :as str]
     [com.walmartlabs.lacinia.test-utils :refer [test-server-fixture
@@ -27,11 +27,7 @@
 
 (stest/instrument)
 
-(use-fixtures :once (test-server-fixture {:graphiql true}
-                                         (fn [schema]
-                                           ;; Force things to work as they will in 0.8.0,
-                                           ;; where the interceptors are a seq (not a map).
-                                           {:interceptors (lp/default-interceptors schema nil)})))
+(use-fixtures :once (test-server-fixture {:graphiql true}))
 
 (deftest simple-get-query
   (let [response (send-request "{ echo(value: \"hello\") { value method }}")]

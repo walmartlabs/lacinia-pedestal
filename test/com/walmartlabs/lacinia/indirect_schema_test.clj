@@ -15,9 +15,6 @@
 (ns com.walmartlabs.lacinia.indirect-schema-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
-    [com.walmartlabs.lacinia.pedestal :as lp]
-    [clj-http.client :as client]
-    [clojure.string :as str]
     [com.walmartlabs.lacinia.test-utils
      :refer [test-server-fixture subscriptions-fixture
              send-json-request
