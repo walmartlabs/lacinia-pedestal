@@ -243,10 +243,10 @@
 
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
-   [[query-store-interceptor]] may provide the parsed query instead, in which case
-   this interceptor returns the context unchanged.
-
    Adds a new request key, :parsed-lacinia-query, containing the parsed query.
+
+   This interceptor will not be present in the route for named queries; it only applies
+   to routes where the GraphQL query is provided directly in the request.
 
    Before execution, [[prepare-query-interceptor]] injects query variables and performs
    validations."
@@ -254,16 +254,11 @@
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
-              ;; TEMPORARY!
-              (let [request (:request context)
-                    {parsed-query :parsed-lacinia-query} request]
-                ;; The query may have come out of a cache:
-                (if (some? parsed-query)
-                  context
-                  (parse-query-document context
-                                        compiled-schema
-                                        (:graphql-query request)
-                                        (:graphql-operation-name request)))))}))
+              (let [{:keys [graphql-query graphql-operation-name]} (:request context)]
+                (parse-query-document context
+                                      compiled-schema
+                                      graphql-query
+                                      graphql-operation-name)))}))
 
 (def ^{:added "0.10.0"} prepare-query-interceptor
   "Prepares (with query variables) and validates the query, previously parsed
