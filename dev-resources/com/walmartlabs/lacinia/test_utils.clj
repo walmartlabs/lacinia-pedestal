@@ -118,8 +118,10 @@
   ([method json]
    (send-json-request method json "application/json; charset=utf-8"))
   ([method json content-type]
+   (send-json-request method "/graphql" json content-type))
+  ([method path json content-type]
    (-> {:method method
-        :url "http://localhost:8888/graphql"
+        :url (str "http://localhost:8888" path)
         :throw-exceptions false
         :headers {"Content-Type" content-type}}
        (cond->

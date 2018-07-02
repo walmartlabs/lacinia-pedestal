@@ -76,11 +76,63 @@
   (if-let [content-type (get-in request [:headers "content-type"])]
     (:content-type (parse-content-type content-type))))
 
+(defn inject
+  "Locates the named interceptor in the list of interceptors and adds (or replaces)
+  the new interceptor to the list.
+
+  relative-position may be :before, :after, or :replace.
+
+  The named interceptor must exist, or an exception is thrown."
+  {:added "0.7.0"}
+  [interceptors new-interceptor relative-position interceptor-name]
+  (let [*found? (volatile! false)
+        final-result (reduce (fn [result interceptor]
+                               ;; An interceptor can also be a bare handler function, which is 'nameless'
+                               (if-not (= interceptor-name (when (map? interceptor)
+                                                             (:name interceptor)))
+                                 (conj result interceptor)
+                                 (do
+                                   (vreset! *found? true)
+                                   (case relative-position
+                                     :before
+                                     (conj result new-interceptor interceptor)
+
+                                     :after
+                                     (conj result interceptor new-interceptor)
+
+                                     :replace
+                                     (conj result new-interceptor)))))
+                             []
+                             interceptors)]
+    (when-not @*found?
+      (throw (ex-info "Could not find existing interceptor."
+                      {:interceptors interceptors
+                       :new-interceptor new-interceptor
+                       :relative-position relative-position
+                       :interceptor-name interceptor-name})))
+
+    final-result))
+
+(s/def ::interceptor (s/or :interceptor (s/keys :req-un [::name])
+                           :handler fn?))
+(s/def ::interceptors (s/coll-of ::interceptor))
+;; The name of an interceptor; typically this is namespaced, but that is not a requirement.
+;; The name may be nil in some cases (typically, the interceptor formed around a bare handler function).
+(s/def ::name (s/nilable keyword?))
+
+(s/fdef inject
+  :ret ::interceptors
+  :args (s/cat :interceptors ::interceptors
+               :new-interceptor ::interceptor
+               :relative-position #{:before :after :replace}
+               :interceptor-name keyword?))
+
 (defmulti extract-query
   "Based on the content type of the query, adds up to three keys to the request:
 
   :graphql-query
-  : The query itself, as a string (parsing the query happens later)
+  : The query itself, as a string (parsing the query happens later). May be
+    a query name if a server-side query store is provided.
 
   :graphql-vars
   : A map of variables used when executing the query.
@@ -339,12 +391,12 @@
   (let [*cache (atom query-cache)]
     (fn [context]
       (cond-let
-        :let [{q :graphql-query
+        :let [{query-name :graphql-query
                operation-name :graphql-operation-name} (:request context)
               ;; Often, the q here is a full query document, resulting in a cache miss.
               ;; Only when q identifies a valid query document will the *parsed* query be
               ;; present in the cache.
-              cache-key [q operation-name]
+              cache-key [query-name operation-name]
               cached (cache/lookup (swap! *cache
                                           #(if (cache/has? % cache-key)
                                              (cache/hit % cache-key)
@@ -354,22 +406,18 @@
         (some? cached)
         (assoc-in context parsed-query-key-path cached)
 
-        :let [store-result (query-store q)]
+        :let [stored-query (query-store query-name)]
 
-        ;; Not a query name, an actual query; continue as normal.
-        (nil? store-result)
-        context
-
-        (= :not-found store-result)
+        (nil? stored-query)
         (assoc context :response (bad-request (message-as-errors "Stored query not found.")))
 
-        (not (string? store-result))
+        (not (string? stored-query))
         (throw (ex-info "Query store returned an invalid value."
-                        {:query q
-                         :query-store-result store-result}))
+                        {:query-name query-name
+                         :stored-query stored-query}))
 
         :else
-        (let [context' (parse-query-document context compiled-schema store-result operation-name)
+        (let [context' (parse-query-document context compiled-schema stored-query operation-name)
               parsed (get-in context' parsed-query-key-path)]
           (when (some? parsed)
             (swap! *cache cache/miss cache-key parsed))
@@ -381,13 +429,10 @@
   [compiled-schema options]
   {:added "0.10.0"}
   (let [{:keys [query-store query-cache]
-         :or {query-cache (cache/ttl-cache-factory {} :ttl 600000)}} options
-        enter (if-not query-store
-                identity
-                (pass-query-through-query-store compiled-schema query-store query-cache))]
+         :or {query-cache (cache/ttl-cache-factory {} :ttl 600000)}} options]
     (interceptor
       {:name ::query-source
-       :enter enter})))
+       :enter (pass-query-through-query-store compiled-schema query-store query-cache)})))
 
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
@@ -396,7 +441,6 @@
     * ::graphql-data [[graphql-data-interceptor]]
     * ::status-conversion [[status-conversion-interceptor]]
     * ::missing-query [[missing-query-interceptor]]
-    * ::query-store [[query-store-interceptor]]
     * ::query-parser [[query-parser-interceptor]]
     * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
     * ::prepare-query [[prepare-query-interceptor]]
@@ -414,7 +458,6 @@
    graphql-data-interceptor
    status-conversion-interceptor
    missing-query-interceptor
-   (query-store-interceptor compiled-schema options)
    (query-parser-interceptor compiled-schema)
    disallow-subscriptions-interceptor
    prepare-query-interceptor
@@ -425,24 +468,31 @@
 
 (defn routes-from-interceptors
   "Returns a set of route vectors from a primary seq of interceptors.
-  This returns a two element set, one for GET (using the seq as is),
-  and one for POST (prefixing with [[body-data-interceptor]].
+  This returns a set, one element for GET (using the seq as is),
+  one for POST (prefixing with [[body-data-interceptor]], and
+  an optional third for POST for named queries (when
+  a :query-store option is provided).
 
   Options:
 
   :get-enabled (default true)
   : If true, then a route for the GET method is included."
   {:added "0.7.0"}
-  [route-path interceptors options]
-  (let [{:keys [get-enabled]
-         :or {get-enabled true}} options
-        post-interceptors (-> (cons body-data-interceptor interceptors)
-                              ;; Absolutely needs to be a vector, under penalty of
-                              ;; https://github.com/pedestal/pedestal/issues/308
-                              vec)]
-    (cond-> #{[route-path :post post-interceptors
+  [compiled-schema interceptors options]
+  (let [{:keys [path get-enabled named-query-path query-store]
+         :or {get-enabled true
+              path default-path
+              named-query-path "/query"}} options
+        post-interceptors (inject interceptors body-data-interceptor
+                                  :before ::json-response)]
+    (cond-> #{[path :post post-interceptors
                :route-name ::graphql-post]}
-      get-enabled (conj [route-path :get interceptors
+      query-store (conj [named-query-path :post
+                         (inject post-interceptors
+                                 (query-store-interceptor compiled-schema options)
+                                 :replace ::query-parser)
+                         :route-name ::named-query-post])
+      get-enabled (conj [path :get interceptors
                          :route-name ::graphql-get]))))
 
 (defn graphiql-ide-response
@@ -489,6 +539,7 @@
 
   Uses [[default-interceptors]] to define the base seq of interceptors.
   For the POST route, [[body-data-interceptor]] is prepended.
+  May add an additional route to handle named queries.
 
   The options for this function are described by [[service-map]].
 
@@ -502,7 +553,7 @@
               ide-path "/"}} options
         interceptors (or (:interceptors options)
                          (default-interceptors compiled-schema options))
-        base-routes (routes-from-interceptors path interceptors options)]
+        base-routes (routes-from-interceptors compiled-schema interceptors options)]
     (if-not graphiql
       base-routes
       (let [index-handler (let [index-response (graphiql-ide-response options)]
@@ -572,12 +623,8 @@
 
   :query-store
   : A function that supports server-side queries.
-    The GraphQL query string extracted from the request is provided to the function, which may
-    return one of the following:
-    * `nil` if the value is not recognized as a server-side query name. Typically, a regular expression
-       is used to exclude normal queries.
-    * `:not-found` if the query is in the format of a query name, but no matching query could be found.
-    * A string that is the GraphQL query document to be parsed.
+    The GraphQL query name extracted from the request is provided to the function, which may
+    return a stored query (if found), or nil if no query with the given name exists.
 
   :query-cache
   : A cache, used for in-memory caching of the parsed queries.
@@ -591,6 +638,10 @@
     When the compiled schema is provided as a function (typically, during REPL-oriented development),
     the query cache TTL should be very short, otherwise the parsed query may be cached with an old version
     of the schema even after the schema has changed.
+
+  :get-enabled (default true)
+  : If true, then a route for the GET method is included. GET requests include the query
+    as the `query` query parameter, and can't specify variables or an operation name.
 
   :async (default: false)
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
@@ -646,6 +697,7 @@
 (s/def ::service-map-options (s/keys :opt-un [::graphiql
                                               ::routes
                                               ::subscriptions
+                                              ::get-enabled
                                               ::path
                                               ::ide-path
                                               ::asset-path
@@ -655,13 +707,14 @@
                                               ::spec/app-context
                                               ::subscriptions-path
                                               ::port
-                                              ::stored-query-regexp
+                                              ::named-query-path
                                               ::query-store
                                               ::query-cache
                                               ::env]))
 (s/def ::graphiql boolean?)
 (s/def ::routes some?)                                      ; Details are far too complicated
 (s/def ::subscriptions boolean?)
+(s/def ::get-enabled boolean?)
 (s/def ::path (s/and string?
                      #(str/starts-with? % "/")))
 (s/def ::ide-path ::path)
@@ -671,56 +724,8 @@
 (s/def ::subscriptions-path ::path)
 (s/def ::port pos-int?)
 (s/def ::env keyword?)
+(s/def ::named-query-path ::path)
 (s/def ::query-store fn?)
 (s/def ::query-cache #(satisfies? CacheProtocol %))
 
-(defn inject
-  "Locates the named interceptor in the list of interceptors and adds (or replaces)
-  the new interceptor to the list.
 
-  relative-position may be :before, :after, or :replace.
-
-  The named interceptor must exist, or an exception is thrown."
-  {:added "0.7.0"}
-  [interceptors new-interceptor relative-position interceptor-name]
-  (let [*found? (volatile! false)
-        final-result (reduce (fn [result interceptor]
-                               ;; An interceptor can also be a bare handler function, which is 'nameless'
-                               (if-not (= interceptor-name (when (map? interceptor)
-                                                             (:name interceptor)))
-                                 (conj result interceptor)
-                                 (do
-                                   (vreset! *found? true)
-                                   (case relative-position
-                                     :before
-                                     (conj result new-interceptor interceptor)
-
-                                     :after
-                                     (conj result interceptor new-interceptor)
-
-                                     :replace
-                                     (conj result new-interceptor)))))
-                             []
-                             interceptors)]
-    (when-not @*found?
-      (throw (ex-info "Could not find existing interceptor."
-                      {:interceptors interceptors
-                       :new-interceptor new-interceptor
-                       :relative-position relative-position
-                       :interceptor-name interceptor-name})))
-
-    final-result))
-
-(s/def ::interceptor (s/or :interceptor (s/keys :req-un [::name])
-                           :handler fn?))
-(s/def ::interceptors (s/coll-of ::interceptor))
-;; The name of an interceptor; typically this is namespaced, but that is not a requirement.
-;; The name may be nil in some cases (typically, the interceptor formed around a bare handler function).
-(s/def ::name (s/nilable keyword?))
-
-(s/fdef inject
-        :ret ::interceptors
-        :args (s/cat :interceptors ::interceptors
-                     :new-interceptor ::interceptor
-                     :relative-position #{:before :after :replace}
-                     :interceptor-name keyword?))

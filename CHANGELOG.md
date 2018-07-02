@@ -4,6 +4,11 @@ A spec for the `service-map` function is now provided.
 
 Support has been added for server-side queries.
 
+The signature of `com.walmartlabs.lacinia.pedestal/routes-from-interceptors`
+has changed in an incompatible way; it now expects the compiled schema
+as the first argument (previously it was the root path); this function
+is not generally invoked from user code.
+
 ## 0.9.0 -- 21 Jun 2018
 
 Invalid JSON sent to lacinia-pedestal now results in proper 400 reponse,

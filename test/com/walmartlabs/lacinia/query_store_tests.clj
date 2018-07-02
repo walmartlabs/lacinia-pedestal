@@ -15,57 +15,41 @@
 (ns com.walmartlabs.lacinia.query-store-tests
   (:require
     [clojure.test :refer [deftest is]]
-    [com.walmartlabs.lacinia.test-utils :refer [send-json-request test-server-fixture]]
-    [clojure.string :as str]))
+    [com.walmartlabs.lacinia.test-utils :refer [send-json-request test-server-fixture]]))
 
 (defmacro with-service [options & body]
   `((test-server-fixture ~options) (fn [] ~@body)))
 
 (defn req
   [body]
-  (-> (send-json-request :post body)
+  (-> (send-json-request :post "/query" body "application/json")
       (select-keys [:status :body])))
 
 
-(deftest all-miss-store
-  (with-service {:query-store (constantly nil)}
-    (is (= {:body {:data {:echo {:value "fred"}}}
-            :status 200}
-           (req {:query "{ echo(value: \"fred\") { value }}"})))))
-
 (deftest basic-cache-hit
   (let [*count (atom 0)
-        data {"/echo/v1" "query ($v: String!) { echo(value: $v) { value } }"}
+        data {"echo/v1" "query ($v: String!) { echo(value: $v) { value } }"}
         query-store (fn [k]
                       (swap! *count inc)
                       (get data k))]
     (with-service {:query-store query-store}
-      (is (= {:body {:data {:echo {:value "fred"}}}
-              :status 200}
-             (req {:query "{ echo(value: \"fred\") { value }}"})))
-
-      (is (= 1 @*count))
 
       (is (= {:body {:data {:echo {:value "calculon"}}}
               :status 200}
-             (req {:query "/echo/v1" :variables {:v "calculon"}})))
+             (req {:query "echo/v1" :variables {:v "calculon"}})))
 
-      (is (= 2 @*count))
+      (is (= 1 @*count))
 
       (is (= {:body {:data {:echo {:value "bender"}}}
               :status 200}
-             (req {:query "/echo/v1" :variables {:v "bender"}})))
+             (req {:query "echo/v1" :variables {:v "bender"}})))
 
       ;; This time, it's a cache hit
-      (is (= 2 @*count)))))
+      (is (= 1 @*count)))))
 
 (deftest missing-from-query-store
-  (with-service {:query-store (fn [k]
-                                (if (str/starts-with? k "/")
-                                  ;; i.e., it looked like a document, but the document is not in the store
-                                  :not-found
-                                  nil))}
+  (with-service {:query-store (constantly nil)}
     (is (= {:body {:errors [{:message "Stored query not found."}]}
             :status 400}
-           (req {:query "/does/not/exist"})))))
+           (req {:query "does/not/exist"})))))
 

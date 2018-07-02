@@ -24,23 +24,25 @@ Further, the server can cache the parsed representation of the GraphQL query; cl
 the same named query will see a modest (perhaps two or three millisecond) boost as the normal parsing stage can be
 omitted.
 
+Endpoint
+--------
+
+Named queries are processed by an alternate endpoint, by default ``/query``.
+Requests should use the ``application/json`` content type.
+
+The value for ``query`` is the name of the query, provided to the query store.
+
+The ``variables`` and ``operationName`` values are the same as in a traditional GraphQL request.
+
 Query Store
 -----------
 
 The query store, the source of GraphQL query documents, is represented as a simple function, provided
 as an option to ``service-map``.
 
-The function is passed the GraphQL query (which may be a in-request query, or a query name).
+The function is passed the stored GraphQL query name.
 
-The function must determine whether the value is an in-request query or a query name; typically,
-a query name can be easily recognized using a regular expression.
-
-The function returns ``nil`` if the value is an in-request query and not a query name.
-
-The function returns ``:not-found`` if no matching query could be found in the external store.
-
-Finally, the function may return the query document, as a string.
-The query document will be parsed and cached.
+The function returns the stored query (as a string) if found, or ``nil`` if not found.
 
 Query Cache
 -----------
