@@ -2,6 +2,8 @@
 
 A spec for the `service-map` function is now provided.
 
+Changes were made to allow for the updated structure of error maps in Lacinia 0.29.0.
+
 ## 0.9.0 -- 21 Jun 2018
 
 Invalid JSON sent to lacinia-pedestal now results in proper 400 reponse,

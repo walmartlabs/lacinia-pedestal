@@ -99,9 +99,9 @@
                 {:query "subscription { ping(message: \"short\", count: 2 ) }"}})
 
     (expect-message {:id id
-                     :payload {:locations [{:column 16
-                                            :line 1}]
-                               :message "Field `ping' (of type `Ping') must have at least one selection."}
+                     :payload {:message "Failed to parse GraphQL query. Field `ping' (of type `ping') must have at least one selection."
+                               :locations [{:column 16
+                                            :line 1}]}
                      :type "error"})
 
     (is (= @*ping-subscribes @*ping-cleanups)
@@ -287,7 +287,9 @@
                 :payload {:query "~~~"}})
 
     (expect-message {:id id
-                     :payload {:message "Failed to parse GraphQL query. Token recognition error at: '~'; No viable alternative at input '<eof>'."}
+                     :payload {:message "Failed to parse GraphQL query. Token recognition error at: '~'; No viable alternative at input '<eof>'."
+                               :locations [{:column nil
+                                            :line 1}]}
                      :type "error"})))
 
 (deftest client-keep-alive

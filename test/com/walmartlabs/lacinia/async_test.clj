@@ -75,7 +75,7 @@
             (on-deliver! [_ callback]
               (resolve/on-deliver! @*result callback)))]
     (with-redefs [resolve/resolve-promise (constantly p)]
-      (is (= {:value nil
-              :error {:message "Resolver exception."
-                      :status 500}}
+      (is (= {:error {:extensions {:status 500}
+                      :message "Resolver exception."}
+              :value nil}
              (execute-resolver (ex-info "Resolver exception." {:status 500})))))))
