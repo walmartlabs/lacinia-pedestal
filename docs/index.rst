@@ -20,7 +20,6 @@ providing the `GraphIQL client <https://github.com/graphql/graphiql>`_
    response
    async
    subscriptions
-   server-side
 
    API Documentation <http://walmartlabs.github.io/lacinia-pedestal/>
    GitHub Project <https://github.com/walmartlabs/lacinia-pedestal>

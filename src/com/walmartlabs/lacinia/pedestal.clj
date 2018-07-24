@@ -32,7 +32,6 @@
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
     [clojure.spec.alpha :as s]
-    [clojure.core.cache :as cache :refer [CacheProtocol]]
     [com.walmartlabs.lacinia.pedestal.spec :as spec]))
 
 (def ^:private default-path "/graphql")
@@ -131,8 +130,7 @@
   "Based on the content type of the query, adds up to three keys to the request:
 
   :graphql-query
-  : The query itself, as a string (parsing the query happens later). May be
-    a query name if a server-side query store is provided.
+  : The query itself, as a string (parsing the query happens later).
 
   :graphql-vars
   : A map of variables used when executing the query.
@@ -262,7 +260,7 @@
 
 (def ^{:added "0.10.0"} prepare-query-interceptor
   "Prepares (with query variables) and validates the query, previously parsed
-  by [[query-parsed-interceptor]] (or provided via [[query-store-interceptor]]).
+  by [[query-parsed-interceptor]].
 
   In earlier releases of lacinia-pedestal, this logic was combined with [[query-parser-interceptor]]."
   (interceptor
@@ -381,54 +379,6 @@
                 (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
                 context))}))
 
-(defn ^:private pass-query-through-query-store
-  [compiled-schema query-store query-cache]
-  (let [*cache (atom query-cache)]
-    (fn [context]
-      (cond-let
-        :let [{query-name :graphql-query
-               operation-name :graphql-operation-name} (:request context)
-              ;; Often, the q here is a full query document, resulting in a cache miss.
-              ;; Only when q identifies a valid query document will the *parsed* query be
-              ;; present in the cache.
-              cache-key [query-name operation-name]
-              cached (cache/lookup (swap! *cache
-                                          #(if (cache/has? % cache-key)
-                                             (cache/hit % cache-key)
-                                             (cache/miss % cache-key nil)))
-                                   cache-key)]
-
-        (some? cached)
-        (assoc-in context parsed-query-key-path cached)
-
-        :let [stored-query (query-store query-name)]
-
-        (nil? stored-query)
-        (assoc context :response (bad-request (message-as-errors "Stored query not found.")))
-
-        (not (string? stored-query))
-        (throw (ex-info "Query store returned an invalid value."
-                        {:query-name query-name
-                         :stored-query stored-query}))
-
-        :else
-        (let [context' (parse-query-document context compiled-schema stored-query operation-name)
-              parsed (get-in context' parsed-query-key-path)]
-          (when (some? parsed)
-            (swap! *cache cache/miss cache-key parsed))
-          context')))))
-
-(defn query-store-interceptor
-  "An interceptor that passes the query through the query store (the external source of named queries)
-  and manages parsing and caching of named queries.."
-  [compiled-schema options]
-  {:added "0.10.0"}
-  (let [{:keys [query-store query-cache]
-         :or {query-cache (cache/ttl-cache-factory {} :ttl 600000)}} options]
-    (interceptor
-      {:name ::query-source
-       :enter (pass-query-through-query-store compiled-schema query-store query-cache)})))
-
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
 
@@ -464,29 +414,21 @@
 (defn routes-from-interceptors
   "Returns a set of route vectors from a primary seq of interceptors.
   This returns a set, one element for GET (using the seq as is),
-  one for POST (prefixing with [[body-data-interceptor]], and
-  an optional third for POST for named queries (when
-  a :query-store option is provided).
+  one for POST (prefixing with [[body-data-interceptor]].
 
   Options:
 
   :get-enabled (default true)
   : If true, then a route for the GET method is included."
   {:added "0.7.0"}
-  [compiled-schema interceptors options]
-  (let [{:keys [path get-enabled named-query-path query-store]
+  [_compiled-schema interceptors options]
+  (let [{:keys [path get-enabled]
          :or {get-enabled true
-              path default-path
-              named-query-path "/query"}} options
+              path default-path}} options
         post-interceptors (inject interceptors body-data-interceptor
                                   :before ::json-response)]
     (cond-> #{[path :post post-interceptors
                :route-name ::graphql-post]}
-      query-store (conj [named-query-path :post
-                         (inject post-interceptors
-                                 (query-store-interceptor compiled-schema options)
-                                 :replace ::query-parser)
-                         :route-name ::named-query-post])
       get-enabled (conj [path :get interceptors
                          :route-name ::graphql-get]))))
 
@@ -616,24 +558,6 @@
   : A seq of interceptors to be used in GraphQL routes; passed to [[routes-from-interceptors]].
     If not provided, [[default-interceptors]] is invoked.
 
-  :query-store
-  : A function that supports server-side queries.
-    The GraphQL query name extracted from the request is provided to the function, which may
-    return a stored query (if found), or nil if no query with the given name exists.
-
-  :query-cache
-  : A cache, used for in-memory caching of the parsed queries.
-    Only named server-side queries obtained via the query-store are cached.
-
-    A cache is an instance of clojure.core.cache/CacheProtocol.
-
-    The default cache is a TTL cache with a 10 minute expiration.
-    This is very likely incorrect for your application and should be overridden.
-
-    When the compiled schema is provided as a function (typically, during REPL-oriented development),
-    the query cache TTL should be very short, otherwise the parsed query may be cached with an old version
-    of the schema even after the schema has changed.
-
   :get-enabled (default true)
   : If true, then a route for the GET method is included. GET requests include the query
     as the `query` query parameter, and can't specify variables or an operation name.
@@ -702,9 +626,6 @@
                                               ::spec/app-context
                                               ::subscriptions-path
                                               ::port
-                                              ::named-query-path
-                                              ::query-store
-                                              ::query-cache
                                               ::env]))
 (s/def ::graphiql boolean?)
 (s/def ::routes some?)                                      ; Details are far too complicated
@@ -719,8 +640,4 @@
 (s/def ::subscriptions-path ::path)
 (s/def ::port pos-int?)
 (s/def ::env keyword?)
-(s/def ::named-query-path ::path)
-(s/def ::query-store fn?)
-(s/def ::query-cache #(satisfies? CacheProtocol %))
-
 

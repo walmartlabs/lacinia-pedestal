@@ -2,7 +2,8 @@
 
 A spec for the `service-map` function is now provided.
 
-Support has been added for server-side queries.
+The default set of interceptors has been split up slightly, in advance
+of support for server-side queries in an upcoming release.
 
 The signature of `com.walmartlabs.lacinia.pedestal/routes-from-interceptors`
 has changed in an incompatible way; it now expects the compiled schema
