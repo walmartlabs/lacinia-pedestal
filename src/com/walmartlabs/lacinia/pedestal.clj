@@ -243,9 +243,6 @@
 
    Adds a new request key, :parsed-lacinia-query, containing the parsed query.
 
-   This interceptor will not be present in the route for named queries; it only applies
-   to routes where the GraphQL query is provided directly in the request.
-
    Before execution, [[prepare-query-interceptor]] injects query variables and performs
    validations."
   [compiled-schema]
