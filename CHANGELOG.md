@@ -2,6 +2,8 @@
 
 A spec for the `service-map` function is now provided.
 
+Changes were made to allow for the updated structure of error maps in Lacinia 0.29.0.
+
 The default set of interceptors has been split up slightly, in advance
 of support for server-side queries in an upcoming release.
 

@@ -276,23 +276,33 @@
                   (assoc context :response
                          (bad-request (as-errors e))))))}))
 
+(defn ^:private remove-status
+  "Remove the :status key from the :extensions map; remove the :extensions key if that is now empty."
+  [error-map]
+  (if-not (contains? error-map :extensions)
+    error-map
+    (let [error-map' (update error-map :extensions dissoc :status)]
+      (if (-> error-map' :extensions seq)
+        error-map'
+        (dissoc error-map' :extensions)))))
+
 (def status-conversion-interceptor
   "Checks to see if any error map in the :errors key of the response
-  contains a :status value.  If so, the maximum status value of such errors
-  is found and used as the status of the overall response, and the
+  contains a :status value (under it's :extensions key).
+  If so, the maximum status value of such errors is found and used as the status of the overall response, and the
   :status key is dissoc'ed from all errors."
   (interceptor
     {:name ::status-conversion
      :leave (fn [context]
               (let [response (:response context)
                     errors (get-in response [:body :errors])
-                    statuses (keep :status errors)]
+                    statuses (keep #(-> % :extensions :status) errors)]
                 (if (seq statuses)
                   (let [max-status (reduce max (:status response) statuses)]
                     (-> context
                         (assoc-in [:response :status] max-status)
                         (assoc-in [:response :body :errors]
-                                  (map #(dissoc % :status) errors))))
+                                  (map remove-status errors))))
                   context)))}))
 
 (defn inject-app-context-interceptor
