@@ -411,7 +411,7 @@
 (defn routes-from-interceptors
   "Returns a set of route vectors from a primary seq of interceptors.
   This returns a set, one element for GET (using the seq as is),
-  one for POST (prefixing with [[body-data-interceptor]].
+  one for POST (prefixing with [[body-data-interceptor]]).
 
   Options:
 
@@ -422,8 +422,7 @@
   (let [{:keys [path get-enabled]
          :or {get-enabled true
               path default-path}} options
-        post-interceptors (inject interceptors body-data-interceptor
-                                  :before ::json-response)]
+        post-interceptors (into [body-data-interceptor] interceptors)]
     (cond-> #{[path :post post-interceptors
                :route-name ::graphql-post]}
       get-enabled (conj [path :get interceptors
