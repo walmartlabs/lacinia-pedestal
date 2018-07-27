@@ -109,13 +109,15 @@
 
 (deftest status-set-by-error
   (let [response (send-request "{ echo(value: \"Baked.\", error: 420) { value }}")]
-    (is (= {:body {:data {:echo {:value "Baked."}}
-                   :errors [{:arguments {:error "420"
-                                         :value "Baked."}
-                             :locations [{:column 3
-                                          :line 1}]
-                             :message "Forced error."
-                             :query-path ["echo"]}]}
+    (is (= {:body
+            {:data
+             {:echo {:value "Baked."}}
+             :errors [{:extensions {:arguments {:error "420"
+                                                :value "Baked."}}
+                       :locations [{:column 3
+                                    :line 1}]
+                       :message "Forced error."
+                       :path ["echo"]}]}
             :status 420}
            (select-keys response [:status :body])))))
 

@@ -204,25 +204,32 @@
                       (keep ::errors)
                       first)
           parse-errors (->> errors
-                            (keep :parse-error)
-                            distinct)]
+                            (keep :message)
+                            distinct)
+          locations (->> (mapcat :locations errors)
+                         (remove nil?)
+                         distinct
+                         seq)]
 
     (seq parse-errors)
-    {:message (str "Failed to parse GraphQL query. "
-                   (->> parse-errors
-                        (keep fix-up-message)
-                        (str/join "; "))
-                   ".")}
+    (cond-> {:message (str "Failed to parse GraphQL query. "
+                           (->> parse-errors
+                                (keep fix-up-message)
+                                (str/join "; "))
+                           ".")}
+      locations (assoc :locations locations))
 
     ;; Apollo spec only has room for one error, so just use the first
 
     (seq errors)
-    (first errors)
+    (cond-> (first errors)
+      locations (assoc :locations locations))
 
     :else
     ;; Strip off the exception added by Pedestal and convert
     ;; the message into an error map
-    {:message (to-message t)}))
+    (cond-> {:message (to-message t)}
+      locations (assoc :locations locations))))
 
 (def exception-handler-interceptor
   "An interceptor that implements the :error callback, to send an \"error\" message to the client."
