@@ -28,6 +28,7 @@
     [com.walmartlabs.lacinia.validator :as validator]
     [com.walmartlabs.lacinia.executor :as executor]
     [com.walmartlabs.lacinia.constants :as constants]
+    [com.walmartlabs.lacinia.internal-utils :refer [cond-let]]
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
     [clojure.spec.alpha :as s]
@@ -38,6 +39,8 @@
 (def ^:private default-asset-path "/assets/graphiql")
 
 (def ^:private default-subscriptions-path "/graphql-ws")
+
+(def ^:private parsed-query-key-path [:request :parsed-lacinia-query])
 
 (defn ^:private bad-request
   "Generates a bad request Ring response."
@@ -72,11 +75,62 @@
   (if-let [content-type (get-in request [:headers "content-type"])]
     (:content-type (parse-content-type content-type))))
 
+(defn inject
+  "Locates the named interceptor in the list of interceptors and adds (or replaces)
+  the new interceptor to the list.
+
+  relative-position may be :before, :after, or :replace.
+
+  The named interceptor must exist, or an exception is thrown."
+  {:added "0.7.0"}
+  [interceptors new-interceptor relative-position interceptor-name]
+  (let [*found? (volatile! false)
+        final-result (reduce (fn [result interceptor]
+                               ;; An interceptor can also be a bare handler function, which is 'nameless'
+                               (if-not (= interceptor-name (when (map? interceptor)
+                                                             (:name interceptor)))
+                                 (conj result interceptor)
+                                 (do
+                                   (vreset! *found? true)
+                                   (case relative-position
+                                     :before
+                                     (conj result new-interceptor interceptor)
+
+                                     :after
+                                     (conj result interceptor new-interceptor)
+
+                                     :replace
+                                     (conj result new-interceptor)))))
+                             []
+                             interceptors)]
+    (when-not @*found?
+      (throw (ex-info "Could not find existing interceptor."
+                      {:interceptors interceptors
+                       :new-interceptor new-interceptor
+                       :relative-position relative-position
+                       :interceptor-name interceptor-name})))
+
+    final-result))
+
+(s/def ::interceptor (s/or :interceptor (s/keys :req-un [::name])
+                           :handler fn?))
+(s/def ::interceptors (s/coll-of ::interceptor))
+;; The name of an interceptor; typically this is namespaced, but that is not a requirement.
+;; The name may be nil in some cases (typically, the interceptor formed around a bare handler function).
+(s/def ::name (s/nilable keyword?))
+
+(s/fdef inject
+  :ret ::interceptors
+  :args (s/cat :interceptors ::interceptors
+               :new-interceptor ::interceptor
+               :relative-position #{:before :after :replace}
+               :interceptor-name keyword?))
+
 (defmulti extract-query
   "Based on the content type of the query, adds up to three keys to the request:
 
   :graphql-query
-  : The query itself, as a string (parsing the query happens later)
+  : The query itself, as a string (parsing the query happens later).
 
   :graphql-vars
   : A map of variables used when executing the query.
@@ -167,6 +221,18 @@
   [exception]
   {:errors [(util/as-error-map exception)]})
 
+(defn ^:private parse-query-document
+  [context compiled-schema q operation-name]
+  (try
+    (let [actual-schema (if (map? compiled-schema)
+                          compiled-schema
+                          (compiled-schema))
+          parsed-query (parser/parse-query actual-schema q operation-name)]
+      (assoc-in context parsed-query-key-path parsed-query))
+    (catch Exception e
+      (assoc context :response
+             (bad-request (as-errors e))))))
+
 (defn query-parser-interceptor
   "Given an schema, returns an interceptor that parses the query.
 
@@ -175,26 +241,37 @@
 
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
-   Adds a new request key, :parsed-lacinia-query, containing the parsed and prepared
-   query."
+   Adds a new request key, :parsed-lacinia-query, containing the parsed query.
+
+   Before execution, [[prepare-query-interceptor]] injects query variables and performs
+   validations."
   [compiled-schema]
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
-              (try
-                (let [request (:request context)
-                      {q :graphql-query
-                       vars :graphql-vars
-                       operation-name :graphql-operation-name} request
-                      actual-schema (if (map? compiled-schema)
+              (let [{:keys [graphql-query graphql-operation-name]} (:request context)]
+                (parse-query-document context
                                       compiled-schema
-                                      (compiled-schema))
-                      parsed-query (parser/parse-query actual-schema q operation-name)
+                                      graphql-query
+                                      graphql-operation-name)))}))
+
+(def ^{:added "0.10.0"} prepare-query-interceptor
+  "Prepares (with query variables) and validates the query, previously parsed
+  by [[query-parsed-interceptor]].
+
+  In earlier releases of lacinia-pedestal, this logic was combined with [[query-parser-interceptor]]."
+  (interceptor
+    {:name ::prepare-query
+     :enter (fn [context]
+              (try
+                (let [{parsed-query :parsed-lacinia-query
+                       vars :graphql-vars} (:request context)
                       prepared (parser/prepare-with-query-variables parsed-query vars)
-                      errors (validator/validate actual-schema prepared {})]
+                      compiled-schema (get prepared constants/schema-key)
+                      errors (validator/validate compiled-schema prepared {})]
                   (if (seq errors)
                     (assoc context :response (bad-request {:errors errors}))
-                    (assoc-in context [:request :parsed-lacinia-query] prepared)))
+                    (assoc-in context parsed-query-key-path prepared)))
                 (catch Exception e
                   (assoc context :response
                          (bad-request (as-errors e))))))}))
@@ -318,57 +395,47 @@
     * ::missing-query [[missing-query-interceptor]]
     * ::query-parser [[query-parser-interceptor]]
     * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
+    * ::prepare-query [[prepare-query-interceptor]]
     * ::inject-app-context [[inject-app-context-interceptor]]
     * ::query-executor [[query-executor-handler]] or [[async-query-executor-handler]]
 
   `compiled-schema` may be the actual compiled schema, or a no-arguments function that returns the compiled schema.
 
-  Often, this list of interceptors is augemented by calls to [[inject]].
+  Often, this list of interceptors is augmented by calls to [[inject]].
 
-  Options:
-
-  :async (default false)
-  : If true, the query will execute asynchronously (return a core.async channel).
-
-  :app-context
-  : The base application context provided to Lacinia when executing a query.
-  "
+  Options are as defined by [[service-map]]."
   {:added "0.7.0"}
   [compiled-schema options]
-  (let [query-parser (query-parser-interceptor compiled-schema)
-        inject-app-context (inject-app-context-interceptor (:app-context options))
-        executor (if (:async options)
-                   async-query-executor-handler
-                   query-executor-handler)]
-    [json-response-interceptor
-     graphql-data-interceptor
-     status-conversion-interceptor
-     missing-query-interceptor
-     query-parser
-     disallow-subscriptions-interceptor
-     inject-app-context
-     executor]))
+  [json-response-interceptor
+   graphql-data-interceptor
+   status-conversion-interceptor
+   missing-query-interceptor
+   (query-parser-interceptor compiled-schema)
+   disallow-subscriptions-interceptor
+   prepare-query-interceptor
+   (inject-app-context-interceptor (:app-context options))
+   (if (:async options)
+     async-query-executor-handler
+     query-executor-handler)])
 
 (defn routes-from-interceptors
   "Returns a set of route vectors from a primary seq of interceptors.
-  This returns a two element set, one for GET (using the seq as is),
-  and one for POST (prefixing with [[body-data-interceptor]].
+  This returns a set, one element for GET (using the seq as is),
+  one for POST (prefixing with [[body-data-interceptor]]).
 
   Options:
 
   :get-enabled (default true)
   : If true, then a route for the GET method is included."
   {:added "0.7.0"}
-  [route-path interceptors options]
-  (let [{:keys [get-enabled]
-         :or {get-enabled true}} options
-        post-interceptors (-> (cons body-data-interceptor interceptors)
-                              ;; Absolutely needs to be a vector, under penalty of
-                              ;; https://github.com/pedestal/pedestal/issues/308
-                              vec)]
-    (cond-> #{[route-path :post post-interceptors
+  [_compiled-schema interceptors options]
+  (let [{:keys [path get-enabled]
+         :or {get-enabled true
+              path default-path}} options
+        post-interceptors (into [body-data-interceptor] interceptors)]
+    (cond-> #{[path :post post-interceptors
                :route-name ::graphql-post]}
-      get-enabled (conj [route-path :get interceptors
+      get-enabled (conj [path :get interceptors
                          :route-name ::graphql-get]))))
 
 (defn graphiql-ide-response
@@ -415,39 +482,9 @@
 
   Uses [[default-interceptors]] to define the base seq of interceptors.
   For the POST route, [[body-data-interceptor]] is prepended.
+  May add an additional route to handle named queries.
 
-  `compiled-schema` may be the actual compiled schema, or a no-arguments function
-  that returns the compiled schema.
-
-  Options:
-
-  :graphiql (default: false)
-  : If true, enables routes for the GraphiQL IDE.
-
-  :path (default: \"/graphql\")
-  : Path at which GraphQL requests are services (distinct from the GraphQL IDE).
-
-  :ide-path (default: \"/\")
-  : Path from which the GraphiQL IDE, if enabled, can be loaded.
-
-  :asset-path (default: \"/assets/graphiql\")
-  : Path from which the JavaScript and CSS assets may be loaded.
-
-  :ide-headers
-  : A map from header name to header value. Keys and values may be strings, keywords,
-    or symbols and are converted to strings using clojure.core/name.
-    These define additional headers to be included in the requests from the IDE.
-    Typically, the headers are used to identify and authenticate the requests.
-
-  :interceptors
-  : A seq of interceptors, to be passed to [[routes-from-interceptors]].
-
-  :async (default: false)
-  : If true, the query will execute asynchronously; the handler will return a clojure.core.async
-    channel rather than blocking.
-
-  :app-context
-  : The base application context provided to Lacinia when executing a query.
+  The options for this function are described by [[service-map]].
 
   Asset paths use wildcard matching; you should be careful to ensure that the asset path does not
   overlap the paths for query request handling, the IDE, or subscriptions (or the asset handler will override the others
@@ -459,11 +496,11 @@
               ide-path "/"}} options
         interceptors (or (:interceptors options)
                          (default-interceptors compiled-schema options))
-        base-routes (routes-from-interceptors path interceptors options)]
+        base-routes (routes-from-interceptors compiled-schema interceptors options)]
     (if-not graphiql
       base-routes
       (let [index-handler (let [index-response (graphiql-ide-response options)]
-                            (fn [request]
+                            (fn [_]
                               index-response))
 
             asset-path' (str asset-path "/*path")
@@ -527,6 +564,10 @@
   : A seq of interceptors to be used in GraphQL routes; passed to [[routes-from-interceptors]].
     If not provided, [[default-interceptors]] is invoked.
 
+  :get-enabled (default true)
+  : If true, then a route for the GET method is included. GET requests include the query
+    as the `query` query parameter, and can't specify variables or an operation name.
+
   :async (default: false)
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
     channel rather than blocking.
@@ -581,6 +622,7 @@
 (s/def ::service-map-options (s/keys :opt-un [::graphiql
                                               ::routes
                                               ::subscriptions
+                                              ::get-enabled
                                               ::path
                                               ::ide-path
                                               ::asset-path
@@ -594,6 +636,7 @@
 (s/def ::graphiql boolean?)
 (s/def ::routes some?)                                      ; Details are far too complicated
 (s/def ::subscriptions boolean?)
+(s/def ::get-enabled boolean?)
 (s/def ::path (s/and string?
                      #(str/starts-with? % "/")))
 (s/def ::ide-path ::path)
@@ -604,57 +647,3 @@
 (s/def ::port pos-int?)
 (s/def ::env keyword?)
 
-(defn pedestal-service
-  "This function has been deprecated in favor of [[service-map]], but is being maintained for
-  compatibility.
-
-  This simply invokes [[service-map]] and passes the resulting map through `io.pedestal.http/create-server`.
-
-  To be removed in 0.8.0."
-  {:deprecated "0.5.0"}
-  [compiled-schema options]
-  (http/create-server (service-map compiled-schema options)))
-
-(defn inject
-  "Locates the named interceptor in the list of interceptors and adds (or replaces)
-  the new interceptor to the list.
-
-  relative-position may be :before, :after, or :replace.
-
-  The named interceptor must exist, or an exception is thrown."
-  {:added "0.7.0"}
-  [interceptors new-interceptor relative-position interceptor-name]
-  (let [*found? (volatile! false)
-        final-result (reduce (fn [result interceptor]
-                               ;; An interceptor can also be a bare handler function, which is 'nameless'
-                               (if-not (= interceptor-name (when (map? interceptor)
-                                                             (:name interceptor)))
-                                 (conj result interceptor)
-                                 (do
-                                   (vreset! *found? true)
-                                   (case relative-position
-                                     :before
-                                     (conj result new-interceptor interceptor)
-
-                                     :after
-                                     (conj result interceptor new-interceptor)
-
-                                     :replace
-                                     (conj result new-interceptor)))))
-                             []
-                             interceptors)]
-    (when-not @*found?
-      (throw (ex-info "Could not find existing interceptor."
-                      {:interceptors interceptors
-                       :new-interceptor new-interceptor
-                       :relative-position relative-position
-                       :interceptor-name interceptor-name})))
-
-    final-result))
-
-(s/fdef inject
-        :ret ::spec/interceptors
-        :args (s/cat :interceptors ::spec/interceptors
-                     :new-interceptor ::spec/interceptor
-                     :relative-position #{:before :after :replace}
-                     :interceptor-name keyword?))

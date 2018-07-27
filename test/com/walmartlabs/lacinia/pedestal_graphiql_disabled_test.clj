@@ -23,7 +23,7 @@
 (use-fixtures :once
   (fn [f]
     (let [empty-schema (schema/compile {})
-          service (-> (lp/pedestal-service empty-schema {:graphiql false})
+          service (-> (lp/service-map empty-schema {:graphiql false})
                       http/create-server
                       http/start)]
       (try

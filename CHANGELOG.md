@@ -4,6 +4,14 @@ A spec for the `service-map` function is now provided.
 
 Changes were made to allow for the updated structure of error maps in Lacinia 0.29.0.
 
+The default set of interceptors has been split up slightly, in advance
+of support for server-side queries in an upcoming release.
+
+The signature of `com.walmartlabs.lacinia.pedestal/routes-from-interceptors`
+has changed in an incompatible way; it now expects the compiled schema
+as the first argument (previously it was the root path); this function
+is not generally invoked from user code.
+
 ## 0.9.0 -- 21 Jun 2018
 
 Invalid JSON sent to lacinia-pedestal now results in proper 400 reponse,
