@@ -1,4 +1,4 @@
-## 0.10.0 -- UNRELEASED
+## 0.10.0 -- 14 Sep 2018
 
 A spec for the `service-map` function is now provided.
 
