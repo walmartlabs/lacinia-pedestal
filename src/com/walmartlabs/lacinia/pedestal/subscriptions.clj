@@ -17,6 +17,7 @@
   of the Apollo client and server."
   {:added "0.3.0"}
   (:require
+    [clojure.future :refer :all]
     [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.util :as util]
     [com.walmartlabs.lacinia.internal-utils :refer [cond-let to-message]]

@@ -16,6 +16,7 @@
   "Common specifications."
   {:added "0.10.0"}
   (:require
+    [clojure.future :refer :all]
     com.walmartlabs.lacinia.schema                          ; for CompiledSchema
     [clojure.core.async.impl.protocols :refer [Buffer]]
     io.pedestal.interceptor                                 ; for Interceptor

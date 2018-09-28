@@ -15,6 +15,7 @@
 (ns com.walmartlabs.lacinia.pedestal
   "Defines Pedestal interceptors and supporting code."
   (:require
+    [clojure.future :refer :all]
     [clojure.core.async :refer [chan put!]]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
