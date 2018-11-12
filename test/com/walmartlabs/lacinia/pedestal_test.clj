@@ -167,3 +167,9 @@
         wilma {:name :wilma}]
     (is (= [fred wilma]
            (inject [fred barney] wilma :replace :barney)))))
+
+(deftest query-missing-from-request
+  (is (= {:body {:errors [{:message "GraphQL query not supplied in request body."}]}
+          :status 400}
+         (select-keys (send-request :post-json "{}")
+                      [:status :body]))))

@@ -147,18 +147,21 @@
         operation-name (:operationName body)]
     {:graphql-query query
      :graphql-vars variables
-     :graphql-operation-name operation-name}))
+     :graphql-operation-name operation-name
+     ::known-content-type true}))
 
 (defmethod extract-query :application/graphql [request]
   (let [query (:body request)
         variables (when-let [vars (get-in request [:query-params :variables])]
                     (cheshire/parse-string vars true))]
     {:graphql-query query
-     :graphql-vars variables}))
+     :graphql-vars variables
+     ::known-content-type true}))
 
 (defmethod extract-query :default [request]
   (let [query (get-in request [:query-params :query])]
-    {:graphql-query query}))
+    (when query
+      {:graphql-query query})))
 
 
 (def json-response-interceptor
@@ -202,6 +205,7 @@
         message (cond
                   (= request-method :get) "Query parameter 'query' is missing or blank."
                   (str/blank? body) "Request body is empty."
+                  (::known-content-type request) "GraphQL query not supplied in request body."
                   :else "Request content type must be application/graphql or application/json.")]
     (message-as-errors message)))
 
