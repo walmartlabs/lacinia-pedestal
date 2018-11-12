@@ -38,6 +38,9 @@
   (:import
     (org.eclipse.jetty.websocket.api UpgradeResponse)))
 
+(when (-> *clojure-version* :minor (< 9))
+  (require '[clojure.future :refer [pos-int?]]))
+
 (defn ^:private xform-channel
   [input-ch output-ch xf]
   (go-loop []

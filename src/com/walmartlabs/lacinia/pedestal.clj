@@ -34,6 +34,9 @@
     [clojure.spec.alpha :as s]
     [com.walmartlabs.lacinia.pedestal.spec :as spec]))
 
+(when (-> *clojure-version* :minor (< 9))
+  (require '[clojure.future :refer [boolean? pos-int?]]))
+
 (def ^:private default-path "/graphql")
 
 (def ^:private default-asset-path "/assets/graphiql")
