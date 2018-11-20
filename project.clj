@@ -4,8 +4,8 @@
   :license {:name "Apache Software License 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [com.walmartlabs/lacinia "0.29.0"]
-                 [com.fasterxml.jackson.core/jackson-core "2.9.6"]
+                 [com.walmartlabs/lacinia "0.31.0-SNAPSHOT-1"]
+                 [com.fasterxml.jackson.core/jackson-core "2.9.7"]
                  [io.pedestal/pedestal.service "0.5.3"]
                  [io.pedestal/pedestal.jetty "0.5.3"]
                  [org.clojure/data.json "0.2.6"]]
@@ -13,7 +13,7 @@
   {:dev {:dependencies [[clj-http "2.3.0"]
                         [com.walmartlabs/test-reporting "0.1.0"]
                         [expound "0.7.1"]
-                        [stylefruits/gniazdo "1.0.1"
+                        [stylefruits/gniazdo "1.1.0"
                          :exclusions [org.eclipse.jetty.websocket/websocket-client]]
                         [io.aviso/logging "0.3.1"]]}}
   :jvm-opts ["-Xmx500m"]
