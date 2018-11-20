@@ -69,7 +69,7 @@ the compiled schema based on the latest code you've loaded into the REPL.
 ### GraphiQL
 
 The GraphiQL packaged inside the library is built using `npm`, from
-version `0.11.2`.
+version `0.12.0`.
 
 ## License
 

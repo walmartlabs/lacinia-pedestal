@@ -1,3 +1,7 @@
+## 0.11.0 -- UNRELEASED
+
+Update version of GraphiQL to current, 0.12.0.
+
 ## 0.10.0 -- 14 Sep 2018
 
 A spec for the `service-map` function is now provided.
