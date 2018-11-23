@@ -644,6 +644,6 @@
 (s/def ::ide-headers map?)
 (s/def ::async boolean?)
 (s/def ::subscriptions-path ::path)
-(s/def ::port pos-int?)
+(s/def ::port nat-int?)
 (s/def ::env keyword?)
 
