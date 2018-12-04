@@ -24,6 +24,9 @@
     (com.walmartlabs.lacinia.schema CompiledSchema)
     (io.pedestal.interceptor Interceptor)))
 
+(when (-> *clojure-version* :minor (< 9))
+  (require '[clojure.future :refer [pos-int?]]))
+
 (s/def ::compiled-schema (s/or :direct #(instance? CompiledSchema %)
                                :indirect fn?))
 
