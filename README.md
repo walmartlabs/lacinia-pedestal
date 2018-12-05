@@ -12,7 +12,7 @@ Lacinia-Pedestal also supports GraphQL subscriptions, using the same protocol
 as [Apollo GraphQL](https://github.com/apollographql/subscriptions-transport-ws).
 
 [Lacinia-Pedestal Manual](http://lacinia-pedestal.readthedocs.io/en/latest/) |
-[API Documentation](http://walmartlabs.github.io/lacinia-pedestal/)
+[API Documentation](http://walmartlabs.github.io/apidocs/lacinia-pedestal/)
 
 ## Usage
 
