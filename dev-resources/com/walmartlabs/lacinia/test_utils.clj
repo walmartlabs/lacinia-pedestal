@@ -100,6 +100,12 @@
          (= method :post)
          (assoc-in [:headers "Content-Type"] "application/graphql")
 
+         (= method :post-json)
+         (->
+           (assoc-in [:headers "Content-Type"] "application/json")
+           (assoc :method :post
+                  :body query))
+
          ;; :post-bad is like :post, but without setting the content type
          (#{:post :post-bad} method)
          (assoc :body query
