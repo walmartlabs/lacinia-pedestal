@@ -2,6 +2,8 @@
 
 Update version of GraphiQL to current, 0.12.0.
 
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/10?closed=1)
+
 ## 0.10.0 -- 14 Sep 2018
 
 A spec for the `service-map` function is now provided.
