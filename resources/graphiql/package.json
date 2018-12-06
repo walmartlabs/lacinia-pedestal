@@ -2,9 +2,9 @@
   "name": "graphiql-packaged",
   "version": "1.0.0",
   "dependencies": {
-    "graphiql": "0.11.2",
-    "graphql": "^0.10.0",
-    "react": "^15.6.1",
-    "react-dom": "^15.6.1"
+    "graphiql": "0.12.0",
+    "graphql": "^0.13.0",
+    "react": "^16.0.0",
+    "react-dom": "^16.0.0"
   }
 }

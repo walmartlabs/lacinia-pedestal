@@ -65,5 +65,7 @@
 
 (comment
   (start)
+  ;; Open browser to: http://localhost:8888/ui
+
   (stop)
   )

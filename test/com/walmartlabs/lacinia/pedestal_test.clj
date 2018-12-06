@@ -108,7 +108,7 @@
     (is (= {:body
             {:data
              {:echo {:value "Baked."}}
-             :errors [{:extensions {:arguments {:error "420"
+             :errors [{:extensions {:arguments {:error 420
                                                 :value "Baked."}}
                        :locations [{:column 3
                                     :line 1}]
