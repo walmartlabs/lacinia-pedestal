@@ -1,6 +1,8 @@
-## 0.11.0 -- UNRELEASED
+## 0.11.0 -- 4 Jan 2019
 
 Update version of GraphiQL to current, 0.12.0.
+
+Problems with compatibility with Clojure 1.8 were resolved.
 
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/10?closed=1)
 
