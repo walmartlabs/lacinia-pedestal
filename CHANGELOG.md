@@ -1,3 +1,5 @@
+## 0.12.0 -- UNRELEASED
+
 ## 0.11.0 -- 4 Jan 2019
 
 Update version of GraphiQL to current, 0.12.0.
