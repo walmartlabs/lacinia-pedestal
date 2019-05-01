@@ -2,4 +2,9 @@
 
 npm install && \
     cp ./node_modules/graphiql/graphiql.js . && \
-    cp ./node_modules/graphiql/graphiql.css .
+    cp ./node_modules/graphiql/graphiql.css . && \
+    cp ./node_modules/es6-promise/dist/es6-promise.auto.min.js . && \
+    cp ./node_modules/react/dist/react.min.js ./react.min.js && \
+    cp ./node_modules/react-dom/dist/react-dom.min.js ./react-dom.min.js && \
+    cp ./node_modules/subscriptions-transport-ws/browser/client.js ./subscriptions-transport-ws-browser-client.js && \
+    cp ./node_modules/graphiql-subscriptions-fetcher/browser/client.js ./graphiql-subscriptions-fetcher-browser-client.js

@@ -2,9 +2,17 @@
   "name": "graphiql-packaged",
   "version": "1.0.0",
   "dependencies": {
+    "//": [
+      "graphiql depends on a vulnerable version of js-yaml",
+      "Therefore, it has been pinned to a fixed version here"
+    ],
+    "js-yaml": "3.13.1",
     "graphiql": "0.12.0",
     "graphql": "^0.13.0",
-    "react": "^16.0.0",
-    "react-dom": "^16.0.0"
+    "react": "15.6.2",
+    "react-dom": "15.6.2",
+    "es6-promise": "4.0.5",
+    "subscriptions-transport-ws": "0.8.2",
+    "graphiql-subscriptions-fetcher": "0.0.2"
   }
 }
