@@ -1,4 +1,4 @@
-## 0.12.0 -- UNRELEASED
+## 0.12.0 -- 23 May 2019
 
 GraphiQL assets are now bundled in this library, and are no longer
 downloaded from a content distribution network.
