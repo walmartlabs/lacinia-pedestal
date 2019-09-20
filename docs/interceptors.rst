@@ -3,6 +3,8 @@ Interceptors
 
 `com.walmartlabs.lacinia.pedestal <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.html>` defines Pedestal `interceptors <http://pedestal.io/reference/interceptors>` and supporting code.
 
+The `inject <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.html#var-inject>` function (added in 0.7.0) adds (or replaces) an interceptor to a seq of interceptors.
+
 Example
 --------
 
