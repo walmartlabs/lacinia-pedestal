@@ -8,7 +8,7 @@ The `inject <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartl
 Example
 --------
 
-Example to inject an interceptor that adds a `:custom-user-info-key` to the Lacinia's app-context (this user info can be retrieved from the request).
+Example to inject an interceptor that adds a `:custom-user-info-key` to the Lacinia's app-context (for example with extracted authentication information from the request).
 
     (ns server
       (:require
