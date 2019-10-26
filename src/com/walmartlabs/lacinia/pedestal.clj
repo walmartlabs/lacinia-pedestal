@@ -264,7 +264,7 @@
 
 (def ^{:added "0.10.0"} prepare-query-interceptor
   "Prepares (with query variables) and validates the query, previously parsed
-  by [[query-parsed-interceptor]].
+  by [[query-parser-interceptor]].
 
   In earlier releases of lacinia-pedestal, this logic was combined with [[query-parser-interceptor]]."
   (interceptor
