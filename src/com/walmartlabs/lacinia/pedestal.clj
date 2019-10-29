@@ -333,6 +333,8 @@
   ;; When :data is missing, then a failure occurred during parsing or preparing
   ;; the request, which indicates a bad request, rather than some failure
   ;; during execution.
+  (when (instance? Throwable result)
+    (throw result))
   (let [status (if (contains? result :data)
                  200
                  400)

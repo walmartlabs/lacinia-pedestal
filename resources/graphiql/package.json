@@ -2,10 +2,6 @@
   "name": "graphiql-packaged",
   "version": "1.0.0",
   "dependencies": {
-    "//": [
-      "graphiql depends on a vulnerable version of js-yaml",
-      "Therefore, it has been pinned to a fixed version here"
-    ],
     "js-yaml": "3.13.1",
     "graphiql": "0.12.0",
     "graphql": "^0.13.0",
