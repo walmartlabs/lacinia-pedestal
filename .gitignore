@@ -16,3 +16,5 @@ resources/graphiql/graphiql.*
 resources/graphiql/node_modules
 resources/graphiql/*.js
 .DS_Store
+.project
+.classpath
