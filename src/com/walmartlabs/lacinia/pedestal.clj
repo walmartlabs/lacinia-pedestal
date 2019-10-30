@@ -330,11 +330,13 @@
 
 (defn ^:private apply-result-to-context
   [context result]
+  ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
+  ;; maybe an exception thrown during initial processing of the query.
+  (when (instance? Throwable result)
+    (throw result))
   ;; When :data is missing, then a failure occurred during parsing or preparing
   ;; the request, which indicates a bad request, rather than some failure
   ;; during execution.
-  (when (instance? Throwable result)
-    (throw result))
   (let [status (if (contains? result :data)
                  200
                  400)
