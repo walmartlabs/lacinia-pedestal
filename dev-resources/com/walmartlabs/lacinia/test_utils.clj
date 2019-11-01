@@ -54,7 +54,9 @@
   (let [schema (-> (io/resource "sample-schema.edn")
                    slurp
                    edn/read-string
-                   (util/attach-resolvers {:resolve-echo resolve-echo})
+                   (util/attach-resolvers {:resolve-echo resolve-echo
+                                           :resolve-fail (fn [_ _ _]
+                                                           (throw (IllegalStateException. "resolver exception")))})
                    (util/attach-streamers {:stream-ping stream-ping})
                    schema/compile
                    (cond-> (:indirect-schema options) constantly))

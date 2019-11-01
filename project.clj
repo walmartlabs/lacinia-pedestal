@@ -4,7 +4,7 @@
   :license {:name "Apache Software License 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [com.walmartlabs/lacinia "0.35.0"]
+                 [com.walmartlabs/lacinia "0.36.0-alpha-2"]
                  [com.fasterxml.jackson.core/jackson-core "2.10.0"]
                  [io.pedestal/pedestal.service "0.5.3"]
                  [io.pedestal/pedestal.jetty "0.5.3"]
