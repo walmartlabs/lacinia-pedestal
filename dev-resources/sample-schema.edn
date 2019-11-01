@@ -26,7 +26,10 @@ Subscriptions."
                 ;; :error is an optional status code
                 :error {:type Int
                         :description "Optional status code to resolve as an error with the field."}}
-         :resolve :resolve-echo}}
+         :resolve :resolve-echo}
+  :fail {:type :String
+         :description "Always thrown an exception."
+         :resolve :resolve-fail}}
 
  :subscriptions
  {:ping

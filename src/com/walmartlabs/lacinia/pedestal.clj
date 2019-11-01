@@ -32,7 +32,8 @@
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
     [clojure.spec.alpha :as s]
-    [com.walmartlabs.lacinia.pedestal.spec :as spec]))
+    [com.walmartlabs.lacinia.pedestal.spec :as spec]
+    [io.pedestal.log :as log]))
 
 (when (-> *clojure-version* :minor (< 9))
   (require '[clojure.future :refer [boolean? pos-int?]]))
@@ -45,10 +46,10 @@
 
 (def ^:private parsed-query-key-path [:request :parsed-lacinia-query])
 
-(defn ^:private bad-request
+(defn ^:private failure-response
   "Generates a bad request Ring response."
   ([body]
-   (bad-request 400 body))
+   (failure-response 400 body))
   ([status body]
    {:status status
     :headers {}
@@ -199,7 +200,7 @@
                          (merge request q)))
                 (catch Exception e
                   (assoc context :response
-                         (bad-request {:message (str "Invalid request: " (.getMessage e))})))))}))
+                         (failure-response {:message (str "Invalid request: " (.getMessage e))})))))}))
 
 (defn ^:private query-not-found-error
   [request]
@@ -221,7 +222,7 @@
      :enter (fn [context]
               (if (-> context :request :graphql-query str/blank?)
                 (assoc context :response
-                       (bad-request (query-not-found-error (:request context))))
+                       (failure-response (query-not-found-error (:request context))))
                 context))}))
 
 (defn ^:private as-errors
@@ -238,7 +239,7 @@
       (assoc-in context parsed-query-key-path parsed-query))
     (catch Exception e
       (assoc context :response
-             (bad-request (as-errors e))))))
+             (failure-response (as-errors e))))))
 
 (defn query-parser-interceptor
   "Given an schema, returns an interceptor that parses the query.
@@ -277,11 +278,11 @@
                       compiled-schema (get prepared constants/schema-key)
                       errors (validator/validate compiled-schema prepared {})]
                   (if (seq errors)
-                    (assoc context :response (bad-request {:errors errors}))
+                    (assoc context :response (failure-response {:errors errors}))
                     (assoc-in context parsed-query-key-path prepared)))
                 (catch Exception e
                   (assoc context :response
-                         (bad-request (as-errors e))))))}))
+                         (failure-response (as-errors e))))))}))
 
 (defn ^:private remove-status
   "Remove the :status key from the :extensions map; remove the :extensions key if that is now empty."
@@ -330,16 +331,23 @@
 
 (defn ^:private apply-result-to-context
   [context result]
-  ;; When :data is missing, then a failure occurred during parsing or preparing
-  ;; the request, which indicates a bad request, rather than some failure
-  ;; during execution.
-  (let [status (if (contains? result :data)
-                 200
-                 400)
-        response {:status status
-                  :headers {}
-                  :body result}]
-    (assoc context :response response)))
+  ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
+  ;; maybe an exception thrown during initial processing of the query.
+  (if (instance? Throwable result)
+    (do
+      (log/error :event :execution-exception
+                 :ex result)
+      (assoc context :response (failure-response 500 (as-errors result))))
+    ;; When :data is missing, then a failure occurred during parsing or preparing
+    ;; the request, which indicates a bad request, rather than some failure
+    ;; during execution.
+    (let [status (if (contains? result :data)
+                   200
+                   400)
+          response {:status status
+                    :headers {}
+                    :body result}]
+      (assoc context :response response))))
 
 (defn ^:private execute-query
   [context]
@@ -390,7 +398,7 @@
     {:name ::disallow-subscriptions
      :enter (fn [context]
               (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
-                (assoc context :response (bad-request (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
+                (assoc context :response (failure-response (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
                 context))}))
 
 (defn default-interceptors

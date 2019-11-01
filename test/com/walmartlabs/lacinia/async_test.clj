@@ -16,6 +16,7 @@
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [clojure.core.async :refer [go]]
+    [com.walmartlabs.test-reporting :refer [reporting]]
     [com.walmartlabs.lacinia.async :as async]
     [com.walmartlabs.lacinia.test-utils :refer [test-server-fixture
                                                 send-request]]
@@ -44,7 +45,6 @@
 
 (defn ^:private make-chan-resolver
   [value]
-  ^:channel-result
   (fn [_ _ _]
     (go value)))
 
@@ -60,6 +60,7 @@
 (deftest decorate-chan-normal-case
   (is (= ::value
          (execute-resolver ::value))))
+
 
 (deftest decorate-chan-exception-case
   (let [*result (promise)
@@ -79,3 +80,11 @@
                       :message "Resolver exception."}
               :value nil}
              (execute-resolver (ex-info "Resolver exception." {:status 500})))))))
+
+
+(deftest resolver-throws-exception
+  (let [response (send-request :post "{ fail }")]
+    (reporting response
+      (is (= {:body {:errors [{:message "resolver exception"}]}
+              :status 500}
+             (select-keys response [:status :body]))))))

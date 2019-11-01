@@ -287,7 +287,8 @@
                 :payload {:query "~~~"}})
 
     (expect-message {:id id
-                     :payload {:message "Failed to parse GraphQL query. Token recognition error at: '~'; No viable alternative at input '<eof>'."
+                     :payload {:message "Failed to parse GraphQL query. Token recognition error at: '~'; Mismatched input '<eof>' expecting {'query', 'mutation', 'subscription', '{', 'fragment'}."
+
                                :locations [{:column nil
                                             :line 1}]}
                      :type "error"})))

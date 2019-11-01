@@ -1,3 +1,9 @@
+## 0.13.0 -- UNRELEASED
+
+
+Exceptions while executing a query (asynchronously or otherwise) are now caught,
+logged as an error, and converted into a 500 failure response.
+
 ## 0.12.0 -- 23 May 2019
 
 GraphiQL assets are now bundled in this library, and are no longer
@@ -45,6 +51,7 @@ rather than throwing an exception (and a 500 response).
 The `com.walmartlabs.lacinia.pedestal.interceptors` namespaces has been
 removed outright, and with it, support for interceptor dependency maps.
 A scattering of other functions related to dependency maps have also been removed.
+
 
 Added a number of options to control the creation of core.async channels used
 to manage the flow of data for subscriptions.
