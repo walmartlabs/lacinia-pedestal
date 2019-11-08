@@ -34,7 +34,8 @@
     [com.walmartlabs.lacinia.resolve :as resolve]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
-    [com.walmartlabs.lacinia.pedestal.spec :as spec])
+    [com.walmartlabs.lacinia.pedestal.spec :as spec]
+    [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors])
   (:import
     (org.eclipse.jetty.websocket.api UpgradeResponse)))
 
@@ -293,17 +294,6 @@
                   (throw (ex-info "Query validation errors." {::errors errors}))
                   (assoc-in context [:request :parsed-lacinia-query] prepared))))}))
 
-(defn inject-app-context-interceptor
-  "Adds a :lacinia-app-context key to the request, used when executing the query.
-
-  It is not uncommon to replace this interceptor with one that constructs
-  the application context dynamically."
-  [app-context]
-  (interceptor
-    {:name ::inject-app-context
-     :enter (fn [context]
-              (assoc-in context [:request :lacinia-app-context] app-context))}))
-
 (defn ^:private execute-operation
   [context parsed-query]
   (let [ch (chan 1)]
@@ -419,7 +409,7 @@
   [exception-handler-interceptor
    send-operation-response-interceptor
    (query-parser-interceptor compiled-schema)
-   (inject-app-context-interceptor app-context)
+   (interceptors/inject-app-context-interceptor app-context)
    execute-operation-interceptor])
 
 

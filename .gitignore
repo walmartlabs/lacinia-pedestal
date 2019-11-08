@@ -18,3 +18,5 @@ resources/graphiql/*.js
 .DS_Store
 .project
 .classpath
+.settings
+.vscode

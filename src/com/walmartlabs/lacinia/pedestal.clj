@@ -31,6 +31,7 @@
     [com.walmartlabs.lacinia.internal-utils :refer [cond-let]]
     [io.pedestal.http.jetty.websockets :as ws]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
+    [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors]
     [clojure.spec.alpha :as s]
     [com.walmartlabs.lacinia.pedestal.spec :as spec]
     [io.pedestal.log :as log]))
@@ -313,22 +314,6 @@
                                   (map remove-status errors))))
                   context)))}))
 
-(defn inject-app-context-interceptor
-  "Adds a :lacinia-app-context key to the request, used when executing the query.
-
-  The provided app-context map is augmented with the request map, as key :request.
-
-  It is not uncommon to replace this interceptor with one that constructs
-  the application context dynamically; for example, to extract authentication information
-  from the request and expose that as app-context keys."
-  {:added "0.2.0"}
-  [app-context]
-  (interceptor
-    {:name ::inject-app-context
-     :enter (fn [context]
-              (assoc-in context [:request :lacinia-app-context]
-                        (assoc app-context :request (:request context))))}))
-
 (defn ^:private apply-result-to-context
   [context result]
   ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
@@ -428,7 +413,7 @@
    (query-parser-interceptor compiled-schema)
    disallow-subscriptions-interceptor
    prepare-query-interceptor
-   (inject-app-context-interceptor (:app-context options))
+   (interceptors/inject-app-context-interceptor (:app-context options))
    (if (:async options)
      async-query-executor-handler
      query-executor-handler)])

@@ -1,6 +1,10 @@
 ## 0.13.0 -- UNRELEASED
 
 
+The `inject-app-context-interceptor` function has moved to the new
+`com.walmartlabs.lacinia.pedestal.interceptors` namespace. This merges
+and replaces the versions from the `pedestal` and `pedestal.subscriptions` namespaces.
+
 Exceptions while executing a query (asynchronously or otherwise) are now caught,
 logged as an error, and converted into a 500 failure response.
 
