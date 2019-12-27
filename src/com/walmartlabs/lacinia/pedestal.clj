@@ -562,9 +562,9 @@
     Typically, the headers are used to identify and authenticate the requests.
 
   :ide-connection-params
-  : A value that is used with the GraphiQL IDE; these value becomes the connection params
-    passed in the initial subscription web service call; this can be used to identify
-    and authenticate subscription requests.
+  : A value that is used with the GraphiQL IDE; this value is converted to JSON,
+    and becomes the connectionParams passed in the initial subscription web service call;
+    this can be used to identify and authenticate subscription requests.
 
   :interceptors
   : A seq of interceptors to be used in GraphQL routes; passed to [[routes-from-interceptors]].
