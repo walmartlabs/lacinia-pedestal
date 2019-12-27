@@ -42,6 +42,7 @@
                                     :path "/"
                                     :ide-path "/ui"
                                     :ide-headers {"apikey" "mean mister mustard"}
+                                    :ide-connection-params {:moon-base :alpha}
                                     :subscriptions true
                                     :subscriptions-path "/ws"})
                    http/create-server
