@@ -11,6 +11,8 @@ logged as an error, and converted into a 500 failure response.
 New option `:ide-connection-params` supports setting connection parameters for subscriptions
 in the GraphiQL IDE.
 
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/12?closed=1)
+
 ## 0.12.0 -- 23 May 2019
 
 GraphiQL assets are now bundled in this library, and are no longer
