@@ -28,7 +28,10 @@
   from the request and expose that as app-context keys."
   [app-context]
   (interceptor
-    {:name ::inject-app-context
+    ;; This function was moved from the lacinia.pedestal namespace but
+    ;; existing application code may still reference it (via
+    ;; lacinia.pedestal/inject) to keep the name stable.
+    {:name :com.walmartlabs.lacinia.pedestal/inject-app-context
      :enter (fn [context]
               (assoc-in context [:request :lacinia-app-context]
                         (assoc app-context :request (:request context))))}))
