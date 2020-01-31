@@ -8,6 +8,9 @@ and replaces the versions from the `pedestal` and `pedestal.subscriptions` names
 Exceptions while executing a query (asynchronously or otherwise) are now caught,
 logged as an error, and converted into a 500 failure response.
 
+New option `:ide-connection-params` supports setting connection parameters for subscriptions
+in the GraphiQL IDE.
+
 ## 0.12.0 -- 23 May 2019
 
 GraphiQL assets are now bundled in this library, and are no longer

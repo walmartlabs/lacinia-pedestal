@@ -3,16 +3,16 @@
   :url "https://github.com/walmartlabs/pedestal-lacinia"
   :license {:name "Apache Software License 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
-  :dependencies [[org.clojure/clojure "1.9.0"]
-                 [com.walmartlabs/lacinia "0.36.0-alpha-2"]
-                 [com.fasterxml.jackson.core/jackson-core "2.10.0"]
-                 [io.pedestal/pedestal.service "0.5.3"]
-                 [io.pedestal/pedestal.jetty "0.5.3"]
-                 [org.clojure/data.json "0.2.6"]]
+  :dependencies [[org.clojure/clojure "1.10.1"]
+                 [com.walmartlabs/lacinia "0.36.0-alpha-3"]
+                 [com.fasterxml.jackson.core/jackson-core "2.10.2"]
+                 [io.pedestal/pedestal.service "0.5.7"]
+                 [io.pedestal/pedestal.jetty "0.5.7"]
+                 [org.clojure/data.json "0.2.7"]]
   :profiles
   {:dev {:dependencies [[clj-http "2.3.0"]
                         [com.walmartlabs/test-reporting "0.1.0"]
-                        [expound "0.7.2"]
+                        [expound "0.8.4"]
                         [stylefruits/gniazdo "1.1.2"
                          :exclusions [org.eclipse.jetty.websocket/websocket-client]]
                         [io.aviso/logging "0.3.2"]]}}

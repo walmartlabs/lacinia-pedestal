@@ -104,7 +104,9 @@
       }
       var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(
         window.location.origin.replace('http', 'ws') + '{{subscriptions-path}}',
-        { reconnect: true });
+        { reconnect: true,
+          connectionParams: {{initial-connection-params}}
+        });
       var subscriptionsFetcher = window.GraphiQLSubscriptionsFetcher.graphQLFetcher(subscriptionsClient, graphQLFetcher);
 
       // Render <GraphiQL /> into the body.

@@ -449,7 +449,7 @@
   Reads the template file, makes necessary substitutions, and returns a Ring response."
   {:added "0.7.0"}
   [options]
-  (let [{:keys [path asset-path subscriptions-path ide-headers]
+  (let [{:keys [path asset-path subscriptions-path ide-headers ide-connection-params]
          :or {path default-path
               asset-path default-asset-path
               subscriptions-path default-subscriptions-path}} options
@@ -457,6 +457,7 @@
         replacements {:asset-path asset-path
                       :path path
                       :subscriptions-path subscriptions-path
+                      :initial-connection-params (cheshire/generate-string ide-connection-params)
                       :request-headers (str "{"
                                             (->> ide-headers'
                                                  (map (fn [[k v]]
@@ -560,6 +561,11 @@
     These define additional headers to be included in the requests from the IDE.
     Typically, the headers are used to identify and authenticate the requests.
 
+  :ide-connection-params
+  : A value that is used with the GraphiQL IDE; this value is converted to JSON,
+    and becomes the connectionParams passed in the initial subscription web service call;
+    this can be used to identify and authenticate subscription requests.
+
   :interceptors
   : A seq of interceptors to be used in GraphQL routes; passed to [[routes-from-interceptors]].
     If not provided, [[default-interceptors]] is invoked.
@@ -627,6 +633,7 @@
                                               ::ide-path
                                               ::asset-path
                                               ::ide-headers
+                                              ::ide-connection-params
                                               ::spec/interceptors
                                               ::async
                                               ::spec/app-context
@@ -642,6 +649,7 @@
 (s/def ::ide-path ::path)
 (s/def ::asset-path ::path)
 (s/def ::ide-headers map?)
+(s/def ::ide-connection-params some?)
 (s/def ::async boolean?)
 (s/def ::subscriptions-path ::path)
 (s/def ::port nat-int?)
