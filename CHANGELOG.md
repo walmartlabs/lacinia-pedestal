@@ -1,5 +1,4 @@
-## 0.13.0 -- UNRELEASED
-
+## 0.13.0 -- 13 Feb 2020
 
 The `inject-app-context-interceptor` function has moved to the new
 `com.walmartlabs.lacinia.pedestal.interceptors` namespace. This merges
