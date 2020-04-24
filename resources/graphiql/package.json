@@ -7,7 +7,7 @@
     "graphql": "^0.13.0",
     "react": "15.6.2",
     "react-dom": "15.6.2",
-    "es6-promise": "4.0.5",
+    "es6-promise": "4.2.8",
     "subscriptions-transport-ws": "0.8.2",
     "graphiql-subscriptions-fetcher": "0.0.2"
   }
