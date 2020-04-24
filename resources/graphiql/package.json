@@ -8,7 +8,7 @@
     "react": "15.6.2",
     "react-dom": "15.6.2",
     "es6-promise": "4.0.5",
-    "subscriptions-transport-ws": "0.8.2",
+    "subscriptions-transport-ws": "0.9.16",
     "graphiql-subscriptions-fetcher": "0.0.2"
   }
 }
