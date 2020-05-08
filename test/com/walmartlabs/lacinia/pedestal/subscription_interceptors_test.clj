@@ -15,7 +15,6 @@
 (ns com.walmartlabs.lacinia.pedestal.subscription-interceptors-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
-    [clojure.core.async :refer [chan alt!! put! timeout]]
     [com.walmartlabs.lacinia.pedestal :refer [inject]]
     [com.walmartlabs.lacinia.test-utils
      :refer [test-server-fixture *ping-subscribes *ping-cleanups
