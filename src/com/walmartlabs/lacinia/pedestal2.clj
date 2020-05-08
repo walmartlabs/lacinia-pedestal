@@ -13,8 +13,8 @@
 ; limitations under the License.
 
 (ns ^{:added "0.14.0"} com.walmartlabs.lacinia.pedestal2
-  "A replacement for com.walmartlabs.lacinia.pedestal that is less complected, and supports
-   multiple schemas."
+  "Utilities for creating handlers, interceptors, routes, and service maps needed by a Pedestal service
+  that exposes a GraphQL API and GraphiQL IDE."
   (:require
     [clojure.string :as str]
     [cheshire.core :as cheshire]
