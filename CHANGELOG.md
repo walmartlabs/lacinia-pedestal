@@ -1,3 +1,8 @@
+## 0.14.0 -- UNRELEASED
+
+New `com.walmartlabs.lacinia.pedestal2` namespace de-complects
+configuration.
+
 ## 0.13.0 -- 13 Feb 2020
 
 The `inject-app-context-interceptor` function has moved to the new

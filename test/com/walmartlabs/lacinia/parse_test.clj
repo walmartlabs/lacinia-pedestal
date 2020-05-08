@@ -15,12 +15,11 @@
 (ns com.walmartlabs.lacinia.parse-test
   (:require
     [clojure.test :refer :all]
-    [com.walmartlabs.lacinia.pedestal :as lp]))
-
+    [com.walmartlabs.lacinia.pedestal.internal :refer [parse-content-type]]))
 
 (deftest parse-test
   (are [s r]
-    (= r (lp/parse-content-type s))
+    (= r (parse-content-type s))
 
     "application/json"
     {:content-type :application/json

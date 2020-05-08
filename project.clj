@@ -8,16 +8,16 @@
                  [com.fasterxml.jackson.core/jackson-core "2.10.2"]
                  [io.pedestal/pedestal.service "0.5.7"]
                  [io.pedestal/pedestal.jetty "0.5.7"]
-                 [org.clojure/data.json "0.2.7"]]
+                 [org.clojure/data.json "1.0.0"]]
   :profiles
   {:dev {:dependencies [[clj-http "2.3.0"]
                         [com.walmartlabs/test-reporting "0.1.0"]
                         [expound "0.8.4"]
-                        [stylefruits/gniazdo "1.1.2"
+                        [stylefruits/gniazdo "1.1.3"
                          :exclusions [org.eclipse.jetty.websocket/websocket-client]]
                         [io.aviso/logging "0.3.2"]]}}
   :jvm-opts ["-Xmx500m"]
-  :plugins [[lein-codox "0.10.3"]
+  :plugins [[lein-codox "0.10.7"]
             [test2junit "1.3.0"]
             [lein-shell "0.5.0"]]
   :shell {:dir "resources/graphiql"}
