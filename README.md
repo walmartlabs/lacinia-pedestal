@@ -22,7 +22,7 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 
 ```clojure
 ;; This example is based off of the code generated from the template
-;;  `lein new pedestal-service graphql-demo`, 
+;;  `lein new pedestal-service graphql-demo`
 
 (ns graphql-demo.server
   (:require [io.pedestal.http :as http]
