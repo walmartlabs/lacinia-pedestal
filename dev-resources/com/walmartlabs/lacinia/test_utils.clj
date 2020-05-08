@@ -47,18 +47,22 @@
   ;; Return a cleanup fn:
   #(swap! *ping-cleanups inc))
 
+(defn compile-schema
+  []
+  (-> (io/resource "sample-schema.edn")
+      slurp
+      edn/read-string
+      (util/attach-resolvers {:resolve-echo resolve-echo
+                              :resolve-fail (fn [_ _ _]
+                                              (throw (IllegalStateException. "resolver exception")))})
+      (util/attach-streamers {:stream-ping stream-ping})
+      schema/compile))
+
 (defn make-service
   "The special option :indirect-schema wraps the schema in a function; this exercises some
   logic that allows a compiled schema to actually be a function that returns the compiled schema."
   [options options-builder]
-  (let [schema (-> (io/resource "sample-schema.edn")
-                   slurp
-                   edn/read-string
-                   (util/attach-resolvers {:resolve-echo resolve-echo
-                                           :resolve-fail (fn [_ _ _]
-                                                           (throw (IllegalStateException. "resolver exception")))})
-                   (util/attach-streamers {:stream-ping stream-ping})
-                   schema/compile
+  (let [schema (-> (compile-schema)
                    (cond-> (:indirect-schema options) constantly))
         options' (merge options
                         (options-builder schema))]
@@ -192,24 +196,27 @@
           (<message!!))))
 
 (defn subscriptions-fixture
-  [f]
-  (log/debug :reason ::test-start)
-  (let [messages-ch (chan 10)
-        session (g/connect ws-uri
-                           :on-receive (fn [message-text]
-                                         (log/debug :reason ::receive :message message-text)
-                                         (put! messages-ch (cheshire/parse-string message-text true)))
-                           :on-connect (fn [_] (log/debug :reason ::connected))
-                           :on-close #(log/debug :reason ::closed :code %1 :message %2)
-                           :on-error #(log/error :reason ::unexpected-error
-                                                 :exception %))]
+  ([]
+   (subscriptions-fixture ws-uri))
+  ([uri]
+   (fn [f]
+     (log/debug :reason ::test-start :uri uri)
+     (let [messages-ch (chan 10)
+           session (g/connect uri
+                              :on-receive (fn [message-text]
+                                            (log/debug :reason ::receive :message message-text)
+                                            (put! messages-ch (cheshire/parse-string message-text true)))
+                              :on-connect (fn [_] (log/debug :reason ::connected))
+                              :on-close #(log/debug :reason ::closed :code %1 :message %2)
+                              :on-error #(log/error :reason ::unexpected-error
+                                                    :exception %))]
 
-    (binding [*session* session
-              ;; New messages channel on each test as well, to ensure failed tests don't cause
-              ;; cascading failures.
-              *messages-ch* messages-ch]
-      (try
-        (f)
-        (finally
-          (log/debug :reason ::test-end)
-          (g/close session))))))
+       (binding [*session* session
+                 ;; New messages channel on each test as well, to ensure failed tests don't cause
+                 ;; cascading failures.
+                 *messages-ch* messages-ch]
+         (try
+           (f)
+           (finally
+             (log/debug :reason ::test-end)
+             (g/close session))))))))

@@ -23,7 +23,7 @@
   (interceptor
     {:name ::body-data
      :enter (fn [context]
-              (let [{:keys [content-type]} (-> context :request internal/content-type)]
+              (let [content-type (-> context :request internal/content-type)]
                 (if (= content-type :application/json)
                   (update-in context [:request :body] slurp)
                   (assoc context :response (internal/failure-response "Must be application/json")))))}))
@@ -249,8 +249,8 @@
               asset-path default-asset-path
               port 8888}} options
         interceptors (default-interceptors compiled-schema app-context)
-        routes (into #{[api-path :post interceptors ::graphql-api]
-                       [ide-path :get (graphiql-ide-handler options) ::graphiql-ide]}
+        routes (into #{[api-path :post interceptors :route-name ::graphql-api]
+                       [ide-path :get (graphiql-ide-handler options) :route-name ::graphiql-ide]}
                      (graphiql-asset-routes asset-path))]
     (-> {:env :dev
          ::http/routes routes

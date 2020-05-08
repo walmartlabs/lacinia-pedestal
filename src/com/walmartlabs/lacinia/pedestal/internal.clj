@@ -49,7 +49,7 @@
 (defn content-type
   "Gets the content-type of a request. (without encoding)"
   [request]
-  (if-let [content-type (get-in request [:headers "content-type"])]
+  (when-let [content-type (get-in request [:headers "content-type"])]
     (:content-type (parse-content-type content-type))))
 
 (defn on-leave-json-response

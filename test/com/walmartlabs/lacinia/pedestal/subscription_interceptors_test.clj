@@ -64,7 +64,7 @@
                                           :keep-alive-ms 200}
                                          options-builder))
 
-(use-fixtures :each subscriptions-fixture)
+(use-fixtures :each (subscriptions-fixture))
 
 (deftest added-interceptor-is-invoked
   (send-init)
