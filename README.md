@@ -17,25 +17,28 @@ as [Apollo GraphQL](https://github.com/apollographql/subscriptions-transport-ws)
 ## Usage
 
 For a basic Pedestal server, simply supply a compiled Lacinia schema to
-the `com.walmartlabs.lacinia.pedestal/service-map` function to
+the `com.walmartlabs.lacinia.pedestal2/default-service` function to
 generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 
 ```clojure
 ;; This example is based off of the code generated from the template
-;;  `lein new pedestal-service graphql-demo`
+;;  `lein new pedestal-service graphql-demo`, 
 
 (ns graphql-demo.server
   (:require [io.pedestal.http :as http]
-            [com.walmartlabs.lacinia.pedestal :as lacinia]
+            [com.walmartlabs.lacinia.pedestal2 :as lp]
             [com.walmartlabs.lacinia.schema :as schema]))
 
-(def hello-schema (schema/compile
-                   {:queries {:hello
-                              ;; String is quoted here; in EDN the quotation is not required
-                              {:type 'String
-                               :resolve (constantly "world")}}}))
+(def hello-schema 
+(schema/compile
+  {:queries 
+    {:hello
+      ;; String is quoted here; in EDN the quotation is not required
+      {:type 'String
+       :resolve (constantly "world")}}}))
 
-(def service (lacinia/service-map hello-schema {:graphiql true}))
+;; Use default options:
+(def service (lp/default-service hello-schema nil))
 
 ;; This is an adapted service map, that can be started and stopped
 ;; From the REPL you can call server/start and server/stop on this service
@@ -48,23 +51,33 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
   (http/start runnable-service))
 ```
 
-Lacinia will handle GET and POST requests at the `/graphql` endpoint.
+Lacinia will handle POST requests at the `/api` endpoint:
 
 ```
-$ curl localhost:8888/graphql -X POST -H "content-type: application/graphql" -d '{ hello }'
+$ curl localhost:8888/api -X POST -H "content-type: application/json" -d '{"query": "{ hello }"}'
 {"data":{"hello":"world"}}
 ```
+
+You can also access the GraphQL IDE at `http://localhost:8888/ide`.
 
 ## Development Mode
 
 When developing an application, it is desirable to be able to change the schema
 without restarting.
 Lacinia-Pedestal supports this: in the above example, the schema passed to
-`pedestal-service` could be a _function_ that returns the compiled schema.
+`default-service` could be a _function_ that returns the compiled schema.
 It could even be a Var containing the function that returns the compiled schema.
 
 In this way, the Pedestal stack continues to run, but each request rebuilds
 the compiled schema based on the latest code you've loaded into the REPL.
+
+## Beyond default-server
+
+`default-server` is intentionally limited, and exists only to help you get started.
+Once you start adding anything more complicated, such as authentication, or supporting
+multiple schemas (or schema versions) at different paths, 
+you will want to simply create your routes and servers in your own code,
+using the building-blocks provided by `com.walmartlabs.lacinia.pedestal2`.
 
 ### GraphiQL
 
@@ -73,7 +86,7 @@ version `0.12.0`.
 
 ## License
 
-Copyright © 2017 Walmart
+Copyright © 2017-2020 Walmart
 
 Distributed under the Apache Software License 2.0.
 

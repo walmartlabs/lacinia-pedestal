@@ -234,6 +234,9 @@
   The defaults put the GraphQL API at `/api` and the GraphiQL IDE at `/ide` (and subscriptions endpoint
   at `/ws`).
 
+  Unlike earlier versions of lacinia-pedestal, only POST is supported, and the content type must
+  be `application/json`.
+
   compiled-schema is either the schema or a function returning the schema.
 
   options is a map combining options needed by [[graphiql-ide-route]] and [[listener-fn-factory]].
