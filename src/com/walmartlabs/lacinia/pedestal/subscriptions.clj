@@ -445,7 +445,7 @@
     derived from [[default-subscription-interceptors]].
 
   :init-context
-  : A function returning the base context for the subscription-interceptor]s to operate on.
+  : A function returning the base context for the subscription-interceptors to operate on.
     The function takes the following arguments:
      - the minimal viable context for operation
      - the ServletUpgradeRequest that initiated this connection
