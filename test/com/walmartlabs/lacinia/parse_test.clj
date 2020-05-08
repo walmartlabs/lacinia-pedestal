@@ -14,7 +14,7 @@
 
 (ns com.walmartlabs.lacinia.parse-test
   (:require
-    [clojure.test :refer :all]
+    [clojure.test :refer [deftest are]]
     [com.walmartlabs.lacinia.pedestal.internal :refer [parse-content-type]]))
 
 (deftest parse-test

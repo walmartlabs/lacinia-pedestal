@@ -156,7 +156,9 @@
    query-executor-handler])
 
 (defn graphiql-asset-routes
-  "Returns a set of routes for retrieving GraphiQL assets (CSS and JS)."
+  "Returns a set of routes for retrieving GraphiQL assets (CSS and JS).
+
+  These routes are needed for the GraphiQL IDE to operate."
   [asset-path]
   (let [asset-path' (str asset-path "/*path")
         asset-get-handler (fn [request]
@@ -169,7 +171,6 @@
       [asset-path' :head asset-head-handler :route-name ::graphiql-head-assets]}))
 
 (def ^:private default-api-path "/api")
-(def ^:private default-ide-path "/ide")
 (def ^:private default-asset-path "/assets/graphiql")
 (def ^:private default-subscriptions-path "/ws")
 
@@ -182,9 +183,6 @@
 
   :api-path (default: \"/api\")
   : Path at which GraphQL requests are serviced.
-
-  :ide-path (default: \"/ide\")
-  : Path from which the GraphiQL IDE can be loaded.
 
   :asset-path (default: \"/assets/graphiql\")
   : Path from which the JavaScript and CSS assets may be loaded.
@@ -203,12 +201,10 @@
     and becomes the connectionParams passed in the initial subscription web service call;
     this can be used to identify and authenticate subscription requests."
   [options]
-  (let [{:keys [api-path ide-path asset-path subscriptions-path ide-headers ide-connection-params route-name]
-         :or {ide-path default-ide-path
-              api-path default-api-path
+  (let [{:keys [api-path asset-path subscriptions-path ide-headers ide-connection-params]
+         :or {api-path default-api-path
               asset-path default-asset-path
-              subscriptions-path default-subscriptions-path
-              route-name ::graphiql-ide}} options
+              subscriptions-path default-subscriptions-path}} options
         response (internal/graphiql-response
                    api-path subscriptions-path asset-path ide-headers ide-connection-params)]
     (fn [_]
@@ -219,9 +215,13 @@
 
   As elsewhere, the compiled-schema may be a function that returns the compiled schema.
 
-  The subscription options are documented at [[listener-fn-factory]]."
-  [service-map subscriptions-path compiled-schema subscription-options]
-  (internal/add-subscriptions-support service-map compiled-schema subscriptions-path subscription-options))
+  The subscription options are documented at [[listener-fn-factory]], with the addition
+  of :subscriptions-path (defaulting to \"/ws\")."
+  [service-map compiled-schema subscription-options]
+  (internal/add-subscriptions-support service-map
+                                      compiled-schema
+                                      (:subscriptions-path subscription-options default-subscriptions-path)
+                                      subscription-options))
 
 (defn enable-graphiql
   "Disables secure headers in the service map, a prerequisite for GraphiQL requests to operate."
@@ -234,7 +234,7 @@
   The defaults put the GraphQL API at `/api` and the GraphiQL IDE at `/ide` (and subscriptions endpoint
   at `/ws`).
 
-  compiled-schema is either the schema, or a function returning the schema.
+  compiled-schema is either the schema or a function returning the schema.
 
   options is a map combining options needed by [[graphiql-ide-route]] and [[listener-fn-factory]].
 
@@ -243,11 +243,10 @@
   This is useful for initial development and exploration, but applications with any more needs should construct
   their service map directly."
   [compiled-schema options]
-  (let [{:keys [api-path ide-path asset-path subscriptions-path app-context port]
+  (let [{:keys [api-path ide-path asset-path app-context port]
          :or {api-path default-api-path
-              ide-path default-ide-path
+              ide-path "/ide"
               asset-path default-asset-path
-              subscriptions-path default-subscriptions-path
               port 8888}} options
         interceptors (default-interceptors compiled-schema app-context)
         routes (into #{[api-path :post interceptors ::graphql-api]
@@ -258,5 +257,5 @@
          ::http/port port
          ::http/type :jetty
          ::http/join? false}
-        (enable-subscriptions subscriptions-path compiled-schema options)
-        (enable-graphiql))))
+        enable-graphiql
+        (enable-subscriptions compiled-schema options))))

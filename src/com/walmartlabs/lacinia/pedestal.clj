@@ -357,9 +357,8 @@
 
   Deprecated: Use the [[com.walmartlabs.lacinia.pedestal2]] namespace instead."
   [compiled-schema options]
-  (let [{:keys [path ide-path asset-path graphiql]
-         :or {path default-path
-              asset-path default-asset-path
+  (let [{:keys [ide-path asset-path graphiql]
+         :or {asset-path default-asset-path
               ide-path "/"}} options
         interceptors (or (:interceptors options)
                          (default-interceptors compiled-schema options))
