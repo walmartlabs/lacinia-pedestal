@@ -9,6 +9,9 @@ as you see fit; the prior approach had become overrun with confusing options.
 These changes make it far easier to support multiple schemas, or versions of schemas,
 on different endpoints within the same server.
 
+This version also includes initial support for server-stored queries (SSQs) in the
+`com.walmartlabs.lacinia.pedestal.ssq` namespace.
+
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/13?closed=1)
 
 ## 0.13.0 -- 13 Feb 2020
