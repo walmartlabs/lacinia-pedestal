@@ -31,7 +31,7 @@
     [io.pedestal.http :as http]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]))
 
-(def ^:private parsed-query-key-path [:request :parsed-lacinia-query])
+(def parsed-query-key-path [:request :parsed-lacinia-query])
 
 (defn parse-content-type
   "Parse `s` as an RFC 2616 media type."
@@ -78,19 +78,28 @@
   [exception]
   {:errors [(util/as-error-map exception)]})
 
+(defn as-failure-response
+  [exception]
+  (-> exception
+      as-errors
+      failure-response))
+
+(defn parse-query
+  [compiled-schema graphql-query graphql-operation-name]
+  (let [actual-schema (if (map? compiled-schema)
+                        compiled-schema
+                        (compiled-schema))]
+    (parser/parse-query actual-schema graphql-query graphql-operation-name)))
+
 (defn on-enter-query-parser
   [compiled-schema]
   (fn [context]
-    (let [{:keys [graphql-query graphql-operation-name]} (:request context)]
-      (try
-        (let [actual-schema (if (map? compiled-schema)
-                              compiled-schema
-                              (compiled-schema))
-              parsed-query (parser/parse-query actual-schema graphql-query graphql-operation-name)]
-          (assoc-in context parsed-query-key-path parsed-query))
-        (catch Exception e
-          (assoc context :response
-                         (failure-response (as-errors e))))))))
+    (try
+      (let [{:keys [graphql-query graphql-operation-name]} (:request context)
+            parsed-query (parse-query compiled-schema graphql-query graphql-operation-name)]
+        (assoc-in context parsed-query-key-path parsed-query))
+      (catch Exception e
+        (assoc context :response (as-failure-response e))))))
 
 (defn on-enter-prepare-query
   [context]

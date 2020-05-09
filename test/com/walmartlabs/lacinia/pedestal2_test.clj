@@ -20,15 +20,11 @@
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [com.walmartlabs.lacinia.pedestal2 :as p2]
-    [com.walmartlabs.lacinia.test-utils :as tu]
+    [com.walmartlabs.lacinia.test-utils :as tu :refer [prune send-post-request]]
     [io.pedestal.http :as http]
     [cheshire.core :as cheshire]
     [clj-http.client :as client]
     [com.walmartlabs.test-reporting :refer [reporting]]))
-
-(defn prune
-  [response]
-  (select-keys response [:status :body]))
 
 (defn server-fixture
   [f]
@@ -46,25 +42,8 @@
 (use-fixtures :once server-fixture)
 (use-fixtures :each (tu/subscriptions-fixture "ws://localhost:8888/ws"))
 
-(defn send-request
-  "Sends a GraphQL request to the server and returns the response."
-  ([query]
-   (send-request query nil))
-  ([query vars]
-   (-> {:method :post
-        :url "http://localhost:8888/api"
-        :headers {"Content-Type" "application/json"}
-        :throw-exceptions false
-        :body (cheshire/generate-string {:query query
-                                         :variables vars})}
-       client/request
-       (update :body #(try
-                        (cheshire/parse-string % true)
-                        (catch Exception t
-                          %))))))
-
 (deftest basic-request
-  (let [response (send-request "{ echo(value: \"hello\") { value method }}")]
+  (let [response (send-post-request "{ echo(value: \"hello\") { value method }}")]
     (reporting response
                (is (= {:status 200
                        :body {:data {:echo {:method "post"
@@ -75,7 +54,7 @@
                       (:body response))))))
 
 (deftest missing-query
-  (let [response (send-request nil)]
+  (let [response (send-post-request nil)]
     (reporting response
                (is (= {:body "JSON 'query' key is missing or blank"
                        :status 400}

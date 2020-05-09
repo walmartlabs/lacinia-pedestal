@@ -85,6 +85,26 @@
            (http/stop service)))))))
 
 
+(defn send-post-request
+  "Sends a GraphQL request to the server and returns the response."
+  ([query]
+   (send-post-request query nil))
+  ([query opts]
+   (let [{:keys [path vars operation]
+          :or {path "/api"}} opts]
+     (-> {:method :post
+          :url (str "http://localhost:8888" path)
+          :headers {"Content-Type" "application/json"}
+          :throw-exceptions false
+          :body (cheshire/generate-string {:query query
+                                           :variables vars
+                                           :operationName operation})}
+         client/request
+         (update :body #(try
+                          (cheshire/parse-string % true)
+                          (catch Exception _
+                            %)))))))
+
 (defn get-url
   [path]
   (client/get (str "http://localhost:8888" path) {:throw-exceptions false}))
@@ -220,3 +240,7 @@
            (finally
              (log/debug :reason ::test-end)
              (g/close session))))))))
+
+(defn prune
+  [response]
+  (select-keys response [:status :body]))
