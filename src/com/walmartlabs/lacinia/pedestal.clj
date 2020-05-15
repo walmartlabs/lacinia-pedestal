@@ -86,6 +86,8 @@
 
   relative-position may be :before, :after, or :replace.
 
+  For :replace, the new interceptor may be nil, in which case the interceptor is removed.
+
   The named interceptor must exist, or an exception is thrown."
   {:added "0.7.0"}
   [interceptors new-interceptor relative-position interceptor-name]
@@ -105,7 +107,9 @@
                                      (conj result interceptor new-interceptor)
 
                                      :replace
-                                     (conj result new-interceptor)))))
+                                     (if new-interceptor
+                                       (conj result new-interceptor)
+                                       result)))))
                              []
                              interceptors)]
     (when-not @*found?
@@ -127,7 +131,7 @@
 (s/fdef inject
   :ret ::interceptors
   :args (s/cat :interceptors ::interceptors
-               :new-interceptor ::interceptor
+               :new-interceptor (s/nilable ::interceptor)
                :relative-position #{:before :after :replace}
                :interceptor-name keyword?))
 
