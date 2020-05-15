@@ -27,7 +27,7 @@
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}))
-(use-fixtures :each subscriptions-fixture)
+(use-fixtures :each (subscriptions-fixture))
 
 (deftest connect-with-ws
   (send-init)
