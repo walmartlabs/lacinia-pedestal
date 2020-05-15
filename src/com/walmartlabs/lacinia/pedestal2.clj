@@ -122,9 +122,6 @@
   "The handler at the end of interceptor chain, invokes Lacinia to
   execute the query and return the main response.
 
-  The handler adds the Ring request map as the :request key to the provided
-  app-context before executing the query.
-
   This comes last in the interceptor chain."
   (interceptor
     {:name ::query-executor
