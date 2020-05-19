@@ -12,7 +12,7 @@
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
 
-(ns com.walmartlabs.lacinia.pedestal-error-test
+(ns com.walmartlabs.lacinia.pedestal-async-error-test
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [com.walmartlabs.lacinia.pedestal :refer [default-interceptors inject] :as lp]
@@ -25,36 +25,25 @@
 
 (stest/instrument)
 
-(def prior-error-proof (atom nil))
-(def post-error-proof (atom nil))
+(def error-proof (atom nil))
 
 (use-fixtures :once (test-server-fixture {}
                                          (fn [schema]
-                                           {:interceptors (-> (default-interceptors schema {})
-                                                              ;; Should not be called
-                                                              (inject (error-proof-interceptor prior-error-proof)
-                                                                      :before ::lp/error-response)
+                                           {:interceptors (-> (default-interceptors schema {:async true})
                                                               ;; Should be called
-                                                              (inject (error-proof-interceptor post-error-proof)
+                                                              (inject (error-proof-interceptor error-proof)
                                                                       :after  ::lp/error-response))})))
 
 (deftest calls-post-error-interceptor
-  (reset! prior-error-proof nil)
-  (reset! post-error-proof nil)
+  (reset! error-proof nil)
   (send-request "{ fail }")
-  (let [[ctx ex] @post-error-proof]
-    (is (= "java.lang.IllegalStateException in Interceptor :com.walmartlabs.lacinia.pedestal/query-executor - resolver exception"
+  (let [[ctx ex] @error-proof]
+    (is (= "java.lang.IllegalStateException in Interceptor :com.walmartlabs.lacinia.pedestal/async-query-executor - resolver exception"
            (ex-message ex)))
     (is (= {:exception-type :java.lang.IllegalStateException
             :execution-id   (::chain/execution-id ctx)
-            :interceptor    ::lp/query-executor
+            :interceptor    ::lp/async-query-executor
             :stage          :enter}
            (dissoc (ex-data ex) :exception)))
     (is (instance? Exception
                    (:exception (ex-data ex))))))
-
-(deftest skips-prior-error-interceptor
-  (reset! prior-error-proof nil)
-  (reset! post-error-proof nil)
-  (send-request "{ fail }")
-  (is (nil? @prior-error-proof)))

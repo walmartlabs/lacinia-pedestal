@@ -15,7 +15,7 @@
 (ns com.walmartlabs.lacinia.pedestal
   "Defines Pedestal interceptors and supporting code."
   (:require
-    [clojure.core.async :refer [go chan put!]]
+    [clojure.core.async :refer [chan put!]]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
@@ -30,6 +30,7 @@
     [com.walmartlabs.lacinia.constants :as constants]
     [com.walmartlabs.lacinia.internal-utils :refer [cond-let]]
     [io.pedestal.http.jetty.websockets :as ws]
+    [io.pedestal.interceptor.chain :as chain]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
     [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors]
     [clojure.spec.alpha :as s]
@@ -324,18 +325,45 @@
                                   (map remove-status errors))))
                   context)))}))
 
+(defn ^:private apply-exception-to-context
+  "Applies exception to context in the same way Pedestal would if thrown from a synchronous interceptor.
+
+  Based on the (private) `io.pedestal.interceptor.chain/throwable->ex-info` function of pedestal"
+  [{::chain/keys [execution-id] :as context} exception interceptor-name stage]
+  (let [exception-str (pr-str (type exception))
+        msg (str exception-str " in Interceptor " interceptor-name " - " (.getMessage exception))
+        wrapped-exception (ex-info msg
+                                   (merge {:execution-id   execution-id
+                                           :stage          stage
+                                           :interceptor    interceptor-name
+                                           :exception-type (keyword exception-str)
+                                           :exception      exception}
+                                          (ex-data exception))
+                                   exception)]
+    (assoc context ::chain/error wrapped-exception)))
+
 (defn ^:private apply-result-to-context
-  [context result]
-  ;; When :data is missing, then a failure occurred during parsing or preparing
-  ;; the request, which indicates a bad request, rather than some failure
-  ;; during execution.
-  (let [status (if (contains? result :data)
-                 200
-                 400)
-        response {:status status
-                  :headers {}
-                  :body result}]
-    (assoc context :response response)))
+  [context result interceptor-name stage]
+  ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
+  ;; maybe an exception thrown during initial processing of the query.
+  (if (instance? Throwable result)
+    (do
+      (log/error :event :execution-exception
+                :ex result)
+      ;; Put error in the context map for error interceptors to consume
+      ;; If unhandled, will end up in [[error-response-interceptor]]
+      (apply-exception-to-context context result interceptor-name stage))
+
+    ;; When :data is missing, then a failure occurred during parsing or preparing
+    ;; the request, which indicates a bad request, rather than some failure
+    ;; during execution.
+    (let [status (if (contains? result :data)
+                   200
+                   400)
+          response {:status status
+                    :headers {}
+                    :body result}]
+      (assoc context :response response))))
 
 (defn ^:private execute-query
   [context]
@@ -362,16 +390,7 @@
                 (resolve/on-deliver! resolver-result
                                      (fn [result]
                                        (deliver *result result)))
-                (let [result @*result]
-                  ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
-                  ;; maybe an exception thrown during initial processing of the query.
-                  (if (instance? Throwable result)
-                    (do (log/error :event :execution-exception
-                                   :ex result)
-                        ;; Raise the exception again for another interceptor to handle.
-                        ;; If unhandled, eventually ends up in error-response-interceptor
-                        (throw result))
-                    (apply-result-to-context context result)))))}))
+                (apply-result-to-context context @*result ::query-executor :enter)))}))
 
 (def ^{:added "0.2.0"} async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
@@ -380,19 +399,13 @@
     {:name ::async-query-executor
      :enter (fn [context]
               (let [resolver-result (execute-query context)
-                    *result         (promise)]
+                    ch (chan 1)]
                 (resolve/on-deliver! resolver-result
                                      (fn [result]
-                                       (deliver *result result)))
-                (go (let [result @*result]
-                      ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
-                      ;; maybe an exception thrown during initial processing of the query.
-                      (if (instance? Throwable result)
-                        (do (log/error :event :execution-exception
-                                       :ex result)
-                            ;; TODO: Async exceptions should also go into the error interceptor
-                            (assoc context :response (failure-response 500 (as-errors result))))
-                        (apply-result-to-context context result))))))}))
+                                       (let [new-context (apply-result-to-context context result ::async-query-executor :enter)]
+                                         (put! ch new-context))))
+
+                ch))}))
 
 (def ^{:added "0.3.0"} disallow-subscriptions-interceptor
   "Handles requests for subscriptions.  Subscription requests must only be sent to the subscriptions web-socket, not the
