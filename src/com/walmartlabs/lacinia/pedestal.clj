@@ -13,29 +13,20 @@
 ; limitations under the License.
 
 (ns com.walmartlabs.lacinia.pedestal
-  "Defines Pedestal interceptors and supporting code."
+  "Defines Pedestal interceptors and supporting code.
+
+  Many functions here were deprecated in 0.14.0, with replacements in the
+  [[com.walmartlabs.lacinia.pedestal2]] namespace."
   (:require
-    [clojure.core.async :refer [chan put!]]
     [cheshire.core :as cheshire]
     [io.pedestal.interceptor :refer [interceptor]]
     [clojure.string :as str]
-    [clojure.java.io :as io]
     [io.pedestal.http :as http]
     [ring.util.response :as response]
-    [com.walmartlabs.lacinia.resolve :as resolve]
-    [com.walmartlabs.lacinia.parser :as parser]
-    [com.walmartlabs.lacinia.util :as util]
-    [com.walmartlabs.lacinia.validator :as validator]
-    [com.walmartlabs.lacinia.executor :as executor]
-    [com.walmartlabs.lacinia.constants :as constants]
-    [com.walmartlabs.lacinia.internal-utils :refer [cond-let]]
-    [io.pedestal.http.jetty.websockets :as ws]
-    [io.pedestal.interceptor.chain :as chain]
-    [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
     [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors]
     [clojure.spec.alpha :as s]
     [com.walmartlabs.lacinia.pedestal.spec :as spec]
-    [io.pedestal.log :as log]))
+    [com.walmartlabs.lacinia.pedestal.internal :as internal]))
 
 (when (-> *clojure-version* :minor (< 9))
   (require '[clojure.future :refer [boolean? pos-int?]]))
@@ -46,46 +37,13 @@
 
 (def ^:private default-subscriptions-path "/graphql-ws")
 
-(def ^:private parsed-query-key-path [:request :parsed-lacinia-query])
-
-(defn ^:private failure-response
-  "Generates a bad request Ring response."
-  ([body]
-   (failure-response 400 body))
-  ([status body]
-   {:status status
-    :headers {}
-    :body body}))
-
-(defn ^:private message-as-errors
-  [message]
-  {:errors [{:message message}]})
-
-(defn ^:no-doc parse-content-type
-  "Parse `s` as an RFC 2616 media type."
-  [s]
-  (if-let [[_ type _ _ raw-params] (re-matches #"\s*(([^/]+)/([^ ;]+))\s*(\s*;.*)?" (str s))]
-    {:content-type (keyword type)
-     :content-type-params
-     (->> (str/split (str raw-params) #"\s*;\s*")
-          (keep identity)
-          (remove str/blank?)
-          (map #(str/split % #"="))
-          (mapcat (fn [[k v]] [(keyword (str/lower-case k)) (str/trim v)]))
-          (apply hash-map))}))
-
-
-(defn ^:private content-type
-  "Gets the content-type of a request. (without encoding)"
-  [request]
-  (if-let [content-type (get-in request [:headers "content-type"])]
-    (:content-type (parse-content-type content-type))))
-
 (defn inject
   "Locates the named interceptor in the list of interceptors and adds (or replaces)
   the new interceptor to the list.
 
   relative-position may be :before, :after, or :replace.
+
+  For :replace, the new interceptor may be nil, in which case the interceptor is removed.
 
   The named interceptor must exist, or an exception is thrown."
   {:added "0.7.0"}
@@ -106,7 +64,9 @@
                                      (conj result interceptor new-interceptor)
 
                                      :replace
-                                     (conj result new-interceptor)))))
+                                     (if new-interceptor
+                                       (conj result new-interceptor)
+                                       result)))))
                              []
                              interceptors)]
     (when-not @*found?
@@ -126,25 +86,25 @@
 (s/def ::name (s/nilable keyword?))
 
 (s/fdef inject
-  :ret ::interceptors
-  :args (s/cat :interceptors ::interceptors
-               :new-interceptor ::interceptor
-               :relative-position #{:before :after :replace}
-               :interceptor-name keyword?))
+        :ret ::interceptors
+        :args (s/cat :interceptors ::interceptors
+                     :new-interceptor (s/nilable ::interceptor)
+                     :relative-position #{:before :after :replace}
+                     :interceptor-name keyword?))
 
 (defmulti extract-query
-  "Based on the content type of the query, adds up to three keys to the request:
+          "Based on the content type of the query, adds up to three keys to the request:
 
-  :graphql-query
-  : The query itself, as a string (parsing the query happens later).
+          :graphql-query
+          : The query itself, as a string (parsing the query happens later).
 
-  :graphql-vars
-  : A map of variables used when executing the query.
+          :graphql-vars
+          : A map of variables used when executing the query.
 
-  :graphql-operation-name
-  : The specific operation requested (for queries that define multiple named operations)."
-  (fn [request]
-    (content-type request)))
+          :graphql-operation-name
+          : The specific operation requested (for queries that define multiple named operations)."
+          (fn [request]
+            (internal/content-type request)))
 
 (defmethod extract-query :application/json [request]
   (let [body (cheshire/parse-string (:body request) true)
@@ -169,29 +129,38 @@
     (when query
       {:graphql-query query})))
 
-
-(def json-response-interceptor
+(def ^{:deprecated "0.14.0"} json-response-interceptor
   "An interceptor that sees if the response body is a map and, if so,
-  converts the map to JSON and sets the response Content-Type header."
+  converts the map to JSON and sets the response Content-Type header.
+
+  Deprecated: Use [[pedestal2/json-response-interceptor]] instead."
   (interceptor
     {:name ::json-response
-     :leave (fn [context]
-              (let [body (get-in context [:response :body])]
-                (if (map? body)
-                  (-> context
-                      (assoc-in [:response :headers "Content-Type"] "application/json")
-                      (update-in [:response :body] cheshire/generate-string))
-                  context)))}))
+     :leave internal/on-leave-json-response}))
 
-(def body-data-interceptor
-  "Converts the POSTed body from a input stream into a string."
+(def ^{:added "0.14.0" :deprecated "0.14.0"} error-response-interceptor
+  "Returns an internal server error response when an exception was not handled in prior interceptors.
+
+   This must come after [[json-response-interceptor]], as the error still needs to be converted to json.
+
+   Deprecated: Use [[pedestal2/error-response-interceptor]] instead."
+  (interceptor
+   {:name ::error-response
+    :error internal/on-error-error-response}))
+
+(def ^{:deprecated "0.14.0"} body-data-interceptor
+  "Converts the POSTed body from a input stream into a string.
+
+  Deprecated: Use [[pedetal2/body-data-interceptor]] instead."
   (interceptor
     {:name ::body-data
      :enter (fn [context]
               (update-in context [:request :body] slurp))}))
 
-(def graphql-data-interceptor
-  "Extracts the raw data (query and variables) from the request using [[extract-query]]."
+(def ^{:deprecated "0.14.0"} graphql-data-interceptor
+  "Extracts the raw data (query and variables) from the request using [[extract-query]].
+
+  Deprecated: Use [[pedestal2/graphql-data-interceptor]] instead."
   (interceptor
     {:name ::graphql-data
      :enter (fn [context]
@@ -199,10 +168,10 @@
                 (let [request (:request context)
                       q (extract-query request)]
                   (assoc context :request
-                         (merge request q)))
+                                 (merge request q)))
                 (catch Exception e
                   (assoc context :response
-                         (failure-response {:message (str "Invalid request: " (.getMessage e))})))))}))
+                                 (internal/failure-response {:message (str "Invalid request: " (.getMessage e))})))))}))
 
 (defn ^:private query-not-found-error
   [request]
@@ -213,47 +182,23 @@
                   (str/blank? body) "Request body is empty."
                   (::known-content-type request) "GraphQL query not supplied in request body."
                   :else "Request content type must be application/graphql or application/json.")]
-    (message-as-errors message)))
+    (internal/message-as-errors message)))
 
-(def missing-query-interceptor
+(def ^{:deprecated "0.14.0"} missing-query-interceptor
   "Rejects the request when there's no GraphQL query in the request map.
 
-   This must come after [[graphql-data-interceptor]], which is responsible for adding the query to the request map."
+   This must come after [[graphql-data-interceptor]], which is responsible for adding the query to the request map.
+
+   Deprecated: Use [[pedestal2/missing-query-interceptor]] instead."
   (interceptor
     {:name ::missing-query
      :enter (fn [context]
               (if (-> context :request :graphql-query str/blank?)
                 (assoc context :response
-                       (failure-response (query-not-found-error (:request context))))
+                               (internal/failure-response (query-not-found-error (:request context))))
                 context))}))
 
-(defn ^:private as-errors
-  [exception]
-  {:errors [(util/as-error-map exception)]})
-
-(def error-response-interceptor
-  "Returns an internal server error response when an exception was not handled in prior interceptors.
-
-   This must come after [[json-response-interceptor]], as the error still needs to be converted to json."
-  (interceptor
-   {:name ::error-response
-    :error (fn [context ex]
-             (let [{:keys [exception]} (ex-data ex)]
-               (assoc context :response (failure-response 500 (as-errors exception)))))}))
-
-(defn ^:private parse-query-document
-  [context compiled-schema q operation-name]
-  (try
-    (let [actual-schema (if (map? compiled-schema)
-                          compiled-schema
-                          (compiled-schema))
-          parsed-query (parser/parse-query actual-schema q operation-name)]
-      (assoc-in context parsed-query-key-path parsed-query))
-    (catch Exception e
-      (assoc context :response
-             (failure-response (as-errors e))))))
-
-(defn query-parser-interceptor
+(defn ^{:deprecated "0.14.0"} query-parser-interceptor
   "Given an schema, returns an interceptor that parses the query.
 
    `compiled-schema` may be the actual compiled schema, or a no-arguments function
@@ -264,158 +209,68 @@
    Adds a new request key, :parsed-lacinia-query, containing the parsed query.
 
    Before execution, [[prepare-query-interceptor]] injects query variables and performs
-   validations."
+   validations.
+
+   Deprecated: Use [[pedestal2/query-parser-interceptor]] instead."
   [compiled-schema]
   (interceptor
     {:name ::query-parser
-     :enter (fn [context]
-              (let [{:keys [graphql-query graphql-operation-name]} (:request context)]
-                (parse-query-document context
-                                      compiled-schema
-                                      graphql-query
-                                      graphql-operation-name)))}))
+     :enter (internal/on-enter-query-parser compiled-schema)}))
 
-(def ^{:added "0.10.0"} prepare-query-interceptor
+(def ^{:added "0.10.0"
+       :deprecated "0.14.0"} prepare-query-interceptor
   "Prepares (with query variables) and validates the query, previously parsed
   by [[query-parser-interceptor]].
 
-  In earlier releases of lacinia-pedestal, this logic was combined with [[query-parser-interceptor]]."
+  In earlier releases of lacinia-pedestal, this logic was combined with [[query-parser-interceptor]].
+
+  Deprected: Use [[pedestal2/prepare-query-interceptor]] instead."
   (interceptor
     {:name ::prepare-query
-     :enter (fn [context]
-              (try
-                (let [{parsed-query :parsed-lacinia-query
-                       vars :graphql-vars} (:request context)
-                      prepared (parser/prepare-with-query-variables parsed-query vars)
-                      compiled-schema (get prepared constants/schema-key)
-                      errors (validator/validate compiled-schema prepared {})]
-                  (if (seq errors)
-                    (assoc context :response (failure-response {:errors errors}))
-                    (assoc-in context parsed-query-key-path prepared)))
-                (catch Exception e
-                  (assoc context :response
-                         (failure-response (as-errors e))))))}))
+     :enter internal/on-enter-prepare-query}))
 
-(defn ^:private remove-status
-  "Remove the :status key from the :extensions map; remove the :extensions key if that is now empty."
-  [error-map]
-  (if-not (contains? error-map :extensions)
-    error-map
-    (let [error-map' (update error-map :extensions dissoc :status)]
-      (if (-> error-map' :extensions seq)
-        error-map'
-        (dissoc error-map' :extensions)))))
-
-(def status-conversion-interceptor
+(def ^{:deprecated "0.14.0"} status-conversion-interceptor
   "Checks to see if any error map in the :errors key of the response
   contains a :status value (under it's :extensions key).
   If so, the maximum status value of such errors is found and used as the status of the overall response, and the
-  :status key is dissoc'ed from all errors."
+  :status key is dissoc'ed from all errors.
+
+  Deprecated: use [[pedestal2/status-conversion-interceptor]]."
   (interceptor
     {:name ::status-conversion
-     :leave (fn [context]
-              (let [response (:response context)
-                    errors (get-in response [:body :errors])
-                    statuses (keep #(-> % :extensions :status) errors)]
-                (if (seq statuses)
-                  (let [max-status (reduce max (:status response) statuses)]
-                    (-> context
-                        (assoc-in [:response :status] max-status)
-                        (assoc-in [:response :body :errors]
-                                  (map remove-status errors))))
-                  context)))}))
+     :leave internal/on-leave-status-conversion}))
 
-(defn ^:private apply-exception-to-context
-  "Applies exception to context in the same way Pedestal would if thrown from a synchronous interceptor.
-
-  Based on the (private) `io.pedestal.interceptor.chain/throwable->ex-info` function of pedestal"
-  [{::chain/keys [execution-id] :as context} exception interceptor-name stage]
-  (let [exception-str (pr-str (type exception))
-        msg (str exception-str " in Interceptor " interceptor-name " - " (.getMessage exception))
-        wrapped-exception (ex-info msg
-                                   (merge {:execution-id   execution-id
-                                           :stage          stage
-                                           :interceptor    interceptor-name
-                                           :exception-type (keyword exception-str)
-                                           :exception      exception}
-                                          (ex-data exception))
-                                   exception)]
-    (assoc context ::chain/error wrapped-exception)))
-
-(defn ^:private apply-result-to-context
-  [context result interceptor-name stage]
-  ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
-  ;; maybe an exception thrown during initial processing of the query.
-  (if (instance? Throwable result)
-    (do
-      (log/error :event :execution-exception
-                :ex result)
-      ;; Put error in the context map for error interceptors to consume
-      ;; If unhandled, will end up in [[error-response-interceptor]]
-      (apply-exception-to-context context result interceptor-name stage))
-
-    ;; When :data is missing, then a failure occurred during parsing or preparing
-    ;; the request, which indicates a bad request, rather than some failure
-    ;; during execution.
-    (let [status (if (contains? result :data)
-                   200
-                   400)
-          response {:status status
-                    :headers {}
-                    :body result}]
-      (assoc context :response response))))
-
-(defn ^:private execute-query
-  [context]
-  (let [request (:request context)
-        {q :parsed-lacinia-query
-         app-context :lacinia-app-context} request]
-    (executor/execute-query (assoc app-context
-                                   constants/parsed-query-key q))))
-
-(def query-executor-handler
+(def ^{:deprecated "0.14.0"} query-executor-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
   execute the query and return the main response.
 
-  The handler adds the Ring request map as the :request key to the provided
-  app-context before executing the query.
-
   This comes after [[query-parser-interceptor]], [[inject-app-context-interceptor]],
-  and [[status-conversion-interceptor]] in the interceptor chain."
+  and [[status-conversion-interceptor]] in the interceptor chain.
+
+  Deprecated: Use [[pedestal2/query-executor-handler]] instead."
   (interceptor
     {:name ::query-executor
-     :enter (fn [context]
-              (let [resolver-result (execute-query context)
-                    *result (promise)]
-                (resolve/on-deliver! resolver-result
-                                     (fn [result]
-                                       (deliver *result result)))
-                (apply-result-to-context context @*result ::query-executor :enter)))}))
+     :enter (internal/on-enter-query-excecutor ::query-executor :enter)}))
 
-(def ^{:added "0.2.0"} async-query-executor-handler
+(def ^{:added "0.2.0"
+       :deprecated "0.14.0"} async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
-  updated context."
+  updated context.
+
+  Deprecated: Use [[pedestal2/async-query-executor-handler]] instead."
   (interceptor
     {:name ::async-query-executor
-     :enter (fn [context]
-              (let [resolver-result (execute-query context)
-                    ch (chan 1)]
-                (resolve/on-deliver! resolver-result
-                                     (fn [result]
-                                       (let [new-context (apply-result-to-context context result ::async-query-executor :enter)]
-                                         (put! ch new-context))))
+     :enter (internal/on-enter-async-query-executor ::async-query-executor :enter)}))
 
-                ch))}))
-
-(def ^{:added "0.3.0"} disallow-subscriptions-interceptor
+(def ^{:added "0.3.0"
+       :deprecated "0.14.0"} disallow-subscriptions-interceptor
   "Handles requests for subscriptions.  Subscription requests must only be sent to the subscriptions web-socket, not the
-  general query endpoint, so any subscription request received in this pipeline is a bad request."
+  general query endpoint, so any subscription request received in this pipeline is a bad request.
+
+  Deprecated: Use [[pedestal2/disallow-subscriptions-interceptor]] instead."
   (interceptor
     {:name ::disallow-subscriptions
-     :enter (fn [context]
-              (if (-> context :request :parsed-lacinia-query parser/operations :type (= :subscription))
-                (assoc context :response (failure-response (message-as-errors "Subscription queries must be processed by the WebSockets endpoint.")))
-                context))}))
+     :enter internal/on-enter-disallow-subscriptions}))
 
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
@@ -435,8 +290,11 @@
 
   Often, this list of interceptors is augmented by calls to [[inject]].
 
-  Options are as defined by [[service-map]]."
-  {:added "0.7.0"}
+  Options are as defined by [[service-map]].
+
+  Deprecated: Use [[pedestal2/default-interceptors]] instead."
+  {:added "0.7.0"
+   :deprecated "0.14.0"}
   [compiled-schema options]
   [json-response-interceptor
    error-response-interceptor
@@ -459,8 +317,11 @@
   Options:
 
   :get-enabled (default true)
-  : If true, then a route for the GET method is included."
-  {:added "0.7.0"}
+  : If true, then a route for the GET method is included.
+
+  Deprecated with no replacement (build the route yourself)."
+  {:added "0.7.0"
+   :deprecated "0.14.0"}
   [_compiled-schema interceptors options]
   (let [{:keys [path get-enabled]
          :or {get-enabled true
@@ -468,8 +329,8 @@
         post-interceptors (into [body-data-interceptor] interceptors)]
     (cond-> #{[path :post post-interceptors
                :route-name ::graphql-post]}
-      get-enabled (conj [path :get interceptors
-                         :route-name ::graphql-get]))))
+            get-enabled (conj [path :get interceptors
+                               :route-name ::graphql-get]))))
 
 (defn graphiql-ide-response
   "Reads the graphiql.html resource, then injects new content into it, and ultimately returns a Ring
@@ -479,33 +340,19 @@
 
   Options are as specified in [[graphql-routes]].
 
-  Reads the template file, makes necessary substitutions, and returns a Ring response."
-  {:added "0.7.0"}
+  Reads the template file, makes necessary substitutions, and returns a Ring response.
+
+  Deprecated: Use [[pedestal2/graphiql-ide-handler]] instead."
+  {:added "0.7.0"
+   :deprecated "0.14.0"}
   [options]
   (let [{:keys [path asset-path subscriptions-path ide-headers ide-connection-params]
          :or {path default-path
               asset-path default-asset-path
-              subscriptions-path default-subscriptions-path}} options
-        ide-headers' (assoc ide-headers "Content-Type" "application/json")
-        replacements {:asset-path asset-path
-                      :path path
-                      :subscriptions-path subscriptions-path
-                      :initial-connection-params (cheshire/generate-string ide-connection-params)
-                      :request-headers (str "{"
-                                            (->> ide-headers'
-                                                 (map (fn [[k v]]
-                                                        (str \" (name k) "\": \"" (name v) \")))
-                                                 (str/join ", "))
-                                            "}")}]
-    (-> "com/walmartlabs/lacinia/pedestal/graphiql.html"
-        io/resource
-        slurp
-        (str/replace #"\{\{(.+?)}}" (fn [[_ key]]
-                                      (get replacements (keyword key) "--NO-MATCH--")))
-        response/response
-        (response/content-type "text/html"))))
+              subscriptions-path default-subscriptions-path}} options]
+    (internal/graphiql-response path subscriptions-path asset-path ide-headers ide-connection-params)))
 
-(defn graphql-routes
+(defn ^{:deprecated "0.14.0"} graphql-routes
   "Creates default routes for handling GET and POST requests and
   (optionally) the GraphiQL IDE.
 
@@ -522,11 +369,12 @@
 
   Asset paths use wildcard matching; you should be careful to ensure that the asset path does not
   overlap the paths for query request handling, the IDE, or subscriptions (or the asset handler will override the others
-  and deliver 404 responses)."
+  and deliver 404 responses).
+
+  Deprecated: Use the [[com.walmartlabs.lacinia.pedestal2]] namespace instead."
   [compiled-schema options]
-  (let [{:keys [path ide-path asset-path graphiql]
-         :or {path default-path
-              asset-path default-asset-path
+  (let [{:keys [ide-path asset-path graphiql]
+         :or {asset-path default-asset-path
               ide-path "/"}} options
         interceptors (or (:interceptors options)
                          (default-interceptors compiled-schema options))
@@ -580,7 +428,7 @@
   : See [[listener-fn-factory]] for further options related to subscriptions.
 
   :path (default: \"/graphql\")
-  : Path at which GraphQL requests are services (distinct from the GraphQL IDE).
+  : Path at which GraphQL requests are serviced (distinct from the GraphQL IDE).
 
   :ide-path (default: \"/\")
   : Path from which the GraphiQL IDE, if enabled, can be loaded.
@@ -624,8 +472,11 @@
   :env (default: :dev)
   : Environment being started.
 
-  See further notes in [[graphql-routes]] and [[default-interceptors]]."
-  {:added "0.5.0"}
+  See further notes in [[graphql-routes]] and [[default-interceptors]].
+
+  Deprecated: Use [[default-service]] initially, then roll your own. Seriously."
+  {:added "0.5.0"
+   :deprecated "0.14.0"}
   [compiled-schema options]
   (let [{:keys [graphiql subscriptions port env subscriptions-path]
          :or {graphiql false
@@ -641,22 +492,15 @@
              ::http/type :jetty
              ::http/join? false}
 
-      subscriptions
-      (assoc-in [::http/container-options :context-configurator]
-                ;; The listener-fn is responsible for creating the listener; it is passed
-                ;; the request, response, and the ws-map. In sample code, the ws-map
-                ;; has callbacks such as :on-connect and :on-text, but in our scenario
-                ;; the callbacks are created by the listener-fn, so the value is nil.
-                #(ws/add-ws-endpoints % {subscriptions-path nil}
-                                      {:listener-fn
-                                       (subscriptions/listener-fn-factory compiled-schema options)}))
+            subscriptions
+            (internal/add-subscriptions-support compiled-schema subscriptions-path options)
 
-      graphiql
-      (assoc ::http/secure-headers nil))))
+            graphiql
+            (assoc ::http/secure-headers nil))))
 
 (s/fdef service-map
-  :args (s/cat :compiled-schema ::spec/compiled-schema
-               :options (s/nilable ::service-map-options)))
+        :args (s/cat :compiled-schema ::spec/compiled-schema
+                     :options (s/nilable ::service-map-options)))
 
 (s/def ::service-map-options (s/keys :opt-un [::graphiql
                                               ::routes

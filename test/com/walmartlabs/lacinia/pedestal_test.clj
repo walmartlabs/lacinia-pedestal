@@ -167,6 +167,13 @@
     (is (= [fred wilma]
            (inject [fred barney] wilma :replace :barney)))))
 
+(deftest inject-remove
+  (let [fred {:name :fred}
+        barney {:name :barney}
+        wilma {:name :wilma}]
+    (is (= [fred wilma]
+           (inject [fred barney wilma] nil :replace :barney)))))
+
 (deftest inject-skips-fns
   (let [fred identity
         barney {:name :barney}

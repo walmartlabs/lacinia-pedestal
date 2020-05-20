@@ -27,7 +27,7 @@
                                           :subscriptions true
                                           :keep-alive-ms 200}))
 
-(use-fixtures :each subscriptions-fixture)
+(use-fixtures :each (subscriptions-fixture))
 
 (deftest standard-json-request
   (let [response

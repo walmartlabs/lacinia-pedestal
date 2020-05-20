@@ -1,3 +1,16 @@
+## 0.14.0 -- UNRELEASED
+
+New `com.walmartlabs.lacinia.pedestal2` namespace de-complects
+configuration.
+The new namespace provides the same basic building blocks, but (beyond a very simple
+`default-service` function) encourages you to assemble the system from the basics
+as you see fit; the prior approach had become overrun with confusing options.
+
+These changes make it far easier to support multiple schemas, or versions of schemas,
+on different endpoints within the same server.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/13?closed=1)
+
 ## 0.13.0 -- 13 Feb 2020
 
 The `inject-app-context-interceptor` function has moved to the new

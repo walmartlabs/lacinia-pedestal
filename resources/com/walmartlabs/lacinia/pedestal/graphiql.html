@@ -86,7 +86,7 @@
 
       // Defines a GraphQL fetcher using the fetch API.
       function graphQLFetcher(graphQLParams) {
-        return fetch(window.location.origin + '{{path}}', {
+        return fetch(window.location.origin + '{{api-path}}', {
           method: 'post',
           headers: {{request-headers}},
           referrer: "no-referrer",

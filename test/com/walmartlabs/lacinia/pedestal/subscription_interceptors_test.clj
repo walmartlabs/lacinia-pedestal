@@ -15,7 +15,6 @@
 (ns com.walmartlabs.lacinia.pedestal.subscription-interceptors-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
-    [clojure.core.async :refer [chan alt!! put! timeout]]
     [com.walmartlabs.lacinia.pedestal :refer [inject]]
     [com.walmartlabs.lacinia.test-utils
      :refer [test-server-fixture *ping-subscribes *ping-cleanups
@@ -64,7 +63,7 @@
                                           :keep-alive-ms 200}
                                          options-builder))
 
-(use-fixtures :each subscriptions-fixture)
+(use-fixtures :each (subscriptions-fixture))
 
 (deftest added-interceptor-is-invoked
   (send-init)
