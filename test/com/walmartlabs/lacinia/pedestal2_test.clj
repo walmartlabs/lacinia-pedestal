@@ -91,6 +91,12 @@
                        :status 400}
                       (prune response))))))
 
+(deftest can-return-failure-response
+  (let [response (send-request "{ fail }")]
+    (is (= {:body {:errors [{:message "resolver exception"}]}
+            :status 500}
+           (select-keys response [:status :body])))))
+
 (deftest subscriptions-ws-request
   (tu/send-init)
   (tu/expect-message {:type "connection_ack"}))

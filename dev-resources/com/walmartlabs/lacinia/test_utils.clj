@@ -3,6 +3,7 @@
     [clojure.test :refer [is]]
     [clj-http.client :as client]
     [io.pedestal.http :as http]
+    [io.pedestal.interceptor :refer [interceptor]]
     [com.walmartlabs.lacinia.pedestal :as lp]
     [clojure.core.async :refer [timeout alt!! chan put!]]
     [clojure.java.io :as io]
@@ -220,3 +221,12 @@
            (finally
              (log/debug :reason ::test-end)
              (g/close session))))))))
+
+(defn error-proof-interceptor
+  "Error interceptor that records the last context / exception it has been called with."
+  [proof]
+  (interceptor
+   {:name ::proof
+    :error (fn [ctx ex]
+             (reset! proof [ctx ex])
+             (throw ex))}))

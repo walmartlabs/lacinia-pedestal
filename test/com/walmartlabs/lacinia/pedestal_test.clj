@@ -136,6 +136,12 @@
             :status 400}
            (select-keys response [:status :body])))))
 
+(deftest can-return-failure-response
+  (let [response (send-request "{ fail }")]
+    (is (= {:body {:errors [{:message "resolver exception"}]}
+            :status 500}
+           (select-keys response [:status :body])))))
+
 (deftest inject-not-found
   (is (thrown-with-msg? ExceptionInfo #"Could not find existing interceptor"
                         (inject [{:name :fred}] {:name :barney} :before :bam-bam))))

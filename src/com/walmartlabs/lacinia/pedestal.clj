@@ -138,6 +138,16 @@
     {:name ::json-response
      :leave internal/on-leave-json-response}))
 
+(def ^{:added "0.14.0" :deprecated "0.14.0"} error-response-interceptor
+  "Returns an internal server error response when an exception was not handled in prior interceptors.
+
+   This must come after [[json-response-interceptor]], as the error still needs to be converted to json.
+
+   Deprecated: Use [[pedestal2/error-response-interceptor]] instead."
+  (interceptor
+   {:name ::error-response
+    :error internal/on-error-error-response}))
+
 (def ^{:deprecated "0.14.0"} body-data-interceptor
   "Converts the POSTed body from a input stream into a string.
 
@@ -239,8 +249,8 @@
 
   Deprecated: Use [[pedestal2/query-executor-handler]] instead."
   (interceptor
-    {:name ::query-executor
-     :enter internal/on-enter-query-excecutor}))
+   {:name  ::query-executor
+    :enter (internal/on-enter-query-executor ::query-executor)}))
 
 (def ^{:added "0.2.0"
        :deprecated "0.14.0"} async-query-executor-handler
@@ -250,7 +260,7 @@
   Deprecated: Use [[pedestal2/async-query-executor-handler]] instead."
   (interceptor
     {:name ::async-query-executor
-     :enter internal/on-enter-async-query-executor}))
+     :enter (internal/on-enter-async-query-executor ::async-query-executor)}))
 
 (def ^{:added "0.3.0"
        :deprecated "0.14.0"} disallow-subscriptions-interceptor
@@ -266,6 +276,7 @@
   "Returns the default set of GraphQL interceptors, as a seq:
 
     * ::json-response [[json-response-interceptor]]
+    * ::error-response [[error-response-interceptor]]
     * ::graphql-data [[graphql-data-interceptor]]
     * ::status-conversion [[status-conversion-interceptor]]
     * ::missing-query [[missing-query-interceptor]]
@@ -286,6 +297,7 @@
    :deprecated "0.14.0"}
   [compiled-schema options]
   [json-response-interceptor
+   error-response-interceptor
    graphql-data-interceptor
    status-conversion-interceptor
    missing-query-interceptor
