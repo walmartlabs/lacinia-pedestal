@@ -31,6 +31,14 @@
     {:name ::json-response
      :leave internal/on-leave-json-response}))
 
+(def ^{:added "0.14.0"} error-response-interceptor
+  "Returns an internal server error response when an exception was not handled in prior interceptors.
+
+   This must come after [[json-response-interceptor]], as the error still needs to be converted to json."
+  (interceptor
+   {:name ::error-response
+    :error internal/on-error-error-response}))
+
 (def body-data-interceptor
   "Converts the POSTed body from a input stream into a string, or rejects the request
   with a 400 response if the content type is not application/json."
@@ -124,20 +132,21 @@
 
   This comes last in the interceptor chain."
   (interceptor
-    {:name ::query-executor
-     :enter internal/on-enter-query-excecutor}))
+   {:name  ::query-executor
+    :enter (internal/on-enter-query-executor ::query-executor)}))
 
 (def async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
   updated context."
   (interceptor
     {:name ::async-query-executor
-     :enter internal/on-enter-async-query-executor}))
+     :enter (internal/on-enter-async-query-executor ::async-query-executor)}))
 
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
 
     * ::json-response [[json-response-interceptor]]
+    * ::error-response [[error-response-interceptor]]
     * ::body-data [[body-data-interceptor]]
     * ::graphql-data [[graphql-data-interceptor]]
     * ::status-conversion [[status-conversion-interceptor]]
@@ -156,6 +165,7 @@
   Often, this list of interceptors is augmented by calls to [[inject]]."
   [compiled-schema app-context]
   [json-response-interceptor
+   error-response-interceptor
    body-data-interceptor
    graphql-data-interceptor
    status-conversion-interceptor
