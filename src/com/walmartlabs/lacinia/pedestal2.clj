@@ -133,14 +133,14 @@
   This comes last in the interceptor chain."
   (interceptor
     {:name ::query-executor
-     :enter (internal/on-enter-query-excecutor ::query-executor :enter)}))
+     :enter (internal/on-enter-query-excecutor ::query-executor)}))
 
 (def async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
   updated context."
   (interceptor
     {:name ::async-query-executor
-     :enter (internal/on-enter-async-query-executor ::async-query-executor :enter)}))
+     :enter (internal/on-enter-async-query-executor ::async-query-executor)}))
 
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:

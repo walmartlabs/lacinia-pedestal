@@ -250,7 +250,7 @@
   Deprecated: Use [[pedestal2/query-executor-handler]] instead."
   (interceptor
     {:name ::query-executor
-     :enter (internal/on-enter-query-excecutor ::query-executor :enter)}))
+     :enter (internal/on-enter-query-excecutor ::query-executor)}))
 
 (def ^{:added "0.2.0"
        :deprecated "0.14.0"} async-query-executor-handler
@@ -260,7 +260,7 @@
   Deprecated: Use [[pedestal2/async-query-executor-handler]] instead."
   (interceptor
     {:name ::async-query-executor
-     :enter (internal/on-enter-async-query-executor ::async-query-executor :enter)}))
+     :enter (internal/on-enter-async-query-executor ::async-query-executor)}))
 
 (def ^{:added "0.3.0"
        :deprecated "0.14.0"} disallow-subscriptions-interceptor

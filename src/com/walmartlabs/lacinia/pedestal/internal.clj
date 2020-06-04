@@ -141,12 +141,12 @@
   "Applies exception to context in the same way Pedestal would if thrown from a synchronous interceptor.
 
   Based on the (private) `io.pedestal.interceptor.chain/throwable->ex-info` function of pedestal"
-  [{::chain/keys [execution-id] :as context} exception interceptor-name stage]
+  [{::chain/keys [execution-id] :as context} exception interceptor-name]
   (let [exception-str (pr-str (type exception))
-        msg (str exception-str " in Interceptor " interceptor-name " - " (.getMessage exception))
+        msg (str exception-str " in Interceptor " interceptor-name " - " (ex-message exception))
         wrapped-exception (ex-info msg
                                    (merge {:execution-id   execution-id
-                                           :stage          stage
+                                           :stage          :enter
                                            :interceptor    interceptor-name
                                            :exception-type (keyword exception-str)
                                            :exception      exception}
@@ -155,7 +155,7 @@
     (assoc context ::chain/error wrapped-exception)))
 
 (defn ^:private apply-result-to-context
-  [context result interceptor-name stage]
+  [context result interceptor-name]
   ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
   ;; maybe an exception thrown during initial processing of the query.
   (if (instance? Throwable result)
@@ -164,7 +164,7 @@
                  :ex result)
       ;; Put error in the context map for error interceptors to consume
       ;; If unhandled, will end up in [[error-response-interceptor]]
-      (apply-exception-to-context context result interceptor-name stage))
+      (apply-exception-to-context context result interceptor-name))
 
     ;; When :data is missing, then a failure occurred during parsing or preparing
     ;; the request, which indicates a bad request, rather than some failure
@@ -186,24 +186,23 @@
                               constants/parsed-query-key q))))
 
 (defn on-enter-query-excecutor
-  [interceptor-name stage]
+  [interceptor-name]
   (fn [context]
     (let [resolver-result (execute-query context)
           *result (promise)]
       (resolve/on-deliver! resolver-result
                            (fn [result]
                              (deliver *result result)))
-      (apply-result-to-context context @*result interceptor-name stage))))
+      (apply-result-to-context context @*result interceptor-name))))
 
 (defn on-enter-async-query-executor
-  [interceptor-name stage]
+  [interceptor-name]
   (fn [context]
     (let [ch (chan 1)
           resolver-result (execute-query context)]
       (resolve/on-deliver! resolver-result
                            (fn [result]
-                             (let [context (apply-result-to-context context result interceptor-name stage)]
-                               (put! ch context))))
+                             (put! ch (apply-result-to-context context result interceptor-name))))
       ch)))
 
 (defn on-enter-disallow-subscriptions
