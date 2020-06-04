@@ -249,8 +249,8 @@
 
   Deprecated: Use [[pedestal2/query-executor-handler]] instead."
   (interceptor
-    {:name ::query-executor
-     :enter (internal/on-enter-query-excecutor ::query-executor)}))
+   {:name  ::query-executor
+    :enter (internal/on-enter-query-executor ::query-executor)}))
 
 (def ^{:added "0.2.0"
        :deprecated "0.14.0"} async-query-executor-handler

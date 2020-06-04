@@ -185,7 +185,7 @@
     (executor/execute-query (assoc app-context
                               constants/parsed-query-key q))))
 
-(defn on-enter-query-excecutor
+(defn on-enter-query-executor
   [interceptor-name]
   (fn [context]
     (let [resolver-result (execute-query context)

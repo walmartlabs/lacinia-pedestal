@@ -132,8 +132,8 @@
 
   This comes last in the interceptor chain."
   (interceptor
-    {:name ::query-executor
-     :enter (internal/on-enter-query-excecutor ::query-executor)}))
+   {:name  ::query-executor
+    :enter (internal/on-enter-query-executor ::query-executor)}))
 
 (def async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
