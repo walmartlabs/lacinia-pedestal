@@ -374,6 +374,20 @@
                   (execute-subscription context parsed-query)
                   (execute-operation context parsed-query))))}))
 
+(defn inject-app-context-interceptor
+  "Adds a :lacinia-app-context key to the request, used when executing the query.
+
+  The provided app-context map is augmented with the request map, as key :request.
+
+  It is not uncommon to replace this interceptor with one that constructs
+  the application context dynamically; for example, to extract authentication information
+  from the request and expose that as app-context keys."
+  {:added "0.14.0"}
+  [app-context]
+  (interceptor
+    {:name ::inject-app-context
+     :enter (interceptors/on-enter-app-context-interceptor app-context)}))
+
 (defn default-subscription-interceptors
   "Processing of operation requests from the client is passed through interceptor pipeline.
   The context for the pipeline includes special keys for the necessary channels.
@@ -409,7 +423,7 @@
   [exception-handler-interceptor
    send-operation-response-interceptor
    (query-parser-interceptor compiled-schema)
-   (interceptors/inject-app-context-interceptor app-context)
+   (inject-app-context-interceptor app-context)
    execute-operation-interceptor])
 
 

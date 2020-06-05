@@ -156,8 +156,8 @@
 
 (defn ^:private apply-result-to-context
   [context result interceptor-name]
-  ;; Lacinia changed the contract here is 0.36.0 (to support timeouts), the result
-  ;; maybe an exception thrown during initial processing of the query.
+  ;; Lacinia changed the contract here in 0.36.0 (to support timeouts); the result
+  ;; may be an exception thrown during initial processing of the query.
   (if (instance? Throwable result)
     (do
       (log/error :event :execution-exception

@@ -18,6 +18,14 @@
   (:require
     [io.pedestal.interceptor :refer [interceptor]]))
 
+;; Ideally, this function would go inside .internal, but that causes
+;; a dependency cycle with .subscriptions.
+(defn ^:no-doc on-enter-app-context-interceptor
+  [app-context]
+  (fn [context]
+    (assoc-in context [:request :lacinia-app-context]
+              (assoc app-context :request (:request context)))))
+
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.
 
@@ -25,13 +33,15 @@
 
   It is not uncommon to replace this interceptor with one that constructs
   the application context dynamically; for example, to extract authentication information
-  from the request and expose that as app-context keys."
+  from the request and expose that as app-context keys.
+
+  Deprecated.  Use the versions in [[com.walmartlabs.lacinia.pedestal2]]
+  or [[com.walmartlabs.lacinia.pedestal.subscriptions]]."
+  {:deprecated "0.14.0"}
   [app-context]
   (interceptor
     ;; This function was moved from the lacinia.pedestal namespace but
     ;; existing application code may still reference it (via
     ;; lacinia.pedestal/inject) to keep the name stable.
     {:name :com.walmartlabs.lacinia.pedestal/inject-app-context
-     :enter (fn [context]
-              (assoc-in context [:request :lacinia-app-context]
-                        (assoc app-context :request (:request context))))}))
+     :enter (on-enter-app-context-interceptor app-context)}))

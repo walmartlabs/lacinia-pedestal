@@ -126,6 +126,19 @@
     {:name ::disallow-subscriptions
      :enter internal/on-enter-disallow-subscriptions}))
 
+(defn inject-app-context-interceptor
+  "Adds a :lacinia-app-context key to the request, used when executing the query.
+
+  The provided app-context map is augmented with the request map, as key :request.
+
+  It is not uncommon to replace this interceptor with one that constructs
+  the application context dynamically; for example, to extract authentication information
+  from the request and expose that as app-context keys."
+  [app-context]
+  (interceptor
+    {:name ::inject-app-context
+     :enter (interceptors/on-enter-app-context-interceptor app-context)}))
+
 (def query-executor-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
   execute the query and return the main response.
@@ -154,7 +167,7 @@
     * ::query-parser [[query-parser-interceptor]]
     * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
     * ::prepare-query [[prepare-query-interceptor]]
-    * ::com.walmartlabs.lacinia.pedestal/inject-app-context [[inject-app-context-interceptor]]
+    * ::inject-app-context [[inject-app-context-interceptor]]
     * ::query-executor [[query-executor-handler]]
 
   `compiled-schema` may be the actual compiled schema, or a no-arguments function that returns the compiled schema.
@@ -173,7 +186,7 @@
    (query-parser-interceptor compiled-schema)
    disallow-subscriptions-interceptor
    prepare-query-interceptor
-   (interceptors/inject-app-context-interceptor app-context)
+   (inject-app-context-interceptor app-context)
    query-executor-handler])
 
 (defn graphiql-asset-routes
