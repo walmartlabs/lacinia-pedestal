@@ -1,4 +1,4 @@
-(defproject com.walmartlabs/lacinia-pedestal "0.14.0-alpha-1"
+(defproject com.walmartlabs/lacinia-pedestal "0.14.0-alpha-2"
   :description "Pedestal infrastructure supporting Lacinia GraphQL"
   :url "https://github.com/walmartlabs/pedestal-lacinia"
   :license {:name "Apache Software License 2.0"
