@@ -351,7 +351,7 @@
                  thread)
              (recur))
            (do
-              ;; The streamer has signalled that it has exhausted the subscription.
+              ;; The streamer has signaled that it has exhausted the subscription.
              (>! response-data-ch {:type :complete
                                    :id id})
              (close! response-data-ch)
