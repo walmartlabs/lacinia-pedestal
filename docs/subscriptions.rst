@@ -1,7 +1,7 @@
 Subscriptions
 =============
 
-Subscriptions are an exciting, and relative recent, addition to GraphQL.
+Subscriptions are an exciting, and relatively recent, addition to GraphQL.
 
 Subscriptions are a way for a client to request notifications about arbitrary events defined by the server;
 this parallels how a query exposes arbitrary data defined by the server.
@@ -50,7 +50,7 @@ the client is lost due to a network partition, or when the streamer passes nil t
 Configuration
 -------------
 
-Subscriptions are enabled using the options map passed to ``com.walmartlabs.lacina.pedestal/pedestal-service``.
+Subscriptions are enabled using the options map passed to ``com.walmartlabs.lacinia.pedestal2/default-service``.
 
 The following keys are used:
 
