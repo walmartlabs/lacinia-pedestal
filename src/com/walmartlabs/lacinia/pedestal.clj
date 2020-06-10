@@ -151,7 +151,7 @@
 (def ^{:deprecated "0.14.0"} body-data-interceptor
   "Converts the POSTed body from a input stream into a string.
 
-  Deprecated: Use [[pedetal2/body-data-interceptor]] instead."
+  Deprecated: Use [[pedestal2/body-data-interceptor]] instead."
   (interceptor
     {:name ::body-data
      :enter (fn [context]
@@ -224,7 +224,7 @@
 
   In earlier releases of lacinia-pedestal, this logic was combined with [[query-parser-interceptor]].
 
-  Deprected: Use [[pedestal2/prepare-query-interceptor]] instead."
+  Deprecated: Use [[pedestal2/prepare-query-interceptor]] instead."
   (interceptor
     {:name ::prepare-query
      :enter internal/on-enter-prepare-query}))

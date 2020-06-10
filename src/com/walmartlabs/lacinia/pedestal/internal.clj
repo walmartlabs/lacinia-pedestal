@@ -13,7 +13,7 @@
 ; limitations under the License.
 
 (ns ^:no-doc com.walmartlabs.lacinia.pedestal.internal
-  "Internal utilties not part of the public API."
+  "Internal utilities not part of the public API."
   (:require
     [clojure.core.async :refer [chan put!]]
     [cheshire.core :as cheshire]

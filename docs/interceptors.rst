@@ -1,24 +1,26 @@
 Interceptors
 =============
 
-`com.walmartlabs.lacinia.pedestal <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.html>` defines Pedestal `interceptors <http://pedestal.io/reference/interceptors>` and supporting code.
+`com.walmartlabs.lacinia.pedestal2 <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal2.html>`_ defines Pedestal `interceptors <http://pedestal.io/reference/interceptors>`_ and supporting code.
 
-The `inject <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.html#var-inject>` function (added in 0.7.0) adds (or replaces) an interceptor to a seq of interceptors.
+The `inject <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.html#var-inject>`_ function (added in 0.7.0) adds (or replaces) an interceptor to a seq of interceptors.
 
 Example
 --------
 
-Example to inject an interceptor that adds a `:custom-user-info-key` to the Lacinia's app-context (for example with extracted authentication information from the request).
+Example of injecting an interceptor that adds a `:custom-user-info-key` to the Lacinia's app-context (for example with extracted authentication information from the request).
+::
 
     (ns server
       (:require
        [com.stuartsierra.component :as component]
+       [com.walmartlabs.lacinia.p2 :as p2]
        [com.walmartlabs.lacinia.pedestal :as pedestal]
        [io.pedestal.http :as http]))
     
     (def user-info-interceptor
       {:enter (fn [{:keys [request] :as context}]
-        ;; Retrieve information from for example the request
+        ;; Retrieve information from the request, for example
         (assoc-in context [:request :lacinia-app-context :custom-user-info-key] :some-value})
     
     (defn- inject-user-info-interceptor
@@ -52,7 +54,8 @@ Example to inject an interceptor that adds a `:custom-user-info-key` to the Laci
         (http/stop server)
         (assoc this :server nil)))
 
-Adding the above interceptor makes the `:custom-user-info-key` information available in for example a resolver.
+Adding the above interceptor makes the `:custom-user-info-key` information available in, for example, a resolver.
+::
 
     (defn- some-resolver
       [ds]

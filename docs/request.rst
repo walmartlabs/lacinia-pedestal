@@ -3,7 +3,7 @@ Request Format
 
 Clients may send either a HTTP GET or HTTP POST request to execute a query.
 
-In both cases, the request path will (by default) be ``/graphql``.
+In both cases, the request path will (by default) be ``/api``.
 
 GET
 ---
