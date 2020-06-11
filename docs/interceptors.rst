@@ -3,66 +3,31 @@ Interceptors
 
 `com.walmartlabs.lacinia.pedestal2 <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal2.html>`_ defines Pedestal `interceptors <http://pedestal.io/reference/interceptors>`_ and supporting code.
 
-The `inject <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.html#var-inject>`_ function (added in 0.7.0) adds (or replaces) an interceptor to a seq of interceptors.
+The `inject <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.html#var-inject>`_ function (added in 0.7.0) adds (or replaces) an interceptor to a vector of interceptors.
 
 Example
---------
+-------
 
-Example of injecting an interceptor that adds a `:custom-user-info-key` to the Lacinia's app-context (for example with extracted authentication information from the request).
-::
+.. literalinclude:: _examples/custom-setup.edn
+   :language: clojure
 
-    (ns server
-      (:require
-       [com.stuartsierra.component :as component]
-       [com.walmartlabs.lacinia.p2 :as p2]
-       [com.walmartlabs.lacinia.pedestal :as pedestal]
-       [io.pedestal.http :as http]))
-    
-    (def user-info-interceptor
-      {:enter (fn [{:keys [request] :as context}]
-        ;; Retrieve information from the request, for example
-        (assoc-in context [:request :lacinia-app-context :custom-user-info-key] :some-value})
-    
-    (defn- inject-user-info-interceptor
-      [interceptors]
-      (pedestal/inject interceptors
-                       user-info-interceptor
-                       :after
-                       ::pedestal/inject-app-context))
-    
-    (defn- interceptors [schema]
-      (let [options {}
-            default-interceptors (pedestal/default-interceptors schema options)]
-        (inject-user-info-interceptor default-interceptors)))
-    
-    (defn- create-server [compiled-schema port]
-      (let [options {:graphiql true
-                     :interceptors (interceptors compiled-schema)
-                     :port port}]
-        (-> compiled-schema
-            (pedestal/service-map options)
-            http/create-server
-            http/start)))
-    
-    (defrecord Server [schema-provider server port]
-      component/Lifecycle
-      (start [this]
-        (let [compiled-schema (:schema schema-provider)
-              server' (create-server compiled-schema port)]
-          (assoc this :server server')))
-      (stop [this]
-        (http/stop server)
-        (assoc this :server nil)))
 
-Adding the above interceptor makes the `:custom-user-info-key` information available in, for example, a resolver.
-::
+There's a lot to process in this more worked example:
 
-    (defn- some-resolver
-      [ds]
-      (fn [{:keys [custom-user-info-key] :as context} _ _]
-      ;; Do something with user-info
-        ))
-    
-    (defn- resolver-map
-      [ds]
-      {:query/some-query (some-resolver ds)})
+- We're using `Component <https://github.com/stuartsierra/component>`_ to organize our code and dependencies.
+
+- The schema is provided by a source component (in the next listing), injected as a dependency into the ``Server`` component.
+
+- We're building our Pedestal service explicitly, rather than using ``default-service``.
+
+
+The interceptor is responsible for putting the user info *into* the request, and then
+it's simple to get that data inside a resolver function:
+
+
+.. literalinclude:: _examples/schema-setup.edn
+   :language: clojure
+
+Again, it's a little sketchy because we don't know what the ``user-info`` data is, how its
+stored in the request, or what is done with it ... but the ``:user-info`` put in place
+by the interceptor is a snap to gain access to in any resolver function.

@@ -1,8 +1,6 @@
 Subscriptions
 =============
 
-Subscriptions are an exciting, and relatively recent, addition to GraphQL.
-
 Subscriptions are a way for a client to request notifications about arbitrary events defined by the server;
 this parallels how a query exposes arbitrary data defined by the server.
 
@@ -50,14 +48,19 @@ the client is lost due to a network partition, or when the streamer passes nil t
 Configuration
 -------------
 
-Subscriptions are enabled using the options map passed to ``com.walmartlabs.lacinia.pedestal2/default-service``.
+When using ``com.walmartlabs.lacinia.pedestal2/default-service``, subscriptions are always
+enabled, but ``default-service`` is always intended to be replaced in a live application.
 
-The following keys are used:
+The underlying function ``com.walmartlabs.lacinia.pedestal2/enable-subscriptions`` does
+the work of enabling subscriptions; the function is passed subscription options:
+
+
+The following keys are commonly used:
 
 .. glossary::
 
-  ``:subscriptions``
-    Set to true to enable subscriptions.
+  ``:subscriptions-path``
+    Path to use in subscriptions WebSocket requests; defaults to ``/ws``,
 
   ``:keep-alive-ms``
     The interval at which keep-alive messages are sent to the client; defaults to 30 seconds.
@@ -65,6 +68,8 @@ The following keys are used:
   ``:subscription-interceptors``
     A seq of interceptors used when processing GraphQL query, mutation, or subscription requests
     via the WebSocket connection. This is used when overriding the default interceptors.
+
+Further options are described by `listener-fn-factory <https://walmartlabs.github.io/apidocs/lacinia-pedestal/com.walmartlabs.lacinia.pedestal.subscriptions.html#var-listener-fn-factory>`_.
 
 Connection Parameters
 ---------------------
@@ -76,15 +81,21 @@ the context under the ``:com.walmartlabs.lacinia/connection-parameters`` key.
 Endpoint
 --------
 
-Subscriptions are processed on a second endpoint; normal requests continue to be sent to ``/graphql``, but
-subscription requests must use ``/graphql-ws``.
+Subscriptions are processed on a second endpoint; normal requests continue to be sent to ``/api``, but
+subscription requests must use ``/ws``.
 
-The ``/graphql-ws`` endpoint does not handle ordinary requests; instead it is used only to establish the
+The ``/ws`` endpoint does not handle ordinary requests; instead it is used only to establish the
 WebSocket connection.
 From there, the client sends WebSocket text messages to initiate a subscription, and
 the server sends WebSocket text messages for subscription updates and keep alive messages.
 
-Subscription requests are not allowed in ``/graphql``.
+Subscription requests are not allowed in ``/api`` path.
+
+GraphiQL
+--------
+
+GraphiQL, when enabled, is configured with subscriptions enabled; this means that GraphiQL can send ``subscription`` queries.
+
 
 .. [#apollo] Apollo defines a `particular contract <https://github.com/apollographql/subscriptions-transport-ws/blob/master/PROTOCOL.md>`_
   for how the client and server communicate; this includes heartbeats, and an explicit way for

@@ -1,0 +1,48 @@
+(ns server
+  (:require
+    [com.stuartsierra.component :as component]
+    [com.walmartlabs.lacinia.pedestal2 :as p2]
+    [com.walmartlabs.lacinia.pedestal :refer [inject]]
+    [io.pedestal.http :as http]))
+
+(defn ^:private extract-user-info
+  [request]
+  ;; This is very application-specific ...
+  )
+
+(def ^:private user-info-interceptor
+  {:name ::user-info
+   :enter (fn [context]
+            (let [{:keys [request]} context
+                  user-info (extract-user-info request)]
+              (assoc-in context [:request :lacinia-app-context :user-info] user-info)))})
+
+(defn ^:private interceptors
+  [schema]
+  (-> (p2/default-interceptors schema nil)
+      (inject user-info-interceptor ::after ::p2/inject-app-context)))
+
+(defn ^:private create-server
+  [compiled-schema port]
+  (let [interceptors (interceptors compiled-schema)
+        routes #{["/api" :post interceptors :route-name ::api]}]
+    (-> {:env :dev
+         ::http/routes routes
+         ::http/port port
+         ::http/type :jetty
+         ::http/join? false}
+        http/create-server
+        http/start)))
+
+(defrecord Server [schema-source server port]
+
+  component/Lifecycle
+
+  (start [this]
+    (let [compiled-schema (:schema schema-source)
+          server' (create-server compiled-schema port)]
+      (assoc this :server server')))
+
+  (stop [this]
+    (http/stop server)
+    (assoc this :server nil)))

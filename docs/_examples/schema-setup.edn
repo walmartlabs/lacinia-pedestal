@@ -1,0 +1,27 @@
+(ns schema-source
+  (:require
+    [com.walmartlabs.lacinia.schema :as schema]
+    [com.walmartlabs.lacinia.util :as util]
+    [com.stuartsierra.component :as component]
+    [clojure.edn :as edn]
+    [clojure.java.io :as io]))
+
+(defn ^:private resolve-user
+  [context _args _value]
+  (let [{:keys [user-info]} context]
+    ;; Use user-info to get the data from somewhere ...
+    ))
+
+(defrecord SchemaSource []
+
+  component/Lifecycle
+
+  (start [this]
+    (assoc this :schema (-> (io/resource "schema.edn")
+                            slurp
+                            edn/read-string
+                            (util/inject-resolvers {:queries/user resolve-user})
+                            schema/compile)))
+
+  (stop [this]
+    (dissoc this :schema)))

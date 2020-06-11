@@ -1,4 +1,3 @@
 {:queries
  {:hello
-  {:type String
-   :resolve :resolve-hello}}}
+  {:type String}}}

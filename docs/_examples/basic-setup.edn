@@ -13,11 +13,10 @@
 
 (defn ^:private hello-schema
   []
-  (-> "hello-world-schema.edn"
-      io/resource
+  (-> (io/resource "hello-world-schema.edn")
       slurp
       edn/read-string
-      (util/attach-resolvers {:resolve-hello resolve-hello})
+      (util/inject-resolvers {:queries/hello resolve-hello})
       schema/compile))
 
 (def service (-> (hello-schema)

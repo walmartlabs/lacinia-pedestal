@@ -1,7 +1,7 @@
 Response
 ========
 
-The response to a GraphQL request is ``application/json``.
+The response to a GraphQL request is a ``application/json`` object.
 
 The response will include a ``errors`` key if there are fatal or
 non-fatal errors.
@@ -21,6 +21,10 @@ regular format, e.g.::
 
   {"errors": [{"message": "Request body is empty."}]}
 
+
+GraphQL supports a third key, ``extensions``, but does not define what content goes there; it is for application-specific
+extensions.
+
 HTTP Status
 -----------
 
@@ -38,5 +42,5 @@ as the overall HTTP status of the response.
 When multiple error maps contains ``:status``, the numerically largest
 value is used.
 
-The ``:status`` key is removed from all error maps.
+The ``:status`` key is removed from all error maps before the response is streamed to the client.
 
