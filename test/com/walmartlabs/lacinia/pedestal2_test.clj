@@ -93,8 +93,13 @@
 
 (deftest can-return-failure-response
   (let [response (send-request "{ fail }")]
-    (is (= {:body {:errors [{:message "resolver exception"}]}
-            :status 500}
+    (is (= {:status 500
+            :body {:errors [{:extensions {:arguments nil
+                                          :field-name "__Queries/fail"
+                                          :location {:column 3
+                                                     :line 1}
+                                          :path ["fail"]}
+                             :message "Exception in resolver for `__Queries/fail': resolver exception"}]}}
            (select-keys response [:status :body])))))
 
 (deftest subscriptions-ws-request

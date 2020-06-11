@@ -20,8 +20,7 @@
                                                test-server-fixture
                                                send-request]]
    [clojure.spec.test.alpha :as stest]
-   [io.pedestal.interceptor :refer [interceptor]]
-   [io.pedestal.interceptor.chain :as chain]))
+   [io.pedestal.interceptor :refer [interceptor]]))
 
 (stest/instrument)
 
@@ -38,12 +37,16 @@
   (reset! error-proof nil)
   (send-request "{ fail }")
   (let [[ctx ex] @error-proof]
-    (is (= "java.lang.IllegalStateException in Interceptor :com.walmartlabs.lacinia.pedestal/async-query-executor - resolver exception"
+    (is (= "clojure.lang.ExceptionInfo in Interceptor :com.walmartlabs.lacinia.pedestal/async-query-executor - Exception in resolver for `__Queries/fail': resolver exception"
            (ex-message ex)))
-    (is (= {:exception-type :java.lang.IllegalStateException
-            :execution-id   (::chain/execution-id ctx)
-            :interceptor    ::lp/async-query-executor
-            :stage          :enter}
-           (dissoc (ex-data ex) :exception)))
+    (is (= {:arguments nil
+            :exception-type :clojure.lang.ExceptionInfo
+            :field-name :__Queries/fail
+            :interceptor :com.walmartlabs.lacinia.pedestal/async-query-executor
+            :location {:column 3
+                       :line 1}
+            :path [:fail]
+            :stage :enter}
+           (dissoc (ex-data ex) :exception :execution-id)))
     (is (instance? Exception
                    (:exception (ex-data ex))))))
