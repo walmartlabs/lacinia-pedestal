@@ -1,4 +1,4 @@
-## 0.14.0 -- UNRELEASED
+## 0.14.0 -- 30 Jun 2020
 
 New `com.walmartlabs.lacinia.pedestal2` namespace de-complects
 configuration.

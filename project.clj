@@ -1,20 +1,20 @@
-(defproject com.walmartlabs/lacinia-pedestal "0.14.0-alpha-2"
+(defproject com.walmartlabs/lacinia-pedestal "0.14.0"
   :description "Pedestal infrastructure supporting Lacinia GraphQL"
   :url "https://github.com/walmartlabs/pedestal-lacinia"
   :license {:name "Apache Software License 2.0"
             :url "http://www.apache.org/licenses/LICENSE-2.0"}
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [com.walmartlabs/lacinia "0.37.0-alpha-2"]
-                 [com.fasterxml.jackson.core/jackson-core "2.10.2"]
-                 [io.pedestal/pedestal.service "0.5.7"]
-                 [io.pedestal/pedestal.jetty "0.5.7"]
+                 [com.walmartlabs/lacinia "0.37.0"]
+                 [com.fasterxml.jackson.core/jackson-core "2.11.1"]
+                 [io.pedestal/pedestal.service "0.5.8"]
+                 [io.pedestal/pedestal.jetty "0.5.8"]
                  [org.clojure/data.json "1.0.0"]]
   :profiles
-  {:dev {:dependencies [[clj-http "2.3.0"]
-                        [com.walmartlabs/test-reporting "0.1.0"]
+  {:dev {:dependencies [[clj-http "3.10.1"]
+                        [com.walmartlabs/test-reporting "1.0.0"]
                         [com.stuartsierra/component "1.0.0"]
-                        [expound "0.8.4"]
-                        [stylefruits/gniazdo "1.1.3"
+                        [expound "0.8.5"]
+                        [stylefruits/gniazdo "1.1.4"
                          :exclusions [org.eclipse.jetty.websocket/websocket-client]]
                         [io.aviso/logging "0.3.2"]]}}
   :jvm-opts ["-Xmx500m"]
