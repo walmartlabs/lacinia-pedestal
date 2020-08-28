@@ -15,14 +15,14 @@
 (ns ^{:added "0.14.0"} com.walmartlabs.lacinia.pedestal2
   "Utilities for creating handlers, interceptors, routes, and service maps needed by a Pedestal service
   that exposes a GraphQL API and GraphiQL IDE."
-  (:require
-    [clojure.string :as str]
-    [cheshire.core :as cheshire]
-    [ring.util.response :as response]
-    [io.pedestal.interceptor :refer [interceptor]]
-    [io.pedestal.http :as http]
-    [com.walmartlabs.lacinia.pedestal.internal :as internal]
-    [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors]))
+  (:require [cheshire.core :as cheshire]
+            [clojure.string :as str]
+            [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors]
+            [com.walmartlabs.lacinia.pedestal.internal :as internal]
+            [io.pedestal.http :as http]
+            [io.pedestal.interceptor :refer [interceptor]]
+            [ring.middleware.not-modified :refer [wrap-not-modified]]
+            [ring.util.response :as response]))
 
 (def json-response-interceptor
   "An interceptor that sees if the response body is a map and, if so,
@@ -195,9 +195,10 @@
   These routes are needed for the GraphiQL IDE to operate."
   [asset-path]
   (let [asset-path' (str asset-path "/*path")
-        asset-get-handler (fn [request]
-                            (response/resource-response (-> request :path-params :path)
-                                                        {:root "graphiql"}))
+        asset-get-handler (wrap-not-modified
+                           (fn [request]
+                             (response/resource-response (-> request :path-params :path)
+                                                         {:root "graphiql"})))
         asset-head-handler #(-> %
                                 asset-get-handler
                                 (assoc :body nil))]
