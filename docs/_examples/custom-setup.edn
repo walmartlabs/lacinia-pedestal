@@ -20,7 +20,7 @@
 (defn ^:private interceptors
   [schema]
   (-> (p2/default-interceptors schema nil)
-      (inject user-info-interceptor ::after ::p2/inject-app-context)))
+      (inject user-info-interceptor :after ::p2/inject-app-context)))
 
 (defn ^:private create-server
   [compiled-schema port]
