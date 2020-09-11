@@ -157,13 +157,17 @@
     {:name ::async-query-executor
      :enter (internal/on-enter-async-query-executor ::async-query-executor)}))
 
-(def ^{:added "0.15.0"} initialize-timing-interceptor
+(def ^{:added "0.15.0"} initialize-tracing-interceptor
   "Initializes timing information for the request; largely, this captures the earliest
   possible start time for the request (before any other interceptors), just in case
-  traciing is enabled for this request."
+  tracing is enabled for this request (that decision is made by [[enable-tracing-interceptor]])."
   (interceptor
-    {:name ::initialize-timing
+    {:name ::initialize-tracing
      :enter (fn [context]
+              ;; Without this, the tracing during parsing doesn't know when the request actually started
+              ;; and assumes no real time has passed, which is less accurate. Capturing the timing start early
+              ;; ensures that time spent parsing the request body or doing other work before we get to parsing
+              ;; is properly accounted for.
               (assoc-in context [:request ::timing-start] (tracing/create-timing-start)))}))
 
 (def ^{:added "0.15.0"} enable-tracing-interceptor
@@ -171,6 +175,7 @@
   (interceptor
     {:name ::enable-tracing
      :enter (fn [context]
+              ;; Must come after the app context is added to the request.
               (let [request (:request context)
                     enabled? (get-in request [:headers "lacinia-tracing"])]
                 (cond-> context
@@ -179,7 +184,7 @@
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
 
-    * ::initialize-tracing [[initialize-timing-interceptor]]
+    * ::initialize-tracing [[initialize-tracing-interceptor]]
     * ::json-response [[json-response-interceptor]]
     * ::error-response [[error-response-interceptor]]
     * ::body-data [[body-data-interceptor]]
@@ -200,7 +205,7 @@
 
   Often, this list of interceptors is augmented by calls to [[inject]]."
   [compiled-schema app-context]
-  [initialize-timing-interceptor
+  [initialize-tracing-interceptor
    json-response-interceptor
    error-response-interceptor
    body-data-interceptor
