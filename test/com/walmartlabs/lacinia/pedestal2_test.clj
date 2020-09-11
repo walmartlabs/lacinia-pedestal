@@ -50,36 +50,37 @@
   "Sends a GraphQL request to the server and returns the response."
   ([query]
    (send-request query nil))
-  ([query vars]
-   (-> {:method :post
-        :url "http://localhost:8888/api"
-        :headers {"Content-Type" "application/json"}
-        :throw-exceptions false
-        :body (cheshire/generate-string {:query query
-                                         :variables vars})}
-       client/request
-       (update :body #(try
-                        (cheshire/parse-string % true)
-                        (catch Exception t
-                          %))))))
+  ([query options]
+   (let [{:keys [vars headers]} options]
+     (-> {:method :post
+          :url "http://localhost:8888/api"
+          :headers (merge {"Content-Type" "application/json"} headers)
+          :throw-exceptions false
+          :body (cheshire/generate-string {:query query
+                                           :variables vars})}
+         client/request
+         (update :body #(try
+                          (cheshire/parse-string % true)
+                          (catch Exception t
+                            %)))))))
 
 (deftest basic-request
   (let [response (send-request "{ echo(value: \"hello\") { value method }}")]
     (reporting response
-               (is (= {:status 200
-                       :body {:data {:echo {:method "post"
-                                            :value "hello"}}}}
-                      (prune response)))
-               (is (= {:data {:echo {:method "post"
-                                     :value "hello"}}}
-                      (:body response))))))
+      (is (= {:status 200
+              :body {:data {:echo {:method "post"
+                                   :value "hello"}}}}
+             (prune response)))
+      (is (= {:data {:echo {:method "post"
+                            :value "hello"}}}
+             (:body response))))))
 
 (deftest missing-query
   (let [response (send-request nil)]
     (reporting response
-               (is (= {:body "JSON 'query' key is missing or blank"
-                       :status 400}
-                      (prune response))))))
+      (is (= {:body "JSON 'query' key is missing or blank"
+              :status 400}
+             (prune response))))))
 
 (deftest must-be-json
   (let [response (client/post "http://localhost:8888/api"
@@ -87,9 +88,9 @@
                                :body "does not matter"
                                :throw-exceptions false})]
     (reporting response
-               (is (= {:body "Must be application/json"
-                       :status 400}
-                      (prune response))))))
+      (is (= {:body "Must be application/json"
+              :status 400}
+             (prune response))))))
 
 (deftest can-return-failure-response
   (let [response (send-request "{ fail }")]
@@ -105,3 +106,10 @@
 (deftest subscriptions-ws-request
   (tu/send-init)
   (tu/expect-message {:type "connection_ack"}))
+
+
+(deftest can-return-timing-information
+  (let [query "{ echo(value: \"hello\") { value method }}"
+        response (send-request query {:headers {"lacinia-tracing" "true"}})]
+    (reporting [response]
+      (is (= 1 (get-in response [:body :extensions :tracing :version]))))))

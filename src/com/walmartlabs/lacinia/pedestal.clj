@@ -93,18 +93,18 @@
                      :interceptor-name keyword?))
 
 (defmulti extract-query
-          "Based on the content type of the query, adds up to three keys to the request:
+  "Based on the content type of the query, adds up to three keys to the request:
 
-          :graphql-query
-          : The query itself, as a string (parsing the query happens later).
+  :graphql-query
+  : The query itself, as a string (parsing the query happens later).
 
-          :graphql-vars
-          : A map of variables used when executing the query.
+  :graphql-vars
+  : A map of variables used when executing the query.
 
-          :graphql-operation-name
-          : The specific operation requested (for queries that define multiple named operations)."
-          (fn [request]
-            (internal/content-type request)))
+  :graphql-operation-name
+  : The specific operation requested (for queries that define multiple named operations)."
+  (fn [request]
+    (internal/content-type request)))
 
 (defmethod extract-query :application/json [request]
   (let [body (cheshire/parse-string (:body request) true)
@@ -145,8 +145,8 @@
 
    Deprecated: Use [[pedestal2/error-response-interceptor]] instead."
   (interceptor
-   {:name ::error-response
-    :error internal/on-error-error-response}))
+    {:name ::error-response
+     :error internal/on-error-error-response}))
 
 (def ^{:deprecated "0.14.0"} body-data-interceptor
   "Converts the POSTed body from a input stream into a string.
@@ -168,10 +168,10 @@
                 (let [request (:request context)
                       q (extract-query request)]
                   (assoc context :request
-                                 (merge request q)))
+                         (merge request q)))
                 (catch Exception e
                   (assoc context :response
-                                 (internal/failure-response {:message (str "Invalid request: " (.getMessage e))})))))}))
+                         (internal/failure-response {:message (str "Invalid request: " (.getMessage e))})))))}))
 
 (defn ^:private query-not-found-error
   [request]
@@ -195,7 +195,7 @@
      :enter (fn [context]
               (if (-> context :request :graphql-query str/blank?)
                 (assoc context :response
-                               (internal/failure-response (query-not-found-error (:request context))))
+                       (internal/failure-response (query-not-found-error (:request context))))
                 context))}))
 
 (defn ^{:deprecated "0.14.0"} query-parser-interceptor
@@ -215,7 +215,8 @@
   [compiled-schema]
   (interceptor
     {:name ::query-parser
-     :enter (internal/on-enter-query-parser compiled-schema)}))
+     :enter (fn [context]
+              (internal/on-enter-query-parser context compiled-schema nil))}))
 
 (def ^{:added "0.10.0"
        :deprecated "0.14.0"} prepare-query-interceptor
@@ -249,8 +250,8 @@
 
   Deprecated: Use [[pedestal2/query-executor-handler]] instead."
   (interceptor
-   {:name  ::query-executor
-    :enter (internal/on-enter-query-executor ::query-executor)}))
+    {:name ::query-executor
+     :enter (internal/on-enter-query-executor ::query-executor)}))
 
 (def ^{:added "0.2.0"
        :deprecated "0.14.0"} async-query-executor-handler
@@ -329,8 +330,8 @@
         post-interceptors (into [body-data-interceptor] interceptors)]
     (cond-> #{[path :post post-interceptors
                :route-name ::graphql-post]}
-            get-enabled (conj [path :get interceptors
-                               :route-name ::graphql-get]))))
+      get-enabled (conj [path :get interceptors
+                         :route-name ::graphql-get]))))
 
 (defn graphiql-ide-response
   "Reads the graphiql.html resource, then injects new content into it, and ultimately returns a Ring
@@ -492,11 +493,11 @@
              ::http/type :jetty
              ::http/join? false}
 
-            subscriptions
-            (internal/add-subscriptions-support compiled-schema subscriptions-path options)
+      subscriptions
+      (internal/add-subscriptions-support compiled-schema subscriptions-path options)
 
-            graphiql
-            (assoc ::http/secure-headers nil))))
+      graphiql
+      (assoc ::http/secure-headers nil))))
 
 (s/fdef service-map
         :args (s/cat :compiled-schema ::spec/compiled-schema
