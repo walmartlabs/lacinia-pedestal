@@ -21,6 +21,7 @@ providing the `GraphIQL client <https://github.com/graphql/graphiql>`_
    async
    subscriptions
    interceptors
+   tracing
 
    API Documentation <http://walmartlabs.github.io/apidocs/lacinia-pedestal/>
    GitHub Project <https://github.com/walmartlabs/lacinia-pedestal>

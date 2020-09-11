@@ -199,8 +199,7 @@ pseudoxml:
 
 live: clean html
 		$(SPHINXAUTOBUILD) \
-				-i '.git/*' \
-				-i 'meeting-notes/*' \
+				--ignore '.git/*' \
 				--no-initial \
 				--open-browser \
 				-b html \

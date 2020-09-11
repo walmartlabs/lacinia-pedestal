@@ -108,7 +108,7 @@
   (tu/expect-message {:type "connection_ack"}))
 
 
-(deftest can-return-timing-information
+(deftest can-provide-tracing-information
   (let [query "{ echo(value: \"hello\") { value method }}"
         response (send-request query {:headers {"lacinia-tracing" "true"}})]
     (reporting [response]
