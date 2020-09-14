@@ -30,7 +30,8 @@
     [io.pedestal.http.jetty.websockets :as ws]
     [io.pedestal.http :as http]
     [io.pedestal.interceptor.chain :as chain]
-    [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]))
+    [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
+    [com.walmartlabs.lacinia.tracing :as tracing]))
 
 (def ^:private parsed-query-key-path [:request :parsed-lacinia-query])
 
@@ -80,18 +81,17 @@
   {:errors [(util/as-error-map exception)]})
 
 (defn on-enter-query-parser
-  [compiled-schema]
-  (fn [context]
-    (let [{:keys [graphql-query graphql-operation-name]} (:request context)]
-      (try
-        (let [actual-schema (if (map? compiled-schema)
-                              compiled-schema
-                              (compiled-schema))
-              parsed-query (parser/parse-query actual-schema graphql-query graphql-operation-name)]
-          (assoc-in context parsed-query-key-path parsed-query))
-        (catch Exception e
-          (assoc context :response
-                         (failure-response (as-errors e))))))))
+  [context compiled-schema timing-start]
+  (let [{:keys [graphql-query graphql-operation-name]} (:request context)]
+    (try
+      (let [actual-schema (if (map? compiled-schema)
+                            compiled-schema
+                            (compiled-schema))
+            parsed-query (parser/parse-query actual-schema graphql-query graphql-operation-name timing-start)]
+        (assoc-in context parsed-query-key-path parsed-query))
+      (catch Exception e
+        (assoc context :response
+               (failure-response (as-errors e)))))))
 
 (defn on-error-error-response
   [context ex]
@@ -103,15 +103,20 @@
   (try
     (let [{parsed-query :parsed-lacinia-query
            vars :graphql-vars} (:request context)
+          {:keys [::tracing/timing-start]} parsed-query
+          start-offset (tracing/offset-from-start timing-start)
+          start-nanos (System/nanoTime)
           prepared (parser/prepare-with-query-variables parsed-query vars)
           compiled-schema (get prepared constants/schema-key)
-          errors (validator/validate compiled-schema prepared {})]
+          errors (validator/validate compiled-schema prepared {})
+          prepared' (assoc prepared ::tracing/validation {:start-offset start-offset
+                                                          :duration (tracing/duration start-nanos)})]
       (if (seq errors)
         (assoc context :response (failure-response {:errors errors}))
-        (assoc-in context parsed-query-key-path prepared)))
+        (assoc-in context parsed-query-key-path prepared')))
     (catch Exception e
       (assoc context :response
-                     (failure-response (as-errors e))))))
+             (failure-response (as-errors e))))))
 
 
 (defn ^:private remove-status
@@ -145,11 +150,11 @@
   (let [exception-str (pr-str (type exception))
         msg (str exception-str " in Interceptor " interceptor-name " - " (ex-message exception))
         wrapped-exception (ex-info msg
-                                   (merge {:execution-id   execution-id
-                                           :stage          :enter
-                                           :interceptor    interceptor-name
+                                   (merge {:execution-id execution-id
+                                           :stage :enter
+                                           :interceptor interceptor-name
                                            :exception-type (keyword exception-str)
-                                           :exception      exception}
+                                           :exception exception}
                                           (ex-data exception))
                                    exception)]
     (assoc context ::chain/error wrapped-exception)))
@@ -183,7 +188,7 @@
         {q :parsed-lacinia-query
          app-context :lacinia-app-context} request]
     (executor/execute-query (assoc app-context
-                              constants/parsed-query-key q))))
+                                   constants/parsed-query-key q))))
 
 (defn on-enter-query-executor
   [interceptor-name]

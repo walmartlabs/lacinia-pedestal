@@ -1,3 +1,11 @@
+## 0.15.0 -- UNRELEASED
+
+Requests for GraphQL IDE assets will now return a 304 Not Modified response when the client
+already has the current content.
+
+Support for [Lacinia request tracing](https://lacinia.readthedocs.io/en/latest/tracing.html) has been added; 
+it is enabled by default when using `com.walmartlabs.lacinia.pedestal2/default-service`.
+
 ## 0.14.0 -- 30 Jun 2020
 
 New `com.walmartlabs.lacinia.pedestal2` namespace de-complects

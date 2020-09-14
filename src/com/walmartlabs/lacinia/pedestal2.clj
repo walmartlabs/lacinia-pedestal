@@ -19,6 +19,7 @@
             [clojure.string :as str]
             [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors]
             [com.walmartlabs.lacinia.pedestal.internal :as internal]
+            [com.walmartlabs.lacinia.tracing :as tracing]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :refer [interceptor]]
             [ring.middleware.not-modified :refer [wrap-not-modified]]
@@ -36,8 +37,8 @@
 
    This must come after [[json-response-interceptor]], as the error still needs to be converted to json."
   (interceptor
-   {:name ::error-response
-    :error internal/on-error-error-response}))
+    {:name ::error-response
+     :error internal/on-error-error-response}))
 
 (def body-data-interceptor
   "Converts the POSTed body from a input stream into a string, or rejects the request
@@ -71,8 +72,8 @@
                           :graphql-operation-name operation-name))
                 (catch Exception e
                   (assoc context :response
-                                 (internal/failure-response
-                                   {:message (str "Invalid request: " (.getMessage e))})))))}))
+                         (internal/failure-response
+                           {:message (str "Invalid request: " (.getMessage e))})))))}))
 
 (def missing-query-interceptor
   "Rejects the request with a 400 response is the JSON query variable is missing or blank.
@@ -83,7 +84,7 @@
      :enter (fn [context]
               (if (-> context :request :graphql-query str/blank?)
                 (assoc context :response
-                               (internal/failure-response "JSON 'query' key is missing or blank"))
+                       (internal/failure-response "JSON 'query' key is missing or blank"))
                 context))}))
 
 (defn query-parser-interceptor
@@ -101,7 +102,8 @@
   [compiled-schema]
   (interceptor
     {:name ::query-parser
-     :enter (internal/on-enter-query-parser compiled-schema)}))
+     :enter (fn [context]
+              (internal/on-enter-query-parser context compiled-schema (get-in context [:request ::timing-start])))}))
 
 (def prepare-query-interceptor
   "Prepares (with query variables) and validates the query, previously parsed
@@ -145,8 +147,8 @@
 
   This comes last in the interceptor chain."
   (interceptor
-   {:name  ::query-executor
-    :enter (internal/on-enter-query-executor ::query-executor)}))
+    {:name ::query-executor
+     :enter (internal/on-enter-query-executor ::query-executor)}))
 
 (def async-query-executor-handler
   "Async variant of [[query-executor-handler]] which returns a channel that conveys the
@@ -155,9 +157,34 @@
     {:name ::async-query-executor
      :enter (internal/on-enter-async-query-executor ::async-query-executor)}))
 
+(def ^{:added "0.15.0"} initialize-tracing-interceptor
+  "Initializes timing information for the request; largely, this captures the earliest
+  possible start time for the request (before any other interceptors), just in case
+  tracing is enabled for this request (that decision is made by [[enable-tracing-interceptor]])."
+  (interceptor
+    {:name ::initialize-tracing
+     :enter (fn [context]
+              ;; Without this, the tracing during parsing doesn't know when the request actually started
+              ;; and assumes no real time has passed, which is less accurate. Capturing the timing start early
+              ;; ensures that time spent parsing the request body or doing other work before we get to parsing
+              ;; is properly accounted for.
+              (assoc-in context [:request ::timing-start] (tracing/create-timing-start)))}))
+
+(def ^{:added "0.15.0"} enable-tracing-interceptor
+  "Enables tracing if the `lacinia-tracing` header is present."
+  (interceptor
+    {:name ::enable-tracing
+     :enter (fn [context]
+              ;; Must come after the app context is added to the request.
+              (let [request (:request context)
+                    enabled? (get-in request [:headers "lacinia-tracing"])]
+                (cond-> context
+                  enabled? (update-in [:request :lacinia-app-context] tracing/enable-tracing))))}))
+
 (defn default-interceptors
   "Returns the default set of GraphQL interceptors, as a seq:
 
+    * ::initialize-tracing [[initialize-tracing-interceptor]]
     * ::json-response [[json-response-interceptor]]
     * ::error-response [[error-response-interceptor]]
     * ::body-data [[body-data-interceptor]]
@@ -168,6 +195,7 @@
     * ::disallow-subscriptions [[disallow-subscriptions-interceptor]]
     * ::prepare-query [[prepare-query-interceptor]]
     * ::inject-app-context [[inject-app-context-interceptor]]
+    * ::enable-tracing [[enable-tracing-interceptor]]
     * ::query-executor [[query-executor-handler]]
 
   `compiled-schema` may be the actual compiled schema, or a no-arguments function that returns the compiled schema.
@@ -177,7 +205,8 @@
 
   Often, this list of interceptors is augmented by calls to [[inject]]."
   [compiled-schema app-context]
-  [json-response-interceptor
+  [initialize-tracing-interceptor
+   json-response-interceptor
    error-response-interceptor
    body-data-interceptor
    graphql-data-interceptor
@@ -187,6 +216,7 @@
    disallow-subscriptions-interceptor
    prepare-query-interceptor
    (inject-app-context-interceptor app-context)
+   enable-tracing-interceptor
    query-executor-handler])
 
 (defn graphiql-asset-routes
@@ -196,9 +226,9 @@
   [asset-path]
   (let [asset-path' (str asset-path "/*path")
         asset-get-handler (wrap-not-modified
-                           (fn [request]
-                             (response/resource-response (-> request :path-params :path)
-                                                         {:root "graphiql"})))
+                            (fn [request]
+                              (response/resource-response (-> request :path-params :path)
+                                                          {:root "graphiql"})))
         asset-head-handler #(-> %
                                 asset-get-handler
                                 (assoc :body nil))]
@@ -231,6 +261,9 @@
     These define additional headers to be included in the requests from the IDE.
     Typically, the headers are used to identify and authenticate the requests.
 
+    The default for :ide-headers is `{\"lacinia-tracing\", \"true\"} to enable GraphQL
+    tracing from inside the GraphiQL IDE>
+
   :ide-connection-params
   : A value that is used with the GraphiQL IDE; this value is converted to JSON,
     and becomes the connectionParams passed in the initial subscription web service call;
@@ -239,7 +272,8 @@
   (let [{:keys [api-path asset-path subscriptions-path ide-headers ide-connection-params]
          :or {api-path default-api-path
               asset-path default-asset-path
-              subscriptions-path default-subscriptions-path}} options
+              subscriptions-path default-subscriptions-path
+              ide-headers {"lacinia-tracing" "true"}}} options
         response (internal/graphiql-response
                    api-path subscriptions-path asset-path ide-headers ide-connection-params)]
     (fn [_]
