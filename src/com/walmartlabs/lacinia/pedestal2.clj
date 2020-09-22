@@ -238,6 +238,7 @@
 (def ^:private default-api-path "/api")
 (def ^:private default-asset-path "/assets/graphiql")
 (def ^:private default-subscriptions-path "/ws")
+(def ^:private default-host-address "localhost")
 
 (defn graphiql-ide-handler
   "Returns a handler for the GraphiQL IDE.
@@ -312,14 +313,17 @@
 
   It may also contain keys :app-context and :port (which defaults to 8888).
 
+  You can also define an explicit :host address to your application. Useful when running inside Docker.
+
   This is useful for initial development and exploration, but applications with any more needs should construct
   their service map directly."
   [compiled-schema options]
-  (let [{:keys [api-path ide-path asset-path app-context port]
+  (let [{:keys [api-path ide-path asset-path app-context port host]
          :or {api-path default-api-path
               ide-path "/ide"
               asset-path default-asset-path
-              port 8888}} options
+              port 8888
+              host default-host-address}} options
         interceptors (default-interceptors compiled-schema app-context)
         routes (into #{[api-path :post interceptors :route-name ::graphql-api]
                        [ide-path :get (graphiql-ide-handler options) :route-name ::graphiql-ide]}
@@ -327,6 +331,7 @@
     (-> {:env :dev
          ::http/routes routes
          ::http/port port
+         ::http/host host
          ::http/type :jetty
          ::http/join? false}
         enable-graphiql
