@@ -3,6 +3,7 @@
     [com.stuartsierra.component :as component]
     [com.walmartlabs.lacinia.pedestal2 :as p2]
     [com.walmartlabs.lacinia.pedestal :refer [inject]]
+    [io.pedestal.interceptor :refer [interceptor]
     [io.pedestal.http :as http]))
 
 (defn ^:private extract-user-info
@@ -11,11 +12,12 @@
   )
 
 (def ^:private user-info-interceptor
-  {:name ::user-info
-   :enter (fn [context]
-            (let [{:keys [request]} context
+  (interceptor
+   {:name ::user-info
+    :enter (fn [context]
+              (let [{:keys [request]} context
                   user-info (extract-user-info request)]
-              (assoc-in context [:request :lacinia-app-context :user-info] user-info)))})
+                (assoc-in context [:request :lacinia-app-context :user-info] user-info)))}))
 
 (defn ^:private interceptors
   [schema]
