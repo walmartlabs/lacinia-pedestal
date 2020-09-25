@@ -37,6 +37,8 @@
 
 (def ^:private default-subscriptions-path "/graphql-ws")
 
+(def ^:private default-host-address "localhost")
+
 (defn inject
   "Locates the named interceptor in the list of interceptors and adds (or replaces)
   the new interceptor to the list.
@@ -460,6 +462,9 @@
   : If true, the query will execute asynchronously; the handler will return a clojure.core.async
     channel rather than blocking.
 
+  :host (default: localhost)
+  : HOST address bind to pedestal/jetty.
+
   :app-context
   : The base application context provided to Lacinia when executing a query.
 
@@ -479,17 +484,19 @@
   {:added "0.5.0"
    :deprecated "0.14.0"}
   [compiled-schema options]
-  (let [{:keys [graphiql subscriptions port env subscriptions-path]
+  (let [{:keys [graphiql subscriptions port env subscriptions-path host]
          :or {graphiql false
               subscriptions false
               port 8888
               subscriptions-path default-subscriptions-path
-              env :dev}} options
+              env :dev
+              host default-host-address}} options
         routes (or (:routes options)
                    (graphql-routes compiled-schema options))]
     (cond-> {:env env
              ::http/routes routes
              ::http/port port
+             ::http/host host
              ::http/type :jetty
              ::http/join? false}
 
@@ -517,7 +524,9 @@
                                               ::spec/app-context
                                               ::subscriptions-path
                                               ::port
-                                              ::env]))
+                                              ::env
+                                              ::host
+                                              ]))
 (s/def ::graphiql boolean?)
 (s/def ::routes some?)                                      ; Details are far too complicated
 (s/def ::subscriptions boolean?)
@@ -532,4 +541,4 @@
 (s/def ::subscriptions-path ::path)
 (s/def ::port nat-int?)
 (s/def ::env keyword?)
-
+(s/def ::host string?)
