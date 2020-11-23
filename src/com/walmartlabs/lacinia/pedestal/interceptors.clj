@@ -16,7 +16,8 @@
   "Common interceptors between the standard and subscriptions code paths."
   {:added "0.13.0"}
   (:require
-    [io.pedestal.interceptor :refer [interceptor]]))
+    [io.pedestal.interceptor :refer [interceptor]]
+    [io.pedestal.interceptor.chain :as chain]))
 
 ;; Ideally, this function would go inside .internal, but that causes
 ;; a dependency cycle with .subscriptions.
@@ -25,6 +26,15 @@
   (fn [context]
     (assoc-in context [:request :lacinia-app-context]
               (assoc app-context :request (:request context)))))
+
+(defn ^:no-doc on-leave-app-context-interceptor
+  [context]
+  (update context :request dissoc :lacinia-app-context))
+
+(defn ^:no-doc on-error-app-context-interceptor
+  [context exception]
+  (-> (on-leave-app-context-interceptor context)
+      (assoc ::chain/error exception)))
 
 (defn inject-app-context-interceptor
   "Adds a :lacinia-app-context key to the request, used when executing the query.

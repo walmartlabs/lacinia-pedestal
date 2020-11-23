@@ -51,11 +51,17 @@
                   (update-in context [:request :body] slurp)
                   (assoc context :response (internal/failure-response "Must be application/json")))))}))
 
+(defn ^:private clear-graphql-data
+  [context]
+  (update context :request dissoc :graphql-query :graphql-vars :graphql-operation-name))
+
 (def graphql-data-interceptor
   "Comes after [[body-data-interceptor]], extracts the JSON query and other data into request keys
   :graphql-query (the query document as a string),
   :graphql-vars (a map)
   and :graphql-operation-name (a string).
+
+  These keys are dissoc'ed on leave, or on error.
 
   Comes after [[body-data-interceptor]]."
   (interceptor
@@ -73,7 +79,11 @@
                 (catch Exception e
                   (assoc context :response
                          (internal/failure-response
-                           {:message (str "Invalid request: " (.getMessage e))})))))}))
+                           {:message (str "Invalid request: " (.getMessage e))})))))
+     :leave clear-graphql-data
+     :error (fn [context exception]
+              (-> (clear-graphql-data context)
+                  (internal/add-error exception)))}))
 
 (def missing-query-interceptor
   "Rejects the request with a 400 response is the JSON query variable is missing or blank.
@@ -96,6 +106,7 @@
    Expected to come after [[missing-query-interceptor]] in the interceptor chain.
 
    Adds a new request key, :parsed-lacinia-query, containing the parsed query.
+   This key is removed on leave or on error.
 
    Before execution, [[prepare-query-interceptor]] injects query variables and performs
    validations."
@@ -103,7 +114,9 @@
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
-              (internal/on-enter-query-parser context compiled-schema (get-in context [:request ::timing-start])))}))
+              (internal/on-enter-query-parser context compiled-schema (get-in context [:request ::timing-start])))
+     :leave internal/on-leave-query-parser
+     :error internal/on-error-query-parser}))
 
 (def prepare-query-interceptor
   "Prepares (with query variables) and validates the query, previously parsed
@@ -133,13 +146,17 @@
 
   The provided app-context map is augmented with the request map, as key :request.
 
+  On leave (or error), the :lacinia-app-context key is dissoc'ed.
+
   It is not uncommon to replace this interceptor with one that constructs
   the application context dynamically; for example, to extract authentication information
   from the request and expose that as app-context keys."
   [app-context]
   (interceptor
     {:name ::inject-app-context
-     :enter (interceptors/on-enter-app-context-interceptor app-context)}))
+     :enter (interceptors/on-enter-app-context-interceptor app-context)
+     :leave interceptors/on-leave-app-context-interceptor
+     :error interceptors/on-error-app-context-interceptor}))
 
 (def query-executor-handler
   "The handler at the end of interceptor chain, invokes Lacinia to
