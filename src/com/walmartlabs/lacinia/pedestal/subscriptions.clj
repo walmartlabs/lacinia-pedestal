@@ -266,9 +266,25 @@
                   (close! response-data-ch)))
               context)}))
 
+(defn ^:private on-leave-query-parser
+  [context]
+  (update context :request dissoc :parsed-lacinia-query))
+
+(defn ^:private add-error
+  [context exception]
+  (assoc context ::chain/error exception))
+
+(defn ^:private on-error-query-parser
+  [context exception]
+  (-> (on-leave-query-parser context)
+      (add-error exception)))
+
+
 (defn query-parser-interceptor
   "An interceptor that parses the query and places a prepared and validated
   query into the :parsed-lacinia-query key of the request.
+
+  On exit (on leave, or on error) the key is removed from the request.
 
   `compiled-schema` may be the actual compiled schema, or a no-arguments function
   that returns the compiled schema."
@@ -292,7 +308,9 @@
 
                 (if (seq errors)
                   (throw (ex-info "Query validation errors." {::errors errors}))
-                  (assoc-in context [:request :parsed-lacinia-query] prepared))))}))
+                  (assoc-in context [:request :parsed-lacinia-query] prepared))))
+     :leave on-leave-query-parser
+     :error on-error-query-parser}))
 
 (defn ^:private execute-operation
   [context parsed-query]
@@ -379,6 +397,8 @@
 
   The provided app-context map is augmented with the request map, as key :request.
 
+  The key is removed on exit (on leave, or on error).
+
   It is not uncommon to replace this interceptor with one that constructs
   the application context dynamically; for example, to extract authentication information
   from the request and expose that as app-context keys."
@@ -386,7 +406,9 @@
   [app-context]
   (interceptor
     {:name ::inject-app-context
-     :enter (interceptors/on-enter-app-context-interceptor app-context)}))
+     :enter (interceptors/on-enter-app-context-interceptor app-context)
+     :leave interceptors/on-leave-app-context-interceptor
+     :error interceptors/on-error-app-context-interceptor}))
 
 (defn default-subscription-interceptors
   "Processing of operation requests from the client is passed through interceptor pipeline.

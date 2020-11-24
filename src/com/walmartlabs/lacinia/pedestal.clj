@@ -201,7 +201,7 @@
                 context))}))
 
 (defn ^{:deprecated "0.14.0"} query-parser-interceptor
-  "Given an schema, returns an interceptor that parses the query.
+  "Given a compiled schema, returns an interceptor that parses the query.
 
    `compiled-schema` may be the actual compiled schema, or a no-arguments function
    that returns the compiled schema.

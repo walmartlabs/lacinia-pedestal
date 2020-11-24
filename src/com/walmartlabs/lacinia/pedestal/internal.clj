@@ -93,6 +93,19 @@
         (assoc context :response
                (failure-response (as-errors e)))))))
 
+(defn on-leave-query-parser
+  [context]
+  (update context :request dissoc :parsed-lacinia-query))
+
+(defn add-error
+  [context exception]
+  (assoc context ::chain/error exception))
+
+(defn on-error-query-parser
+  [context exception]
+  (-> (on-leave-query-parser context)
+      (add-error exception)))
+
 (defn on-error-error-response
   [context ex]
   (let [{:keys [exception]} (ex-data ex)]

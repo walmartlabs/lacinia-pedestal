@@ -6,6 +6,11 @@ already has the current content.
 Support for [Lacinia request tracing](https://lacinia.readthedocs.io/en/latest/tracing.html) has been added; 
 it is enabled by default when using `com.walmartlabs.lacinia.pedestal2/default-service`.
 
+Several interceptors from the `com.walmartlabs.lacinia.pedestal2` namespace have been modified to
+clean up the context on exit (either `:leave`, or `:error`).
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/14?closed=1)
+
 ## 0.14.0 -- 30 Jun 2020
 
 New `com.walmartlabs.lacinia.pedestal2` namespace de-complects
