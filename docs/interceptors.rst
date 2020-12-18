@@ -31,3 +31,9 @@ it's simple to get that data inside a resolver function:
 Again, it's a little sketchy because we don't know what the ``user-info`` data is, how its
 stored in the request, or what is done with it ... but the ``:user-info`` put in place
 by the interceptor is a snap to gain access to in any resolver function.
+
+.. tip::
+   The ``inject`` function is useful for making one or two small additions to the default interceptors,
+   but any more than that will likely lead to confusion about what order the items in the interceptor
+   pipeline are in; better to dupliciate the code from ``com.walmartlabs.lacinia.pedestal2/default-interceptors``
+   instead.
