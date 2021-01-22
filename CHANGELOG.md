@@ -1,4 +1,4 @@
-## 0.15.0 -- UNRELEASED
+## 0.15.0 -- 22 Jan 2021
 
 Requests for GraphQL IDE assets will now return a 304 Not Modified response when the client
 already has the current content.
