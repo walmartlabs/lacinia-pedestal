@@ -37,11 +37,11 @@
   (reset! error-proof nil)
   (send-request "{ fail }")
   (let [[ctx ex] @error-proof]
-    (is (= "clojure.lang.ExceptionInfo in Interceptor :com.walmartlabs.lacinia.pedestal/async-query-executor - Exception in resolver for `__Queries/fail': resolver exception"
+    (is (= "clojure.lang.ExceptionInfo in Interceptor :com.walmartlabs.lacinia.pedestal/async-query-executor - Exception in resolver for `Query/fail': resolver exception"
            (ex-message ex)))
     (is (= {:arguments nil
             :exception-type :clojure.lang.ExceptionInfo
-            :field-name :__Queries/fail
+            :field-name :Query/fail
             :interceptor :com.walmartlabs.lacinia.pedestal/async-query-executor
             :location {:column 3
                        :line 1}

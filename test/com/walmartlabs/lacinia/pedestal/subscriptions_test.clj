@@ -99,7 +99,7 @@
                 {:query "subscription { ping(message: \"short\", count: 2 ) }"}})
 
     (expect-message {:id id
-                     :payload {:message "Failed to parse GraphQL query. Field `__subscriptions/ping' must have at least one selection."
+                     :payload {:message "Failed to parse GraphQL query. Field `subscription/ping' must have at least one selection."
                                :locations [{:column 16
                                             :line 1}]}
                      :type "error"})

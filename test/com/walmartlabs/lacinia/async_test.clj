@@ -87,9 +87,9 @@
     (reporting response
       (is (= {:status 500
               :body {:errors [{:extensions {:arguments nil
-                                            :field-name "__Queries/fail"
+                                            :field-name "Query/fail"
                                             :location {:column 3
                                                        :line 1}
                                             :path ["fail"]}
-                               :message "Exception in resolver for `__Queries/fail': resolver exception"}]}}
+                               :message "Exception in resolver for `Query/fail': resolver exception"}]}}
              (select-keys response [:status :body]))))))
