@@ -82,7 +82,7 @@ using the building-blocks provided by `com.walmartlabs.lacinia.pedestal2`.
 ### GraphiQL
 
 The GraphiQL packaged inside the library is built using `npm`, from
-version `0.12.0`.
+version `1.4.2`.
 
 ## License
 

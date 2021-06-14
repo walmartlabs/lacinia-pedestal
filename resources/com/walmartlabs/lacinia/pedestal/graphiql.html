@@ -10,18 +10,20 @@
 <html>
   <head>
     <style>
-      html, body {
+      html,
+      body {
         height: 100%;
         margin: 0;
         width: 100%;
         overflow: hidden;
       }
     </style>
-    <link rel="stylesheet" href="{{asset-path}}/graphiql.css" />
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="{{asset-path}}/graphiql.min.css" />
     <script src="{{asset-path}}/es6-promise.auto.min.js"></script>
     <script src="{{asset-path}}/react.min.js"></script>
     <script src="{{asset-path}}/react-dom.min.js"></script>
-    <script src="{{asset-path}}/graphiql.js"></script>
+    <script src="{{asset-path}}/graphiql.min.js"></script>
     <script src="{{asset-path}}/subscriptions-transport-ws-browser-client.js"></script>
     <script src="{{asset-path}}/graphiql-subscriptions-fetcher-browser-client.js"></script>
   </head>
@@ -113,6 +115,7 @@
       ReactDOM.render(
         React.createElement(GraphiQL, {
           fetcher: subscriptionsFetcher,
+          headerEditorEnabled: true,
           query: parameters.query,
           variables: parameters.variables,
           onEditQuery: onEditQuery,
