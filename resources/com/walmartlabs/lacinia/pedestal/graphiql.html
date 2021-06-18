@@ -43,6 +43,7 @@
       // Parse the search string to get url parameters.
       var search = window.location.search;
       var parameters = {};
+      var headers = {};
       search.substr(1).split('&').forEach(function (entry) {
         var eq = entry.indexOf('=');
         if (eq >= 0) {
@@ -75,6 +76,14 @@
         updateURL();
       }
 
+      function onEditHeaders(newHeaders) {
+        try {
+          headers = JSON.parse(newHeaders);
+        } catch (e) {
+          // Do nothing.
+        }
+      }
+
       function computeParams() {
         return '?' + Object.keys(parameters).map(function (key) {
           return encodeURIComponent(key) + '=' +
@@ -90,7 +99,7 @@
       function graphQLFetcher(graphQLParams) {
         return fetch(window.location.origin + '{{api-path}}', {
           method: 'post',
-          headers: {{request-headers}},
+          headers: Object.assign({}, {{request-headers}}, headers),
           referrer: "no-referrer",
           credentials: 'include',
           body: JSON.stringify(graphQLParams)
@@ -119,7 +128,8 @@
           query: parameters.query,
           variables: parameters.variables,
           onEditQuery: onEditQuery,
-          onEditVariables: onEditVariables
+          onEditVariables: onEditVariables,
+          onEditHeaders: onEditHeaders
         }),
         document.body
       );
