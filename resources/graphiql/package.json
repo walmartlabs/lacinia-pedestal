@@ -3,12 +3,10 @@
   "version": "1.0.0",
   "dependencies": {
     "es6-promise": "4.2.8",
-    "graphiql": "0.17.5",
+    "graphiql": "1.4.2",
     "graphiql-subscriptions-fetcher": "0.0.2",
-    "graphql": "^0.13.0",
-    "js-yaml": "3.13.1",
-    "react": "15.6.2",
-    "react-dom": "15.6.2",
-    "subscriptions-transport-ws": "0.8.2"
+    "graphql": "15.5.0",
+    "js-yaml": "4.1.0",
+    "subscriptions-transport-ws": "0.9.19"
   }
 }
