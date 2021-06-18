@@ -1,3 +1,10 @@
+## 0.16 - 18 Jun 2021
+
+Updated the version of the packaged GraphiQL.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/15?closed=1)
+
+
 ## 0.15.0 -- 22 Jan 2021
 
 Requests for GraphQL IDE assets will now return a 304 Not Modified response when the client
