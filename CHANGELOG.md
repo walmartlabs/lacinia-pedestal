@@ -1,4 +1,4 @@
-## 0.16.1 -- UNRELEASED
+## 0.16.1 -- 1 Jul 2021
 
 Fixes a bug that prevented the request headers supplied in GraphiQL IDE from being
 included in the request.  Request headers are now also persisted in the IDE URL, along
