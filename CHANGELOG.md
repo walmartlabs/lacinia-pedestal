@@ -1,3 +1,11 @@
+## 0.16.1 -- UNRELEASED
+
+Fixes a bug that prevented the request headers supplied in GraphiQL IDE from being
+included in the request.  Request headers are now also persisted in the IDE URL, along
+with the query and query variables.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/16?closed=1)
+
 ## 0.16 - 18 Jun 2021
 
 Updated the version of the packaged GraphiQL.
