@@ -30,16 +30,6 @@
   <body>
     Loading...
     <script>
-
-      /**
-       * This GraphiQL example illustrates how to use some of GraphiQL's props
-       * in order to enable reading and updating the URL parameters, making
-       * link sharing of queries a little bit easier.
-       *
-       * This is only one example of this kind of feature, GraphiQL exposes
-       * various React params to enable interesting integrations.
-       */
-
       // Parse the search string to get url parameters.
       var search = window.location.search;
       var parameters = {};
@@ -61,6 +51,18 @@
           // than present an error.
         }
       }
+      
+      // Likewise, headers
+      
+      if (parameters.headers) {
+        try {
+          parameters.headers =
+            JSON.stringify(JSON.parse(parameters.headers), null, 2);
+        } catch (e) {
+          // Do nothing, we want to display the invalid JSON as a string, rather
+          // than present an error.
+        }
+      }
 
       // When the query and variables string is edited, update the URL bar so
       // that it can be easily shared
@@ -72,6 +74,11 @@
 
       function onEditVariables(newVariables) {
         parameters.variables = newVariables;
+        updateURL();
+      }
+
+      function onEditHeaders(newHeaders) {
+        parameters.headers = newHeaders;
         updateURL();
       }
 
@@ -88,9 +95,15 @@
 
       // Defines a GraphQL fetcher using the fetch API.
       function graphQLFetcher(graphQLParams) {
+        let headers = parameters.headers;
+        if (typeof headers == "string") {
+          headers = JSON.parse(headers)
+        }
+
         return fetch(window.location.origin + '{{api-path}}', {
           method: 'post',
-          headers: {{request-headers}},
+          // User supplied headers override static headers
+          headers: Object.assign({{request-headers}}, headers),
           referrer: "no-referrer",
           credentials: 'include',
           body: JSON.stringify(graphQLParams)
@@ -118,8 +131,10 @@
           headerEditorEnabled: true,
           query: parameters.query,
           variables: parameters.variables,
+          headers: parameters.headers,
           onEditQuery: onEditQuery,
-          onEditVariables: onEditVariables
+          onEditVariables: onEditVariables,
+          onEditHeaders: onEditHeaders
         }),
         document.body
       );
