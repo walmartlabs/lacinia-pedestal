@@ -9,6 +9,6 @@
     "js-yaml": "4.1.0",
     "react": "16.14.0",
     "react-dom": "16.14.0",
-    "subscriptions-transport-ws": "0.9.19"
+    "subscriptions-transport-ws": "0.8.3"
   }
 }
