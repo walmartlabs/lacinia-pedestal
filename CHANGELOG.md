@@ -1,3 +1,7 @@
+## 1.0 - 9 Oct 2021
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/17?closed=1)
+
 ## 0.16.1 -- 1 Jul 2021
 
 Fixes a bug that prevented the request headers supplied in GraphiQL IDE from being
