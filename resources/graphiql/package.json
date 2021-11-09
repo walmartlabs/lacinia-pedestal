@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "dependencies": {
     "es6-promise": "4.2.8",
-    "graphiql": "1.4.2",
+    "graphiql": "1.4.7",
     "graphiql-subscriptions-fetcher": "0.0.2",
     "graphql": "15.5.0",
     "js-yaml": "4.1.0",
