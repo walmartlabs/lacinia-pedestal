@@ -470,8 +470,10 @@
 
   Options:
 
-  :keep-alive-ms (default: 30000)
+  :keep-alive-ms (default: 25000)
   : The interval at which keep alive messages are sent to the client.
+    Note that configuring this timeout to be at or above 30s conflicts with a default Jetty timeout
+    closing websockets after 30s of idle time.
 
   :app-context
   : The base application context provided to Lacinia when executing a query.
@@ -502,7 +504,7 @@
     channel)."
   [compiled-schema options]
   (let [{:keys [keep-alive-ms app-context init-context send-buffer-or-n response-chan-fn values-chan-fn]
-         :or {keep-alive-ms 30000
+         :or {keep-alive-ms 25000
               send-buffer-or-n 10
               response-chan-fn #(chan 10)
               values-chan-fn #(chan 1)
