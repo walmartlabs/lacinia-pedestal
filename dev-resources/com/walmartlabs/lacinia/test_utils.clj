@@ -13,7 +13,8 @@
     [com.walmartlabs.lacinia.resolve :refer [resolve-as]]
     [gniazdo.core :as g]
     [io.pedestal.log :as log]
-    [cheshire.core :as cheshire]))
+    [cheshire.core :as cheshire]
+    [com.walmartlabs.lacinia.resolve :as resolve]))
 
 (def *echo-context (atom nil))
 
@@ -38,10 +39,12 @@
   (reset! *ping-context context)
   (let [{:keys [message count]} args
         runnable ^Runnable (fn []
-                             (dotimes [i count]
-                               (source-stream {:message (str message " #" (inc i))
-                                               :timestamp (System/currentTimeMillis)})
-                               (Thread/sleep 50))
+                             (if (< count 1)
+                               (source-stream (resolve/resolve-as nil {:message "count must be at least 1"}))
+                               (dotimes [i count]
+                                 (source-stream {:message (str message " #" (inc i))
+                                                 :timestamp (System/currentTimeMillis)})
+                                 (Thread/sleep 50)))
 
                              (source-stream nil))]
     (.start (Thread. runnable "stream-ping-thread")))

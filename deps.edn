@@ -1,5 +1,6 @@
 {:deps {org.clojure/clojure {:mvn/version "1.10.3"}
-        com.walmartlabs/lacinia {:mvn/version "1.0"}
+        ;com.walmartlabs/lacinia {:mvn/version "1.0"}
+        com.walmartlabs/lacinia {:local/root "../lacinia"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.12.3"}
         io.pedestal/pedestal.service {:mvn/version "0.5.8"}
         io.pedestal/pedestal.jetty {:mvn/version "0.5.8"}}
