@@ -30,18 +30,19 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
             [com.walmartlabs.lacinia.schema :as schema]))
 
 (def hello-schema 
-(schema/compile
-  {:queries 
-    {:hello
-      ;; String is quoted here; in EDN the quotation is not required
-      {:type 'String
-       :resolve (constantly "world")}}}))
+  (schema/compile
+    {:queries 
+      {:hello
+        ;; String is quoted here; in EDN the quotation is not required 
+        ;; You could also use :String
+        {:type 'String
+         :resolve (constantly "world")}}}))
 
 ;; Use default options:
 (def service (lp/default-service hello-schema nil))
 
-;; This is an adapted service map, that can be started and stopped
-;; From the REPL you can call server/start and server/stop on this service
+;; This is an adapted service map, that can be started and stopped.
+;; From the REPL you can call http/start and http/stop on this service:
 (defonce runnable-service (http/create-server service))
 
 (defn -main
@@ -82,7 +83,7 @@ using the building-blocks provided by `com.walmartlabs.lacinia.pedestal2`.
 ### GraphiQL
 
 The GraphiQL packaged inside the library is built using `npm`, from
-version `1.4.2`.
+version `1.4.7`.
 
 ## License
 

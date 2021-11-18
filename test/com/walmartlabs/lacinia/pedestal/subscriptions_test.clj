@@ -50,6 +50,30 @@
     (expect-message {:id id
                      :type "complete"})))
 
+(deftest operation-with-resolved-value-and-errors
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (let [id (swap! *subscriber-id inc)]
+    (send-data {:id id
+                :type :start
+                :payload
+                {:query "subscription { ping(message: \"bad arg\", count: 0) { message }}"}})
+    ;; Queries and mutations always deliver a single payload, then
+    ;; a complete.
+    (expect-message {:id id
+                     :payload {:data {:ping  nil}
+                               :errors [{:extensions {:arguments {:count 0
+                                                                  :message "bad arg"}}
+                                         :locations [{:column 16
+                                                      :line 1}]
+                                         :message "count must be at least 1"
+                                         :path ["ping"]}]}
+                     :type "data"})
+
+    (expect-message {:id id
+                     :type "complete"})))
+
 (deftest short-subscription
   (send-init)
   (expect-message {:type "connection_ack"})

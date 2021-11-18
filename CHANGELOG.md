@@ -1,4 +1,13 @@
-## 1.0 - 9 Oct 2021
+## 1.1 -- UNRELEASED
+
+A subtle bug in subscriptions was fixed; a streamer that passes nil to
+the source stream callback could prevent any values currently being rendered
+from being sent back to the client; this is related to
+a Lacinia 1.1 PR.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/18?closed=1)
+
+## 1.0 -- 9 Oct 2021
 
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/17?closed=1)
 
@@ -10,7 +19,7 @@ with the query and query variables.
 
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/16?closed=1)
 
-## 0.16 - 18 Jun 2021
+## 0.16 -- 18 Jun 2021
 
 Updated the version of the packaged GraphiQL.
 

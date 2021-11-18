@@ -332,22 +332,36 @@
   (let [{:keys [::values-chan-fn request]} context
         source-stream-ch (values-chan-fn)
         {:keys [id shutdown-ch response-data-ch]} request
-        source-stream (fn [value]
-                        (if (some? value)
-                          (put! source-stream-ch value)
-                          (close! source-stream-ch)))
+        source-stream (fn accept-value [value]
+                        (cond
+                          (nil? value)
+                          (close! source-stream-ch)
+
+                          (resolve/is-resolver-result? value)
+                          (resolve/on-deliver! value accept-value)
+
+                          :else
+                          (put! source-stream-ch value)))
         app-context (-> context
                         (get-in [:request :lacinia-app-context])
                         (assoc
                           ::lacinia/connection-params (:connection-params context)
                           constants/parsed-query-key parsed-query))
-        cleanup-fn (executor/invoke-streamer app-context source-stream)]
+        cleanup-fn (executor/invoke-streamer app-context source-stream)
+        ;; Track how many streamed values are currently executing queries
+        *execution-count (atom 0)
+        ;; Track when the streamer has passed a nil to shutdown the subscription cleanly
+        *shutting-down? (atom false)
+        ;; Closed when shutting down and execution count drops to 0
+        streamer-shutdown-ch (chan)]
     (go-loop []
       (alt!
 
         ;; TODO: A timeout?
 
-        ;; This channel is closed when the client sends a "stop" message
+        ;; This channel is closed when the client sends a "stop" message;
+        ;; any currently executing subscriptions (or executions of streamed
+        ;; values) are discarded.
         shutdown-ch
         (do
           (close! response-data-ch)
@@ -355,8 +369,11 @@
 
         source-stream-ch
         ([value]
-         (if (some? value)
+         (cond
+
+           (some? value)
            (do
+             (swap! *execution-count inc)
              (-> app-context
                  (assoc ::executor/resolved-value value)
                  executor/execute-query
@@ -364,16 +381,31 @@
                                         (put! response-data-ch
                                               {:type :data
                                                :id id
-                                               :payload response})))
-                  ;; Don't execute the query in a limited go block thread
-                 thread)
-             (recur))
-           (do
-              ;; The streamer has signaled that it has exhausted the subscription.
-             (>! response-data-ch {:type :complete
-                                   :id id})
-             (close! response-data-ch)
-             (cleanup-fn))))))
+                                               :payload response})
+                                        (let [new-count (swap! *execution-count dec)]
+                                          (when (and @*shutting-down?
+                                                     (zero? new-count))
+                                            (close! streamer-shutdown-ch)))))
+                 ;; Don't execute the query in a limited go block thread
+                 thread))
+
+           (= 0 @*execution-count)
+           (close! streamer-shutdown-ch)
+
+           :else
+           (reset! *shutting-down? true))
+         (recur))
+
+        ;; This is a clean shutdown from a streamer that signaled (via passing a nil)
+        ;; that the subscription is exhausted.  response-data-ch is only closed
+        ;; after any currently executing queries have first put their
+        ;; responses on it.
+        streamer-shutdown-ch
+        (do
+          (>! response-data-ch {:type :complete
+                                :id id})
+          (close! response-data-ch)
+          (cleanup-fn))))
 
     ;; Return the context unchanged, it will unwind while the above process
     ;; does the real work.
