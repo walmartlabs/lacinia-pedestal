@@ -1,9 +1,13 @@
 ## 1.1 -- UNRELEASED
 
+It is common for a GraphQL service to frequently execute the same query with
+different variables plugged in; it is now possible to provide a cache
+to `com.walmartlabs.lacinia.pedestal2/query-parser-interceptor`, which will bypass
+query parsing; this can reduce execution time and memory churn.
+
 A subtle bug in subscriptions was fixed; a streamer that passes nil to
-the source stream callback could prevent any values currently being rendered
-from being sent back to the client; this is related to
-a Lacinia 1.1 PR.
+the source stream callback could prevent any values currently being executed
+from being sent back to the client.
 
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/18?closed=1)
 
@@ -24,7 +28,6 @@ with the query and query variables.
 Updated the version of the packaged GraphiQL.
 
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/15?closed=1)
-
 
 ## 0.15.0 -- 22 Jan 2021
 

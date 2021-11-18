@@ -7,7 +7,8 @@
                  [com.walmartlabs/lacinia "1.1-alpha-6"]
                  [com.fasterxml.jackson.core/jackson-core "2.12.3"]
                  [io.pedestal/pedestal.service "0.5.8"]
-                 [io.pedestal/pedestal.jetty "0.5.8"]]
+                 [io.pedestal/pedestal.jetty "0.5.8"]
+                 [com.rpl/proxy-plus "0.0.8"]]
   :profiles
   {:dev {:dependencies [[clj-http "3.12.3"]
                         [com.walmartlabs/test-reporting "1.1"]

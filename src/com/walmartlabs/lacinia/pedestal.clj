@@ -218,7 +218,7 @@
   (interceptor
     {:name ::query-parser
      :enter (fn [context]
-              (internal/on-enter-query-parser context compiled-schema nil))}))
+              (internal/on-enter-query-parser context compiled-schema nil nil))}))
 
 (def ^{:added "0.10.0"
        :deprecated "0.14.0"} prepare-query-interceptor
