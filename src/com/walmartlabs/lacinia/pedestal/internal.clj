@@ -85,7 +85,9 @@
   [context compiled-schema cache timing-start]
   (let [{:keys [graphql-query graphql-operation-name]} (:request context)
         cache-key (when cache
-                    [graphql-query graphql-operation-name])
+                    (if graphql-operation-name
+                      [graphql-query graphql-operation-name]
+                      graphql-query))
         cached (cache/get-parsed-query cache cache-key)]
     (if cached
       (assoc-in context parsed-query-key-path cached)
