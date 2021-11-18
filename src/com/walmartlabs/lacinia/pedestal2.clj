@@ -108,15 +108,19 @@
    Adds a new request key, :parsed-lacinia-query, containing the parsed query.
    This key is removed on leave or on error.
 
+   `cache` defaults to nil, it should implement [[ParsedQueryCache]].
+
    Before execution, [[prepare-query-interceptor]] injects query variables and performs
    validations."
-  [compiled-schema]
-  (interceptor
-    {:name ::query-parser
-     :enter (fn [context]
-              (internal/on-enter-query-parser context compiled-schema (get-in context [:request ::timing-start])))
-     :leave internal/on-leave-query-parser
-     :error internal/on-error-query-parser}))
+  ([compiled-schema]
+   (query-parser-interceptor compiled-schema nil))
+  ([compiled-schema cache]
+   (interceptor
+     {:name ::query-parser
+      :enter (fn [context]
+               (internal/on-enter-query-parser context compiled-schema cache (get-in context [:request ::timing-start])))
+      :leave internal/on-leave-query-parser
+      :error internal/on-error-query-parser})))
 
 (def prepare-query-interceptor
   "Prepares (with query variables) and validates the query, previously parsed
@@ -220,21 +224,25 @@
   `app-context` is the application context that will be passed into all resolvers
   (the [[inject-app-context-interceptor]] adds a :request key to this map).
 
-  Often, this list of interceptors is augmented by calls to [[inject]]."
-  [compiled-schema app-context]
-  [initialize-tracing-interceptor
-   json-response-interceptor
-   error-response-interceptor
-   body-data-interceptor
-   graphql-data-interceptor
-   status-conversion-interceptor
-   missing-query-interceptor
-   (query-parser-interceptor compiled-schema)
-   disallow-subscriptions-interceptor
-   prepare-query-interceptor
-   (inject-app-context-interceptor app-context)
-   enable-tracing-interceptor
-   query-executor-handler])
+  The options map may contain key :parsed-query-cache, which will be used by the ::query-parser interceptor."
+  ([compiled-schema]
+   (default-interceptors compiled-schema nil))
+  ([compiled-schema app-context]
+   (default-interceptors compiled-schema app-context nil))
+  ([compiled-schema app-context options]
+   [initialize-tracing-interceptor
+    json-response-interceptor
+    error-response-interceptor
+    body-data-interceptor
+    graphql-data-interceptor
+    status-conversion-interceptor
+    missing-query-interceptor
+    (query-parser-interceptor compiled-schema (:parsed-query-cache options))
+    disallow-subscriptions-interceptor
+    prepare-query-interceptor
+    (inject-app-context-interceptor app-context)
+    enable-tracing-interceptor
+    query-executor-handler]))
 
 (defn graphiql-asset-routes
   "Returns a set of routes for retrieving GraphiQL assets (CSS and JS).
@@ -324,16 +332,17 @@
   Unlike earlier versions of lacinia-pedestal, only POST is supported, and the content type must
   be `application/json`.
 
-  compiled-schema is either the schema or a function returning the schema.
+  compiled-schema is either the compiled schema itself, or a function returning the compiled schema.
 
-  options is a map combining options needed by [[graphiql-ide-route]] and [[listener-fn-factory]].
+  options is a map combining options needed by [[graphiql-ide-route]], [[default-interceptors]],
+  [[enable-subscriptions]], and [[listener-fn-factory]].
 
   It may also contain keys :app-context and :port (which defaults to 8888).
 
   You can also define an explicit :host address to your application. Useful when running inside Docker.
 
-  This is useful for initial development and exploration, but applications with any more needs should construct
-  their service map directly."
+  This is useful for initial development and exploration, but applications with any more sophisticated needs
+  should construct their service map directly."
   [compiled-schema options]
   (let [{:keys [api-path ide-path asset-path app-context port host]
          :or {api-path default-api-path
@@ -341,7 +350,7 @@
               asset-path default-asset-path
               port 8888
               host default-host-address}} options
-        interceptors (default-interceptors compiled-schema app-context)
+        interceptors (default-interceptors compiled-schema app-context options)
         routes (into #{[api-path :post interceptors :route-name ::graphql-api]
                        [ide-path :get (graphiql-ide-handler options) :route-name ::graphiql-ide]}
                      (graphiql-asset-routes asset-path))]

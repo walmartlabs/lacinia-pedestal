@@ -19,6 +19,7 @@
     [cheshire.core :as cheshire]
     [com.walmartlabs.lacinia.util :as util]
     [com.walmartlabs.lacinia.parser :as parser]
+    [com.walmartlabs.lacinia.pedestal.cache :as cache]
     [clojure.string :as str]
     [com.walmartlabs.lacinia.validator :as validator]
     [com.walmartlabs.lacinia.constants :as constants]
@@ -81,17 +82,24 @@
   {:errors [(util/as-error-map exception)]})
 
 (defn on-enter-query-parser
-  [context compiled-schema timing-start]
-  (let [{:keys [graphql-query graphql-operation-name]} (:request context)]
-    (try
-      (let [actual-schema (if (map? compiled-schema)
-                            compiled-schema
-                            (compiled-schema))
-            parsed-query (parser/parse-query actual-schema graphql-query graphql-operation-name timing-start)]
-        (assoc-in context parsed-query-key-path parsed-query))
-      (catch Exception e
-        (assoc context :response
-               (failure-response (as-errors e)))))))
+  [context compiled-schema cache timing-start]
+  (let [{:keys [graphql-query graphql-operation-name]} (:request context)
+        cache-key (when cache
+                    [graphql-query graphql-operation-name])
+        cached (cache/get-parsed-query cache cache-key)]
+    (if cached
+      (assoc-in context parsed-query-key-path cached)
+      (try
+        (let [actual-schema (if (map? compiled-schema)
+                              compiled-schema
+                              (compiled-schema))
+              parsed-query (parser/parse-query actual-schema graphql-query graphql-operation-name timing-start)]
+          (->> parsed-query
+               (cache/store-parsed-query cache cache-key)
+               (assoc-in context parsed-query-key-path)))
+        (catch Exception e
+          (assoc context :response
+                 (failure-response (as-errors e))))))))
 
 (defn on-leave-query-parser
   [context]

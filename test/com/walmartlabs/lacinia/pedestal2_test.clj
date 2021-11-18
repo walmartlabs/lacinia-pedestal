@@ -20,11 +20,13 @@
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [com.walmartlabs.lacinia.pedestal2 :as p2]
+    [com.walmartlabs.lacinia.parser :refer [parse-query]]
     [com.walmartlabs.lacinia.test-utils :as tu]
     [io.pedestal.http :as http]
     [cheshire.core :as cheshire]
     [clj-http.client :as client]
-    [com.walmartlabs.test-reporting :refer [reporting]]))
+    [com.walmartlabs.test-reporting :refer [reporting]]
+    [com.walmartlabs.lacinia.pedestal.cache :as cache]))
 
 (defn prune
   [response]
@@ -35,7 +37,7 @@
   (reset! tu/*ping-subscribes 0)
   (reset! tu/*ping-cleanups 0)
   (let [service (-> (tu/compile-schema)
-                    (p2/default-service nil)
+                    (p2/default-service {:parsed-query-cache (cache/parsed-query-cache 20)})
                     http/create-server
                     http/start)]
     (try
@@ -51,13 +53,15 @@
   ([query]
    (send-request query nil))
   ([query options]
-   (let [{:keys [vars headers]} options]
+   (let [{:keys [vars headers op]} options
+         body (cond-> {:query query}
+                op (assoc :operationName op)
+                vars (assoc :variables vars))]
      (-> {:method :post
           :url "http://localhost:8888/api"
           :headers (merge {"Content-Type" "application/json"} headers)
           :throw-exceptions false
-          :body (cheshire/generate-string {:query query
-                                           :variables vars})}
+          :body (cheshire/generate-string body)}
          client/request
          (update :body #(try
                           (cheshire/parse-string % true)
@@ -74,6 +78,37 @@
       (is (= {:data {:echo {:method "post"
                             :value "hello"}}}
              (:body response))))))
+
+(deftest query-is-cached
+  (let [*count (atom 0)
+        parse-query-impl parse-query
+        parse-query-spy (fn [schema query-document operation-name timing-start]
+                          (swap! *count inc)
+                          (parse-query-impl schema query-document operation-name timing-start))]
+    (with-redefs [parse-query parse-query-spy]
+      (let [q "
+      query Short ($value: String!) {
+        short: echo(value: $value) { value }
+      }
+
+      query Long ($value: String!) {
+        long: echo(value: $value) { value method }
+      }"
+            response1 (send-request q {:vars {:value "first"} :op "Short"})
+            _ (is (= 1 @*count))
+            response2 (send-request q {:vars {:value "second"} :op "Short"})
+            ;; Same query and op: served from cache, parse not called
+            _ (is (= 1 @*count))
+            response3 (send-request q {:vars {:value "third"} :op "Long"})
+            ;; Same query but different op means a new parse takes place.
+            _ (is (= 2 @*count))]
+        (reporting [response1 response2 response3]
+          (is (= [{:short {:value "first"}}
+                  {:short {:value "second"}}
+                  {:long {:value "third"
+                          :method "post"}}]
+                 (map #(get-in % [:body :data])
+                      [response1 response2 response3]))))))))
 
 (deftest missing-query
   (let [response (send-request nil)]
