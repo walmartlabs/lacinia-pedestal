@@ -27,11 +27,10 @@
    :exec-args
    {:patterns [".*-tests?$"]}}
 
-  ;; clj -Xdev:codox
-  :codox
-  {:extra-deps {codox/codox {:mvn/version "0.10.7"}}
-   :exec-fn codox.main/generate-docs
-   :exec-args {:metadata {:doc/format :markdown}
-               :name "com.walmartlabs/lacinia-pedestal"
-               :version "1.1-alpha-1"
-               :description "Clojure-native implementation of GraphQL"}}}}
+  ;; clj -T:build <command>
+
+  :build
+  {:deps
+   {io.github.clojure/tools.build {:git/tag "v0.7.4" :git/sha "ac442da"}
+    slipset/deps-deploy {:mvn/version "0.2.0"}}
+   :ns-default build}}}
