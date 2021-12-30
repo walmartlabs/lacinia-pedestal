@@ -85,9 +85,17 @@ using the building-blocks provided by `com.walmartlabs.lacinia.pedestal2`.
 The GraphiQL packaged inside the library is built using `npm`, from
 version `1.4.7`.
 
+If you are including lacinia-pedestal via Git coordinate (rather than a published version
+of the library by using a :mvn/version coordinate), then the library will need to be prepped for use 
+via `clj -X:deps prep`.
+ 
+The prep action for lacinia-pedestal requires that you have `npm` installed.  
+The prep action generates the CSS and JavaScript files that are used
+to execute GraphiQL.
+
 ## License
 
-Copyright © 2017-2020 Walmart
+Copyright © 2017-2022 Walmart
 
 Distributed under the Apache Software License 2.0.
 

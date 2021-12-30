@@ -12,9 +12,7 @@ pom.xml.asc
 .idea/
 target/
 *.iml
-resources/graphiql/graphiql.*
-resources/graphiql/node_modules
-resources/graphiql/*.js
+node/node_modules
 .DS_Store
 .project
 .classpath

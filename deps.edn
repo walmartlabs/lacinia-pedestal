@@ -5,6 +5,9 @@
         io.pedestal/pedestal.jetty {:mvn/version "0.5.8"}
         com.rpl/proxy-plus {:mvn/version "0.0.8"}}
  :paths ["src" "resources"]
+ :deps/prep-lib {:alias :build
+                 :fn prep
+                 :ensure "target/classes"}
  :aliases
  {:dev
   {:extra-deps {clj-http/clj-http {:mvn/version "3.12.3"}
@@ -18,7 +21,7 @@
    :jvm-opts ["-Xmx500m"]
    :extra-paths ["test" "dev-resources"]}
 
-  ;; :test needs :dev, i.e. clj -Xdev:test
+  ;; clj -Xdev:test
   :test
   {:extra-deps {io.github.cognitect-labs/test-runner
                 {:git/url "https://github.com/cognitect-labs/test-runner.git"
