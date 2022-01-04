@@ -19,7 +19,7 @@
             [deps-deploy.deps-deploy :as d]))
 
 (def lib 'com.walmartlabs/lacinia-pedestal)
-(def version "1.1-alpha-7")
+(def version "1.1-rc-1")
 (def class-dir "target/classes")
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
 (def copy-srcs ["src" "resources"])
@@ -52,7 +52,7 @@
       (b/copy-file {:src in-path :target out-path}))))
 
 (defn jar
-  [_]
+  [_params]
   (prep nil)
   (let [basis (b/create-basis)]
     (b/write-pom {:class-dir class-dir
@@ -68,7 +68,7 @@
   (println "Created:" jar-file))
 
 (defn deploy
-  []
+  [_params]
   (clean nil)
   (jar nil)
   (d/deploy {:installer :remote
@@ -79,7 +79,7 @@
                               (throw (RuntimeException. "CLOJARS_GPG_ID environment variable not set")))}))
 
 (defn codox
-  [_]
+  [_params]
   (let [basis (b/create-basis {:extra '{:deps {codox/codox {:mvn/version "0.10.8"
                                                             :exclusions [org.ow2.asm/asm-all]}}}})
         expression `(do
