@@ -1,8 +1,8 @@
 {:deps {org.clojure/clojure {:mvn/version "1.10.3"}
-        com.walmartlabs/lacinia {:mvn/version "1.1-alpha-6"}
-        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.12.3"}
-        io.pedestal/pedestal.service {:mvn/version "0.5.8"}
-        io.pedestal/pedestal.jetty {:mvn/version "0.5.8"}
+        com.walmartlabs/lacinia {:mvn/version "1.1-rc-1"}
+        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.13.1"}
+        io.pedestal/pedestal.service {:mvn/version "0.5.9"}
+        io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
         com.rpl/proxy-plus {:mvn/version "0.0.8"}}
  :paths ["src" "resources"]
  :deps/prep-lib {:alias :build
@@ -24,11 +24,9 @@
   ;; clj -Xdev:test
   :test
   {:extra-deps {io.github.cognitect-labs/test-runner
-                {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                 :sha "705ad25bbf0228b1c38d0244a36001c2987d7337"}}
-   :exec-fn cognitect.test-runner.api/test
-   :exec-args
-   {:patterns [".*-tests?$"]}}
+                {:git/tag "v0.5.0" :git/sha "b3fd0d2"}}
+   :main-opts ["-m" "cognitect.test-runner"]
+   :exec-fn cognitect.test-runner.api/test}
 
   ;; clj -T:build <command>
 
