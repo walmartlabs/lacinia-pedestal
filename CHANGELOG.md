@@ -1,4 +1,4 @@
-## 1.1 -- UNRELEASED
+## 1.1 -- 14 Jan 2020
 
 It is common for a GraphQL service to frequently execute the same query with
 different variables plugged in; it is now possible to provide a cache

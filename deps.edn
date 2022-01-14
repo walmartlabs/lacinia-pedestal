@@ -1,5 +1,5 @@
 {:deps {org.clojure/clojure {:mvn/version "1.10.3"}
-        com.walmartlabs/lacinia {:mvn/version "1.1-rc-1"}
+        com.walmartlabs/lacinia {:mvn/version "1.1"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.13.1"}
         io.pedestal/pedestal.service {:mvn/version "0.5.9"}
         io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
@@ -25,7 +25,6 @@
   :test
   {:extra-deps {io.github.cognitect-labs/test-runner
                 {:git/tag "v0.5.0" :git/sha "b3fd0d2"}}
-   :main-opts ["-m" "cognitect.test-runner"]
    :exec-fn cognitect.test-runner.api/test}
 
   ;; clj -T:build <command>
