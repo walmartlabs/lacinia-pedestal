@@ -81,7 +81,8 @@
 (defn codox
   [_params]
   (let [basis (b/create-basis {:extra '{:deps {codox/codox {:mvn/version "0.10.8"
-                                                            :exclusions [org.ow2.asm/asm-all]}}}})
+                                                            :exclusions [org.ow2.asm/asm-all]}}}
+                               :aliases [:dev]})
         expression `(do
                       ((requiring-resolve 'codox.main/generate-docs)
                        {:metadata {:doc/format :markdown}
