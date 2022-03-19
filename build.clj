@@ -34,14 +34,13 @@
    "es6-promise/dist/es6-promise.auto.min.js" "es6-promise.auto.min.js"
    "react/umd/react.production.min.js" "react.min.js"
    "react-dom/umd/react-dom.production.min.js" "react-dom.min.js"
-   "subscriptions-transport-ws/browser/client.js" "subscriptions-transport-ws-browser-client.js"
-   "graphiql-subscriptions-fetcher/browser/client.js"  "graphiql-subscriptions-fetcher-browser-client.js"})
+   "subscriptions-transport-ws/browser/client.js" "subscriptions-transport-ws-browser-client.js"})
 
 (defn prep
   "Runs `npm install` and copies necessary files into class-dir."
   [_]
   (let [{:keys [exit out err] :as process-result}
-        (b/process {:command-args ["npm" "install"]
+        (b/process {:command-args ["npm" "ci"]
                     :dir "node"})]
     (when-not (zero? exit)
       (throw (ex-info "npm install failed"
