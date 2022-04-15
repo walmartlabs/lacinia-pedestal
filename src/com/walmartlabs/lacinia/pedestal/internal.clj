@@ -242,7 +242,7 @@
 (defn ^:private request-headers-string
   [headers]
   (str "{"
-       (->> (assoc headers "Content-Type" "application/json")
+       (->> headers
             (map (fn [[k v]]
                    (str \" (name k) "\": \"" (name v) \")))
             (str/join ", "))

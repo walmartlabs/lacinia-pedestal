@@ -13,8 +13,11 @@ pom.xml.asc
 target/
 *.iml
 node/node_modules
+resources/graphiql/
 .DS_Store
 .project
 .classpath
+.cpcache
+.clj-kondo
 .settings
 .vscode

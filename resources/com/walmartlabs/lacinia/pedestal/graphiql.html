@@ -25,11 +25,16 @@
     <script src="{{asset-path}}/react-dom.min.js"></script>
     <script src="{{asset-path}}/graphiql.min.js"></script>
     <script src="{{asset-path}}/subscriptions-transport-ws-browser-client.js"></script>
-    <script src="{{asset-path}}/graphiql-subscriptions-fetcher-browser-client.js"></script>
   </head>
   <body>
     Loading...
     <script>
+      // Declare values from server side.
+      var apiPath = '{{api-path}}';
+      var subscriptionsPath = '{{subscriptions-path}}';
+      var initialConnectionParams = {{initial-connection-params}};
+      var requestHeaders = {{request-headers}};
+
       // Parse the search string to get url parameters.
       var search = window.location.search;
       var parameters = {};
@@ -51,9 +56,9 @@
           // than present an error.
         }
       }
-      
+
       // Likewise, headers
-      
+
       if (parameters.headers) {
         try {
           parameters.headers =
@@ -93,41 +98,22 @@
         history.replaceState(null, null, computeParams());
       }
 
-      // Defines a GraphQL fetcher using the fetch API.
-      function graphQLFetcher(graphQLParams) {
-        let headers = parameters.headers;
-        if (typeof headers == "string") {
-          headers = JSON.parse(headers)
-        }
-
-        return fetch(window.location.origin + '{{api-path}}', {
-          method: 'post',
-          // User supplied headers override static headers
-          headers: Object.assign({{request-headers}}, headers),
-          referrer: "no-referrer",
-          credentials: 'include',
-          body: JSON.stringify(graphQLParams)
-        }).then(function (response) {
-          return response.text();
-        }).then(function (responseBody) {
-          try {
-            return JSON.parse(responseBody);
-          } catch (error) {
-            return responseBody;
-          }
-        });
-      }
       var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(
-        window.location.origin.replace('http', 'ws') + '{{subscriptions-path}}',
+        window.location.origin.replace('http', 'ws') + subscriptionsPath,
         { reconnect: true,
-          connectionParams: {{initial-connection-params}}
+          connectionParams: initialConnectionParams
         });
-      var subscriptionsFetcher = window.GraphiQLSubscriptionsFetcher.graphQLFetcher(subscriptionsClient, graphQLFetcher);
+
+      var graphQLFetcher = GraphiQL.createFetcher({
+        url: window.location.origin + apiPath,
+        legacyWsClient: subscriptionsClient,
+        headers: requestHeaders
+        });
 
       // Render <GraphiQL /> into the body.
       ReactDOM.render(
         React.createElement(GraphiQL, {
-          fetcher: subscriptionsFetcher,
+          fetcher: graphQLFetcher,
           headerEditorEnabled: true,
           query: parameters.query,
           variables: parameters.variables,
