@@ -19,5 +19,6 @@ resources/graphiql/
 .classpath
 .cpcache
 .clj-kondo
+.lsp
 .settings
 .vscode
