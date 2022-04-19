@@ -293,15 +293,20 @@
   :ide-connection-params
   : A value that is used with the GraphiQL IDE; this value is converted to JSON,
     and becomes the connectionParams passed in the initial subscription web service call;
-    this can be used to identify and authenticate subscription requests."
+    this can be used to identify and authenticate subscription requests.
+
+  :ide-use-legacy-ws-client
+  : A boolean which specifies whether GraphiQL IDE uses old `subscriptions-transport-ws` client or `graphql-ws` client.
+    The default value is `true` for backward compatibility."
   [options]
-  (let [{:keys [api-path asset-path subscriptions-path ide-headers ide-connection-params]
+  (let [{:keys [api-path asset-path subscriptions-path ide-headers ide-connection-params ide-use-legacy-ws-client]
          :or {api-path default-api-path
               asset-path default-asset-path
               subscriptions-path default-subscriptions-path
-              ide-headers {"lacinia-tracing" "true"}}} options
+              ide-headers {"lacinia-tracing" "true"}
+              ide-use-legacy-ws-client true}} options
         response (internal/graphiql-response
-                   api-path subscriptions-path asset-path ide-headers ide-connection-params)]
+                   api-path subscriptions-path asset-path ide-headers ide-connection-params ide-use-legacy-ws-client)]
     (fn [_]
       response)))
 

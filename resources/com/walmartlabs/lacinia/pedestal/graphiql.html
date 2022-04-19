@@ -24,6 +24,7 @@
     <script src="{{asset-path}}/react.min.js"></script>
     <script src="{{asset-path}}/react-dom.min.js"></script>
     <script src="{{asset-path}}/graphiql.min.js"></script>
+    <script src="{{asset-path}}/graphql-ws.min.js"></script>
     <script src="{{asset-path}}/subscriptions-transport-ws-browser-client.js"></script>
   </head>
   <body>
@@ -34,6 +35,7 @@
       var subscriptionsPath = '{{subscriptions-path}}';
       var initialConnectionParams = {{initial-connection-params}};
       var requestHeaders = {{request-headers}};
+      var useLegacyWsClient = {{use-legacy-ws-client}};
 
       // Parse the search string to get url parameters.
       var search = window.location.search;
@@ -98,22 +100,35 @@
         history.replaceState(null, null, computeParams());
       }
 
-      var subscriptionsClient = new window.SubscriptionsTransportWs.SubscriptionClient(
-        window.location.origin.replace('http', 'ws') + subscriptionsPath,
-        { reconnect: true,
-          connectionParams: initialConnectionParams
-        });
+      function legacySubscriptionsClient() {
+        return new window.SubscriptionsTransportWs.SubscriptionClient(
+          window.location.origin.replace('http', 'ws') + subscriptionsPath,
+          {
+            reconnect: true,
+            connectionParams: initialConnectionParams
+          })
+      };
 
-      var graphQLFetcher = GraphiQL.createFetcher({
-        url: window.location.origin + apiPath,
-        legacyWsClient: subscriptionsClient,
-        headers: requestHeaders
-        });
+      function subscriptionsClient() {
+        return graphqlWs.createClient({
+          url: window.location.origin.replace('http', 'ws') + subscriptionsPath,
+          connectionParams: initialConnectionParams
+        })
+      };
+
+      function graphQLFetcher() {
+        return GraphiQL.createFetcher({
+          wsClient: useLegacyWsClient ? null : subscriptionsClient(),
+          url: window.location.origin + apiPath,
+          legacyWsClient: useLegacyWsClient ? legacySubscriptionsClient() : null,
+          headers: requestHeaders
+        })
+      };
 
       // Render <GraphiQL /> into the body.
       ReactDOM.render(
         React.createElement(GraphiQL, {
-          fetcher: graphQLFetcher,
+          fetcher: graphQLFetcher(),
           headerEditorEnabled: true,
           query: parameters.query,
           variables: parameters.variables,

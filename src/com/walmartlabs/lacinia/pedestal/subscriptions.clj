@@ -90,14 +90,14 @@
     "The name of sub-protocol.")
   (connection-loop [self keep-alive-ms ws-data-ch response-data-ch context]
     "A loop started for each connection.")
-  (->connection-error-message [self payload]
-    "converter for `connection_error` type message.")
+  (handle-parse-error [self t response-data-ch]
+    "Handle a json parse error.")
   (->data-message [self id response]
-    "converter for `data` type message.")
+    "Converter for `data` type message.")
   (->complete-message [self id]
-    "converter for `complete` type message.")
+    "Converter for `complete` type message.")
   (->error-message [self id payload]
-    "converter for `error` type message."))
+    "Converter for `error` type message."))
 
 (def ^:private graphql-ws
   "Server side implementation for old `graphql-ws` sub-protocol.
@@ -173,8 +173,9 @@
                      (log/debug :event ::unknown-type :type type)
                      (>! response-data-ch response)
                      (recur connection-state))))))))))
-    (->connection-error-message [_ payload] {:type :connection_error
-                                             :payload payload})
+    (handle-parse-error [_ t response-data-ch]
+      (put! response-data-ch {:type :connection_error
+                              :payload (util/as-error-map t)}))
     (->data-message [_ id response] {:type :data
                                      :id id
                                      :payload response})
@@ -189,13 +190,87 @@
   specified by [graphql-ws](https://github.com/enisdenjo/graphql-ws/blob/v5.7.0/PROTOCOL.md)"
   (reify Ws-Sub-Protocol
     (sub-protocol-name [_] "graphql-transport-ws")
-    (connection-loop [_ keep-alive-ms ws-data-ch response-data-ch context]
-      nil)
-    (->connection-error-message [_ payload] nil)
-    (->data-message [_ id response] nil)
-    (->complete-message [_ id] nil)
-    (->error-message [_ id payload] nil)
-    ))
+    (connection-loop [self _ ws-data-ch response-data-ch context]
+      (let [cleanup-ch (chan 1)]
+        ;; Keep track of subscriptions by (client-supplied) unique id.
+        ;; The value is a shutdown channel that, when closed, triggers
+        ;; a cleanup of the subscription.
+        (go-loop [connection-state {:subs {} :connection-params nil}]
+          (alt!
+            cleanup-ch
+            ([id]
+             (log/debug :event ::cleanup-ch :id id)
+             (recur (update connection-state :subs dissoc id)))
+
+            ws-data-ch
+            ([data]
+             (if (nil? data)
+               ;; When the client closes the connection, any running subscriptions need to
+               ;; shutdown and cleanup.
+               (do
+                 (log/debug :event ::client-close)
+                 (run! close! (-> connection-state :subs vals)))
+               ;; Otherwise it's a message from the client to be acted upon.
+               (let [{:keys [id payload type]} data]
+                 (case type
+                   "connection_init"
+                   ;; TODO: If the server receives more than one ConnectionInit message, close the socket with the event `4429: Too many initialisation requests`.
+                   (when (>! response-data-ch {:type :connection_ack})
+                     (recur (assoc connection-state :connection-params payload)))
+
+                   "ping"
+                   (when (>! response-data-ch {:type :pong})
+                     (recur connection-state))
+
+                   "pong"
+                   ;; Accept but ignore pong message
+                   (recur connection-state)
+
+                   ;; TODO: Track state, don't allow start, etc. until after connection_init
+
+                   "subscribe"
+                   (if (contains? (:subs connection-state) id)
+                     (do
+                       (log/debug :event ::error-duplicate-id :id id)
+                       ;; TODO: Close socket with status `4409: Subscriber for <unique-operation-id> already exists`
+                       (run! close! (-> connection-state :subs vals))
+                       ;; This shuts down the connection entirely.
+                       (close! response-data-ch))
+                     (do
+                       (log/debug :event ::start :id id)
+                       (let [merged-context (assoc context :connection-params (:connection-params connection-state))
+                             sub-shutdown-ch (execute-query-interceptors id payload response-data-ch cleanup-ch merged-context)]
+                         (recur (assoc-in connection-state [:subs id] sub-shutdown-ch)))))
+
+                   "complete"
+                   (do
+                     (log/debug :event ::stop :id id)
+                     (when-some [sub-shutdown-ch (get-in connection-state [:subs id])]
+                       (close! sub-shutdown-ch))
+                     (recur connection-state))
+
+                   ;; Not recognized!
+                   (let [response (cond-> {:type :error
+                                           :payload {:message "Unrecognized message type."
+                                                     :type type}}
+                                          id (assoc :id id))]
+                     (log/debug :event ::unknown-type :type type)
+                     (>! response-data-ch response)
+                     (recur connection-state))))))))))
+    (handle-parse-error [_ t response-data-ch]
+      ;; TODO: Error Message without id doesn't satisfy protocol.
+      (put! response-data-ch {:type :error
+                              :payload (util/as-error-map t)})
+      ;; TODO: Close socket with status 4400 and error message.
+      (close! response-data-ch))
+    (->data-message [_ id response] {:type :next
+                                     :id id
+                                     :payload response})
+    (->complete-message [_ id] {:type :complete
+                                :id id})
+    (->error-message [_ id payload] {:type :error
+                                     :id id
+                                     :payload payload})))
 
 (defn ^:private ws-parse-loop
   "Parses text messages sent from the client into Clojure data with keyword keys,
@@ -209,8 +284,7 @@
                            (cheshire/parse-string text true)
                            (catch Throwable t
                              (log/debug :event ::malformed-text :message text)
-                             (>! response-data-ch
-                                 (->connection-error-message sub-protocol (util/as-error-map t)))))]
+                             (handle-parse-error sub-protocol t response-data-ch)))]
         (>! output-ch parsed))
       (recur))))
 
@@ -432,11 +506,12 @@
          (recur))
 
         ;; This is a clean shutdown from a streamer that signaled (via passing a nil)
-        ;; that the subscription is exhausted.  response-data-ch is only closed
+        ;; that the subscription is exhausted. response-data-ch is only closed
         ;; after any currently executing queries have first put their
         ;; responses on it.
         streamer-shutdown-ch
         (do
+          (log/debug :event ::completed :id id)
           (>! response-data-ch (->complete-message sub-protocol id))
           (close! response-data-ch)
           (cleanup-fn))))
@@ -540,6 +615,7 @@
   : The interval at which keep alive messages are sent to the client.
     Note that configuring this timeout to be at or above 30s conflicts with a default Jetty timeout
     closing websockets after 30s of idle time.
+    Note that effective only for old `graphql-ws` sub-protocol.
 
   :app-context
   : The base application context provided to Lacinia when executing a query.
@@ -591,8 +667,8 @@
             response-data-ch (response-chan-fn)             ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
             ws-data-ch (chan 10)                            ; client text -> client data
-            on-close (fn [_ _]
-                       (log/debug :event ::closed)
+            on-close (fn [status-code _]
+                       (log/debug :event ::closed :status status-code)
                        (close! response-data-ch)
                        (close! ws-data-ch))
             base-context' (-> base-context

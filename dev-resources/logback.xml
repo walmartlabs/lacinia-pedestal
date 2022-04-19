@@ -17,7 +17,7 @@
     <logger name="com.walmartlabs.lacinia" level="warn"/>
     <logger name="com.walmartlabs.lacinia.test-utils" level="warn"/>
 
-    <logger name="com.walmartlabs.lacinia.pedestal.subscriptions" level="warn"/>
+    <logger name="com.walmartlabs.lacinia.pedestal.subscriptions" level="debug"/>
 
     <logger name="org.eclipse.jetty.websocket" level="warn"/>
     <logger name="clj-antlr.common" level="error"/>

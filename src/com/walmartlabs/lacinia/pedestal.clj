@@ -349,11 +349,12 @@
   {:added "0.7.0"
    :deprecated "0.14.0"}
   [options]
-  (let [{:keys [path asset-path subscriptions-path ide-headers ide-connection-params]
+  (let [{:keys [path asset-path subscriptions-path ide-headers ide-connection-params ide-use-legacy-ws-client]
          :or {path default-path
               asset-path default-asset-path
-              subscriptions-path default-subscriptions-path}} options]
-    (internal/graphiql-response path subscriptions-path asset-path ide-headers ide-connection-params)))
+              subscriptions-path default-subscriptions-path
+              ide-use-legacy-ws-client true}} options]
+    (internal/graphiql-response path subscriptions-path asset-path ide-headers ide-connection-params ide-use-legacy-ws-client)))
 
 (defn ^{:deprecated "0.14.0"} graphql-routes
   "Creates default routes for handling GET and POST requests and

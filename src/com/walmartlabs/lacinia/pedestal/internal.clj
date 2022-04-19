@@ -249,12 +249,13 @@
        "}"))
 
 (defn graphiql-response
-  [api-path subscriptions-path asset-path ide-headers ide-connection-params]
+  [api-path subscriptions-path asset-path ide-headers ide-connection-params ide-use-legacy-ws-client]
   (let [replacements {:asset-path asset-path
                       :api-path api-path
                       :subscriptions-path subscriptions-path
                       :initial-connection-params (cheshire/generate-string ide-connection-params)
-                      :request-headers (request-headers-string ide-headers)}]
+                      :request-headers (request-headers-string ide-headers)
+                      :use-legacy-ws-client (str ide-use-legacy-ws-client)}]
     (-> "com/walmartlabs/lacinia/pedestal/graphiql.html"
         io/resource
         slurp

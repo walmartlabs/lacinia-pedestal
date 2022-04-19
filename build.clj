@@ -34,6 +34,7 @@
    "es6-promise/dist/es6-promise.auto.min.js" "es6-promise.auto.min.js"
    "react/umd/react.production.min.js" "react.min.js"
    "react-dom/umd/react-dom.production.min.js" "react-dom.min.js"
+   "graphql-ws/umd/graphql-ws.min.js" "graphql-ws.min.js"
    "subscriptions-transport-ws/browser/client.js" "subscriptions-transport-ws-browser-client.js"})
 
 (defn prep
