@@ -203,6 +203,8 @@
   ([]
    (subscriptions-fixture ws-uri))
   ([uri]
+   (subscriptions-fixture uri {}))
+  ([uri {:keys [subprotocols]}]
    (fn [f]
      (log/debug :reason ::test-start :uri uri)
      (let [messages-ch (chan 10)
@@ -211,9 +213,13 @@
                                             (log/debug :reason ::receive :message message-text)
                                             (put! messages-ch (cheshire/parse-string message-text true)))
                               :on-connect (fn [_] (log/debug :reason ::connected))
-                              :on-close #(log/debug :reason ::closed :code %1 :message %2)
+                              :on-close (fn [code message]
+                                          (log/debug :reason ::closed :code code :message code)
+                                          (put! messages-ch {:code code
+                                                             :message message}))
                               :on-error #(log/error :reason ::unexpected-error
-                                                    :exception %))]
+                                                    :exception %)
+                              :subprotocols subprotocols)]
 
        (binding [*session* session
                  ;; New messages channel on each test as well, to ensure failed tests don't cause

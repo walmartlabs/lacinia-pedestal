@@ -12,7 +12,7 @@
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
 
-(ns com.walmartlabs.lacinia.pedestal.subscriptions-test
+(ns com.walmartlabs.lacinia.pedestal.subscriptions-graphql-transport-ws-test
   (:require
     [clojure.test :refer [deftest is use-fixtures]]
     [com.walmartlabs.lacinia :as lacinia]
@@ -27,11 +27,33 @@
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}))
-(use-fixtures :each (subscriptions-fixture))
+(use-fixtures :each (subscriptions-fixture ws-uri
+                                           {:subprotocols ["graphql-transport-ws"]}))
 
 (deftest connect-with-ws
   (send-init)
   (expect-message {:type "connection_ack"}))
+
+(deftest duplicated-init-messages
+  (send-init)
+  (expect-message {:type "connection_ack"})
+  (send-init)
+  (expect-message {:code 4429
+                   :message "Too many initialisation requests."}))
+
+(deftest client-ping
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (send-data {:type :ping})
+  (expect-message {:type "pong"}))
+
+(deftest client-pong
+  (send-init)
+  (expect-message {:type "connection_ack"})
+
+  (send-data {:type :pong})
+  (expect-message ::tu/timed-out))
 
 (deftest ordinary-operation
   (send-init)
@@ -39,14 +61,14 @@
 
   (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "{ echo(value: \"ws\") { value }}"}})
     ;; Queries and mutations always deliver a single payload, then
     ;; a complete.
     (expect-message {:id id
                      :payload {:data {:echo {:value "ws"}}}
-                     :type "data"})
+                     :type "next"})
     (expect-message {:id id
                      :type "complete"})))
 
@@ -56,7 +78,7 @@
 
   (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"bad arg\", count: 0) { message }}"}})
     ;; Queries and mutations always deliver a single payload, then
@@ -69,7 +91,7 @@
                                                       :line 1}]
                                          :message "count must be at least 1"
                                          :path ["ping"]}]}
-                     :type "data"})
+                     :type "next"})
 
     (expect-message {:id id
                      :type "complete"})))
@@ -87,20 +109,20 @@
 
   (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"short\", count: 2 ) { message }}"}})
 
     (expect-message {:id id
                      :payload {:data {:ping {:message "short #1"}}}
-                     :type "data"})
+                     :type "next"})
 
     (is (> @*ping-subscribes @*ping-cleanups)
         "A subscribe is active, but has not been cleaned up.")
 
     (expect-message {:id id
                      :payload {:data {:ping {:message "short #2"}}}
-                     :type "data"})
+                     :type "next"})
 
     (expect-message {:id id
                      :type "complete"})
@@ -117,7 +139,7 @@
 
   (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
-                :type :start
+                :type :subscribe
                 :payload
                 ;; Note: missing selections inside ping field
                 {:query "subscription { ping(message: \"short\", count: 2 ) }"}})
@@ -131,7 +153,7 @@
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscription has been cleaned up.")))
 
-(deftest client-stop
+(deftest client-complete
   (send-init)
   (expect-message {:type "connection_ack"})
 
@@ -144,22 +166,22 @@
 
   (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"stop\", count: 20 ) { message }}"}})
 
     (expect-message {:id id
                      :payload {:data {:ping {:message "stop #1"}}}
-                     :type "data"})
+                     :type "next"})
 
     (is (> @*ping-subscribes @*ping-cleanups)
         "A subscribe is active, but has not been cleaned up.")
 
     (expect-message {:id id
                      :payload {:data {:ping {:message "stop #2"}}}
-                     :type "data"})
+                     :type "next"})
 
-    (send-data {:id id :type :stop})
+    (send-data {:id id :type :complete})
 
     (expect-message ::tu/timed-out)
 
@@ -178,18 +200,18 @@
         right-id (swap! *subscriber-id inc)]
 
     (send-data {:id left-id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"left\", count: 2 ) { message }}"}})
 
     (expect-message {:id left-id
                      :payload {:data {:ping {:message "left #1"}}}
-                     :type "data"})
+                     :type "next"})
 
     (Thread/sleep 20)
 
     (send-data {:id right-id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"right\", count: 2 ) { message }}"}})
 
@@ -198,59 +220,24 @@
 
     (expect-message {:id right-id
                      :payload {:data {:ping {:message "right #1"}}}
-                     :type "data"})
+                     :type "next"})
 
     (is (= 2
            (- @*ping-subscribes init-subs)))
 
     (expect-message {:id left-id
                      :payload {:data {:ping {:message "left #2"}}}
-                     :type "data"})
+                     :type "next"})
 
     (expect-message {:id right-id
                      :payload {:data {:ping {:message "right #2"}}}
-                     :type "data"})
+                     :type "next"})
 
     (expect-message {:id left-id
                      :type "complete"})
 
     (expect-message {:id right-id
                      :type "complete"})
-
-    (is (= @*ping-subscribes @*ping-cleanups)
-        "The completed subscriptions have been cleaned up.")))
-
-(deftest client-terminates-connection
-  (send-init)
-  (expect-message {:type "connection_ack"})
-
-  (let [left-id (swap! *subscriber-id inc)
-        right-id (swap! *subscriber-id inc)]
-
-    (send-data {:id left-id
-                :type :start
-                :payload
-                {:query "subscription { ping(message: \"left\", count: 2 ) { message }}"}})
-
-    (expect-message {:id left-id
-                     :payload {:data {:ping {:message "left #1"}}}
-                     :type "data"})
-
-    (send-data {:id right-id
-                :type :start
-                :payload
-                {:query "subscription { ping(message: \"right\", count: 2 ) { message }}"}})
-
-    ;; The timeouts between messages should be enough to ensure a consistent order.
-
-    (expect-message {:id right-id
-                     :payload {:data {:ping {:message "right #1"}}}
-                     :type "data"})
-
-    (send-data {:type :connection_terminate})
-
-    (expect-message {:code 1000 :message nil})
-    (expect-message ::tu/timed-out)
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
@@ -263,16 +250,16 @@
         right-id (swap! *subscriber-id inc)]
 
     (send-data {:id left-id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"left\", count: 2 ) { message }}"}})
 
     (expect-message {:id left-id
                      :payload {:data {:ping {:message "left #1"}}}
-                     :type "data"})
+                     :type "next"})
 
     (send-data {:id right-id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"right\", count: 2 ) { message }}"}})
 
@@ -280,11 +267,13 @@
 
     (expect-message {:id right-id
                      :payload {:data {:ping {:message "right #1"}}}
-                     :type "data"})
+                     :type "next"})
 
     (g/close *session*)
 
-    (expect-message {:code 1006 :message "Disconnected"})
+    (expect-message {:code 1000
+                     :message nil})
+
     (expect-message ::tu/timed-out)
 
     (is (= @*ping-subscribes @*ping-cleanups)
@@ -294,22 +283,26 @@
   (send-init)
   (expect-message {:type "connection_ack"})
 
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "Any prior subscribes have been cleaned up.")
+
   (g/send-msg *session* "~~~")
 
-  (let [message (<message!!)]
-    (is (= "connection_error"
-           (:type message)))
-    (is (str/includes? (-> message :payload :message)
-                       "Unexpected character"))))
+  (expect-message {:code 4400
+                   :message "Invalid JSON."})
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "The completed subscriptions have been cleaned up."))
 
 (deftest client-query-parse-error
-
   (send-init)
   (expect-message {:type "connection_ack"})
 
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "Any prior subscribes have been cleaned up.")
+
   (let [id (swap! *subscriber-id inc)]
     (send-data {:id id
-                :type :start
+                :type :subscribe
                 :payload {:query "~~~"}})
 
     (expect-message {:id id
@@ -317,15 +310,10 @@
 
                                :locations [{:column nil
                                             :line 1}]}
-                     :type "error"})))
+                     :type "error"}))
 
-(deftest client-keep-alive
-  (send-init)
-  (expect-message {:type "connection_ack"})
-
-  (dotimes [_ 2]
-    (is (= {:type "ka"}
-           (<message!! 250)))))
+  (is (= @*ping-subscribes @*ping-cleanups)
+      "The completed subscriptions have been cleaned up."))
 
 (deftest client-duplicates-subscription
   (send-init)
@@ -338,29 +326,25 @@
         sub-id (swap! *subscriber-id inc)]
 
     (send-data {:id sub-id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"original\", count: 2 ) { message }}"}})
 
     (expect-message {:id sub-id
                      :payload {:data {:ping {:message "original #1"}}}
-                     :type "data"})
+                     :type "next"})
 
     (Thread/sleep 20)
 
     (send-data {:id sub-id
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"duplicate\", count: 2 ) { message }}"}})
 
     (is (= 1 (- @*ping-subscribes init-subs)))
 
-    (expect-message {:id sub-id
-                     :payload {:data {:ping {:message "original #2"}}}
-                     :type "data"})
-
-    (expect-message {:id sub-id
-                     :type "complete"})
+    (expect-message {:code 4409
+                     :message (str "Subscriber for " sub-id " already exists")})
 
     (is (= @*ping-subscribes @*ping-cleanups)
         "The completed subscriptions have been cleaned up.")))
@@ -369,12 +353,12 @@
   (let [connection-params {:authentication "token"}
         id (swap! *subscriber-id inc)
         query {:id id
-               :type :start
+               :type :subscribe
                :payload
                {:query "{ echo(value: \"ws\") { value }}"}}
         response {:id id
                   :payload {:data {:echo {:value "ws"}}}
-                  :type "data"}
+                  :type "next"}
         complete {:id id
                   :type "complete"}]
     ;; send connection-params that will be kept during the whole session
@@ -397,7 +381,7 @@
 
     ;; connection-params are kept for following subscriptions
     (send-data {:id (swap! *subscriber-id inc)
-                :type :start
+                :type :subscribe
                 :payload
                 {:query "subscription { ping(message: \"stop\", count: 1 ) { message }}"}})
     ;; block until streamer has been called
