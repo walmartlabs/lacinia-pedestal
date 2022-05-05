@@ -2,7 +2,7 @@
  {:tick
   {:description "A subscription response."
    :fields {:time_ms {:type String
-                      :description "Time when tick is emittied (as string-ified long milliseconds since epoch)."
+                      :description "Time when tick is emitted (as string-field long milliseconds since epoch)."
                       :resolve :tick/time-ms}
             :count {:type Int
                     :descripion "Countdown on number of ticks after this one (e.g., 0 is the last tick before the subscription closes)."}}}}
