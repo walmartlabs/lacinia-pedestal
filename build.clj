@@ -58,6 +58,11 @@
                   :lib lib
                   :version version
                   :basis basis
+                  :src-pom "templates/pom.xml"
+                  :scm {:url "https://github.com/walmartlabs/lacinia-pedestal"
+                        :connection "scm:git:git://github.com/walmartlabs/lacinia-pedestal.git"
+                        :developerConnection "scm:git:ssh://git@github.com/walmartlabs/lacinia-pedestal.git"
+                        :tag version}
                   :src-dirs ["src"]
                   :resource-dirs ["resources"]})
     (b/copy-dir {:src-dirs copy-srcs
