@@ -37,7 +37,7 @@
     [com.walmartlabs.lacinia.pedestal.spec :as spec]
     [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors])
   (:import
-    (org.eclipse.jetty.websocket.api UpgradeResponse)))
+    (org.eclipse.jetty.websocket.api UpgradeResponse UpgradeRequest)))
 
 (when (-> *clojure-version* :minor (< 9))
   (require '[clojure.future :refer [pos-int?]]))
@@ -480,6 +480,33 @@
    (inject-app-context-interceptor app-context)
    execute-operation-interceptor])
 
+(defn upgrade-request->ring-request
+  [^UpgradeRequest request]
+  (let [headers (.getHeaders request)
+        uri (.getRequestURI request)
+        path (.getPath uri)
+        port (.getPort uri)]
+    (merge {}
+      (when-let [method (.getMethod request)]
+        {:request-method (keyword (str/lower-case method))})
+      (when (seq headers)
+        {:headers (into {}
+                    (map (fn [[k vs]]
+                           [(str/lower-case k)
+                            (str/join "," vs)]))
+                    headers)})
+      (when (seq path)
+        {:uri path})
+      (when-let [host (.getHost uri)]
+        {:server-name host})
+      (when-let [scheme (.getScheme uri)]
+        {:scheme (keyword scheme)})
+      (when-let [query-string (.getQuery uri)]
+        {:query-string query-string})
+      (when-let [protocol (.getHttpVersion request)]
+        {:protocol (str protocol)})
+      (when (pos? port)
+        {:server-port port}))))
 
 (defn listener-fn-factory
   "A factory for the function used to create a WS listener.
@@ -540,7 +567,9 @@
               send-buffer-or-n 10
               response-chan-fn #(chan 10)
               values-chan-fn #(chan 1)
-              init-context (fn [ctx & _args] ctx)}} options
+              init-context (fn [ctx req & _args]
+                             (assoc ctx
+                               :upgrade-request (upgrade-request->ring-request req)))}} options
         interceptors (or (:subscription-interceptors options)
                          (default-subscription-interceptors compiled-schema app-context))
         base-context (chain/enqueue {::chain/terminators [:response]
