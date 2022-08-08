@@ -11,10 +11,11 @@
     [com.walmartlabs.lacinia.util :as util]
     [com.walmartlabs.lacinia.schema :as schema]
     [com.walmartlabs.lacinia.resolve :refer [resolve-as]]
-    [gniazdo.core :as g]
+    [hato.websocket :as ws]
     [io.pedestal.log :as log]
     [cheshire.core :as cheshire]
-    [com.walmartlabs.lacinia.resolve :as resolve]))
+    [com.walmartlabs.lacinia.resolve :as resolve])
+  (:import [java.nio HeapCharBuffer]))
 
 (def *echo-context (atom nil))
 
@@ -174,8 +175,8 @@
 (defn send-data
   [data]
   (log/debug :reason ::send-data :data data)
-  (g/send-msg *session*
-              (cheshire/generate-string data)))
+  (ws/send! *session*
+            (cheshire/generate-string data)))
 
 (defn send-init
   ([]
@@ -206,14 +207,17 @@
    (fn [f]
      (log/debug :reason ::test-start :uri uri)
      (let [messages-ch (chan 10)
-           session (g/connect uri
-                              :on-receive (fn [message-text]
-                                            (log/debug :reason ::receive :message message-text)
-                                            (put! messages-ch (cheshire/parse-string message-text true)))
-                              :on-connect (fn [_] (log/debug :reason ::connected))
-                              :on-close #(log/debug :reason ::closed :code %1 :message %2)
-                              :on-error #(log/error :reason ::unexpected-error
-                                                    :exception %))]
+           session @(ws/websocket uri
+                                  {:subprotocols ["graphql-ws"]
+                                   :on-message (fn [_ ^HeapCharBuffer msg last?]
+                                                 (let [message-text (.toString msg)]
+                                                   (log/debug :reason ::receive :message message-text)
+                                                   (put! messages-ch (cheshire/parse-string message-text true))))
+                                   :on-open (fn [_] (log/debug :reason ::connected))
+                                   :on-close #(log/debug :reason ::closed :code %2 :message %3)
+                                   :on-error (fn [_ error]
+                                               (log/error :reason ::unexpected-error
+                                                          :exception error))})]
 
        (binding [*session* session
                  ;; New messages channel on each test as well, to ensure failed tests don't cause
@@ -223,7 +227,7 @@
            (f)
            (finally
              (log/debug :reason ::test-end)
-             (g/close session))))))))
+             (ws/close! session))))))))
 
 (defn error-proof-interceptor
   "Error interceptor that records the last context / exception it has been called with."
