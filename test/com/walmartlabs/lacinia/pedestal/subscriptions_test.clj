@@ -22,7 +22,7 @@
              send-data send-init <message!! expect-message
              *subscriber-id]]
     [com.walmartlabs.test-reporting :refer [reporting]]
-    [gniazdo.core :as g]
+    [hato.websocket :as ws]
     [clojure.string :as str]))
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
@@ -281,7 +281,7 @@
                      :payload {:data {:ping {:message "right #1"}}}
                      :type "data"})
 
-    (g/close *session*)
+    (ws/close! *session*)
 
     (expect-message ::tu/timed-out)
 
@@ -292,7 +292,7 @@
   (send-init)
   (expect-message {:type "connection_ack"})
 
-  (g/send-msg *session* "~~~")
+  (ws/send! *session* "~~~")
 
   (let [message (<message!!)]
     (is (= "connection_error"
