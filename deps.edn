@@ -18,7 +18,12 @@
                 io.aviso/logging {:mvn/version "1.0"}}
 
    :jvm-opts ["-Xmx500m"]
-   :extra-paths ["test" "dev-resources"]}
+   :extra-paths ["test" "dev-resources"
+
+                 ;; Run clj -T:build prep to download sources from npm and move
+                 ;; them to target/classes.  Unfortunate manual step.
+
+                 "target/classes"]}
 
   ;; clj -Xdev:test
   :test

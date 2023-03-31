@@ -34,6 +34,7 @@
     [com.walmartlabs.lacinia.resolve :as resolve]
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
+    [com.walmartlabs.lacinia.selection :as selection]
     [com.walmartlabs.lacinia.pedestal.spec :as spec]
     [com.walmartlabs.lacinia.pedestal.interceptors :as interceptors])
   (:import
@@ -332,13 +333,15 @@
   (let [{:keys [::values-chan-fn request]} context
         source-stream-ch (values-chan-fn)
         {:keys [id shutdown-ch response-data-ch]} request
+        ;; Subscriptions only have a single selection.
+        field-name (-> parsed-query :selections first selection/field selection/field-name)
         source-stream (fn accept-value [value]
                         (cond
                           (nil? value)
                           (close! source-stream-ch)
 
-                          (resolve/is-resolver-result? value)
-                          (resolve/on-deliver! value accept-value)
+                           (resolve/is-resolver-result? value)
+                           (resolve/on-deliver! value accept-value)
 
                           :else
                           (put! source-stream-ch value)))
@@ -347,6 +350,8 @@
                         (assoc
                           ::lacinia/connection-params (:connection-params context)
                           constants/parsed-query-key parsed-query))
+        ;; A streamer *must* succeed and return a cleanup function.  If there's a problem with the arguments,
+        ;; it may pass the source-stream a ResolverResult that wraps an error.
         cleanup-fn (executor/invoke-streamer app-context source-stream)
         ;; Track how many streamed values are currently executing queries
         *execution-count (atom 0)
@@ -374,10 +379,13 @@
            (some? value)
            (do
              (swap! *execution-count inc)
+             (log/debug :stream-value value)
              (-> app-context
-                 (assoc ::executor/resolved-value value)
+
+                 (assoc ::executor/resolved-value {field-name value})
                  executor/execute-query
                  (resolve/on-deliver! (fn [response]
+                                        (log/debug :response response)
                                         (put! response-data-ch
                                               {:type :data
                                                :id id

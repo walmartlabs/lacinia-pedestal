@@ -19,5 +19,7 @@
 
     <logger name="org.eclipse.jetty.websocket" level="warn"/>
     <logger name="clj-antlr.common" level="error"/>
+    <logger name="com.walmartlabs.lacinia.pedestal.subscriptions" level="debug"/>
+    <logger name="demo" level="debug"/>
 
 </configuration>

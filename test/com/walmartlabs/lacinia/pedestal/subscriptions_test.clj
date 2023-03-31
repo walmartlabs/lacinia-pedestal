@@ -18,7 +18,7 @@
     [com.walmartlabs.lacinia :as lacinia]
     [com.walmartlabs.lacinia.test-utils :as tu
      :refer [test-server-fixture *ping-subscribes *ping-cleanups *ping-context *echo-context
-             ws-uri *session* subscriptions-fixture
+             *session* subscriptions-fixture
              send-data send-init <message!! expect-message
              *subscriber-id]]
     [com.walmartlabs.test-reporting :refer [reporting]]
