@@ -69,7 +69,7 @@
       (when-some [parsed (try
                            (cheshire/parse-string text true)
                            (catch Throwable t
-                             (log/debug :event ::malformed-text :message text)
+                             (log/trace :event ::malformed-text :message text)
                              (>! response-data-ch
                                  {:type :connection_error
                                   :payload (util/as-error-map t)})))]
@@ -114,13 +114,13 @@
       (alt!
         cleanup-ch
         ([id]
-         (log/debug :event ::cleanup-ch :id id)
+         (log/trace :event ::cleanup-ch :id id)
          (recur (update connection-state :subs dissoc id)))
 
         ;; TODO: Maybe only after connection_init?
         (async/timeout keep-alive-ms)
         (do
-          (log/debug :event ::timeout)
+          (log/trace :event ::timeout)
           (>! response-data-ch {:type :ka})
           (recur connection-state))
 
@@ -130,7 +130,7 @@
             ;; When the client closes the connection, any running subscriptions need to
             ;; shutdown and cleanup.
            (do
-             (log/debug :event ::client-close)
+             (log/trace :event ::client-close)
              (run! close! (-> connection-state :subs vals)))
             ;; Otherwise it's a message from the client to be acted upon.
            (let [{:keys [id payload type]} data]
@@ -144,24 +144,24 @@
                "start"
                (if (contains? (:subs connection-state) id)
                  (do
-                   (log/debug :event ::ignoring-duplicate :id id)
+                   (log/trace :event ::ignoring-duplicate :id id)
                    (recur connection-state))
                  (do
-                   (log/debug :event ::start :id id)
+                   (log/trace :event ::start :id id)
                    (let [merged-context (assoc context :connection-params (:connection-params connection-state))
                          sub-shutdown-ch (execute-query-interceptors id payload response-data-ch cleanup-ch merged-context)]
                      (recur (assoc-in connection-state [:subs id] sub-shutdown-ch)))))
 
                "stop"
                (do
-                 (log/debug :event ::stop :id id)
+                 (log/trace :event ::stop :id id)
                  (when-some [sub-shutdown-ch (get-in connection-state [:subs id])]
                    (close! sub-shutdown-ch))
                  (recur connection-state))
 
                "connection_terminate"
                (do
-                 (log/debug :event ::terminate)
+                 (log/trace :event ::terminate :id id)
                  (run! close! (-> connection-state :subs vals))
                   ;; This shuts down the connection entirely.
                  (close! response-data-ch))
@@ -171,7 +171,7 @@
                                        :payload {:message "Unrecognized message type."
                                                  :type type}}
                                 id (assoc :id id))]
-                 (log/debug :event ::unknown-type :type type)
+                 (log/trace :event ::unknown-type :type type :id id)
                  (>! response-data-ch response)
                  (recur connection-state))))))))))
 
@@ -379,13 +379,12 @@
            (some? value)
            (do
              (swap! *execution-count inc)
-             (log/debug :stream-value value)
+             (log/trace :stream-value value :id id)
              (-> app-context
-
-                 (assoc ::executor/resolved-value {field-name value})
+                 (assoc ::executor/resolved-value value)
                  executor/execute-query
                  (resolve/on-deliver! (fn [response]
-                                        (log/debug :response response)
+                                        (log/trace :response response :id id)
                                         (put! response-data-ch
                                               {:type :data
                                                :id id
@@ -413,7 +412,8 @@
           (>! response-data-ch {:type :complete
                                 :id id})
           (close! response-data-ch)
-          (cleanup-fn))))
+          (cleanup-fn)
+          (log/trace :event :streamer-shutdown :id id))))
 
     ;; Return the context unchanged, it will unwind while the above process
     ;; does the real work.
@@ -554,20 +554,20 @@
         base-context (chain/enqueue {::chain/terminators [:response]
                                      ::values-chan-fn values-chan-fn}
                                     interceptors)]
-    (log/debug :event ::configuring :keep-alive-ms keep-alive-ms)
+    (log/trace :event ::configuring :keep-alive-ms keep-alive-ms)
     (fn [req resp _ws-map]
       (.setAcceptedSubProtocol ^UpgradeResponse resp "graphql-ws")
-      (log/debug :event ::upgrade-requested)
+      (log/trace :event ::upgrade-requested)
       (let [response-data-ch (response-chan-fn)             ; server data -> client
             ws-text-ch (chan 1)                             ; client text -> server
             ws-data-ch (chan 10)                            ; client text -> client data
             on-close (fn [_ _]
-                       (log/debug :event ::closed)
+                       (log/trace :event ::closed)
                        (close! response-data-ch)
                        (close! ws-data-ch))
             base-context' (init-context base-context req resp)
             on-connect (fn [_session send-ch]
-                         (log/debug :event ::connected)
+                         (log/trace :event ::connected)
                          (response-encode-loop response-data-ch send-ch)
                          (ws-parse-loop ws-text-ch ws-data-ch response-data-ch)
                          (connection-loop keep-alive-ms ws-data-ch response-data-ch base-context'))]
