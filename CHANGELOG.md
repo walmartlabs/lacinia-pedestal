@@ -1,3 +1,9 @@
+## 1.2 -- UNRELEASED
+
+Logging from the `com.walmartlabs.lacinia.pedestal.subscriptions` namespace
+now is at level TRACE, not DEBUG.
+
+
 ## 1.1 -- 14 Jan 2020
 
 It is common for a GraphQL service to frequently execute the same query with

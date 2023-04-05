@@ -1,7 +1,7 @@
 (ns demo
   "Used to demonstrate a simple GraphQL application."
   (:require
-    [com.walmartlabs.lacinia.pedestal :as lp]
+    [com.walmartlabs.lacinia.pedestal2 :as lp2]
     [clojure.java.io :as io]
     [clojure.core.async :refer [chan close! go alt! timeout]]
     [com.walmartlabs.lacinia.schema :as schema]
@@ -12,13 +12,15 @@
 (defonce server nil)
 
 (defn ticks-streamer
-  [context args source-stream]
+  [_ args source-stream]
   (let [abort-ch (chan)]
     (go
       (loop [countdown (-> args :count dec)]
         (if (<= 0 countdown)
           (do
+            (log/debug :count countdown)
             (source-stream {:count countdown :time-ms (System/currentTimeMillis)})
+
             (alt!
               abort-ch nil
 
@@ -30,23 +32,19 @@
 (defn start-server
   [_]
   (let [server (-> "demo-schema.edn"
-                   io/resource
-                   slurp
-                   edn/read-string
-                   (util/attach-resolvers {:query/hello (constantly "Welcome to Lacinia-Pedestal")
-                                           :tick/time-ms (fn [_ _ tick]
-                                                           (-> tick :time-ms str))})
-                   (util/attach-streamers {:subscriptions/ticks ticks-streamer})
-                   schema/compile
-                   (lp/service-map {:graphiql true
-                                    :path "/"
-                                    :ide-path "/ui"
-                                    :ide-headers {"apikey" "mean mister mustard"}
-                                    :ide-connection-params {:moon-base :alpha}
-                                    :subscriptions true
-                                    :subscriptions-path "/ws"})
-                   http/create-server
-                   http/start)]
+                 io/resource
+                 slurp
+                 edn/read-string
+                 (util/inject-resolvers {:Query/hello (constantly "Welcome to Lacinia-Pedestal")
+                                        :Tick/timeMs (fn [_ _ tick]
+                                                        (log/debug :render-tick tick)
+                                                        (-> tick :time-ms str))})
+                 (util/inject-streamers {:Subscription/ticks ticks-streamer})
+                 schema/compile
+                 (lp2/default-service {:ide-headers {"apikey" "mean mister mustard"}
+                                       :ide-connection-params {:moon-base :alpha}})
+                 http/create-server
+                 http/start)]
     server))
 
 (defn stop-server
@@ -56,17 +54,23 @@
 
 (defn start
   []
-  (alter-var-root #'server start-server)
-  :started)
+  (if server
+    :already-started
+    (do
+      (alter-var-root #'server start-server)
+      :started)))
 
 (defn stop
   []
-  (alter-var-root #'server stop-server)
-  :stopped)
+  (if (nil? server)
+    :already-stopped
+    (do
+      (alter-var-root #'server stop-server)
+      :stopped)))
 
 (comment
   (start)
-  ;; Open browser to: http://localhost:8888/ui
+  ;; Open browser to: http://localhost:8888/ide
 
   (stop)
   )

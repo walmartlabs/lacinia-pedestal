@@ -19,5 +19,6 @@
 
     <logger name="org.eclipse.jetty.websocket" level="warn"/>
     <logger name="clj-antlr.common" level="error"/>
+    <logger name="demo" level="debug"/>
 
 </configuration>

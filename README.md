@@ -1,8 +1,7 @@
 # com.walmartlabs/lacinia-pedestal
 
 [![Clojars Project](https://img.shields.io/clojars/v/com.walmartlabs/lacinia-pedestal.svg)](https://clojars.org/com.walmartlabs/lacinia-pedestal)
-
-[![CircleCI](https://circleci.com/gh/walmartlabs/lacinia-pedestal.svg?style=svg)](https://circleci.com/gh/walmartlabs/lacinia-pedestal)
+[![CI](https://github.com/walmartlabs/lacinia-pedestal/actions/workflows/config.yml/badge.svg)](https://github.com/walmartlabs/lacinia-pedestal/actions/workflows/config.yml)
 
 A library that adds the
 [Pedestal](https://github.com/pedestal/pedestal) underpinnings needed when exposing

@@ -1,5 +1,5 @@
 {:deps {org.clojure/clojure {:mvn/version "1.11.1"}
-        com.walmartlabs/lacinia {:mvn/version "1.2"}
+        com.walmartlabs/lacinia {:mvn/version "1.2.1"}
         com.fasterxml.jackson.core/jackson-core {:mvn/version "2.14.2"}
         io.pedestal/pedestal.service {:mvn/version "0.5.10"}
         io.pedestal/pedestal.jetty {:mvn/version "0.5.10"}
@@ -15,10 +15,16 @@
                 com.stuartsierra/component {:mvn/version "1.1.0"}
                 expound/expound {:mvn/version "0.9.0"}
                 hato/hato {:mvn/version "0.9.0"}
+                io.github.hlship/trace {:mvn/version "v1.0"}
                 io.aviso/logging {:mvn/version "1.0"}}
 
    :jvm-opts ["-Xmx500m"]
-   :extra-paths ["test" "dev-resources"]}
+   :extra-paths ["test" "dev-resources"
+
+                 ;; Run clj -T:build prep to download sources from npm and move
+                 ;; them to target/classes.  Unfortunate manual step.
+
+                 "target/classes"]}
 
   ;; clj -Xdev:test
   :test
