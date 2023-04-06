@@ -7,6 +7,7 @@
     [com.walmartlabs.lacinia.schema :as schema]
     [clojure.edn :as edn]
     [io.pedestal.http :as http]
+    [io.pedestal.log :as log]
     [com.walmartlabs.lacinia.util :as util]))
 
 (defonce server nil)
