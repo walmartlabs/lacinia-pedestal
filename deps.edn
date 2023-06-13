@@ -1,9 +1,9 @@
 {:deps {org.clojure/clojure {:mvn/version "1.11.1"}
         com.walmartlabs/lacinia {:mvn/version "1.2.1"}
-        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.14.2"}
-        io.pedestal/pedestal.service {:mvn/version "0.5.10"}
-        io.pedestal/pedestal.jetty {:mvn/version "0.5.10"}
-        com.rpl/proxy-plus {:mvn/version "0.0.8"}}
+        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.15.2"}
+        io.pedestal/pedestal.service {:mvn/version "0.6.0"}
+        io.pedestal/pedestal.jetty {:mvn/version "0.6.0"}
+        com.rpl/proxy-plus {:mvn/version "0.0.9"}}
  :paths ["src" "resources"]
  :deps/prep-lib {:alias :build
                  :fn prep
@@ -36,6 +36,6 @@
 
   :build
   {:deps
-   {io.github.clojure/tools.build {:git/tag "v0.9.3" :git/sha "e537cd1"}
-    slipset/deps-deploy {:mvn/version "0.2.0"}}
+   {io.github.clojure/tools.build {:git/tag "v0.9.4" :git/sha "76b78fe"}
+    slipset/deps-deploy {:mvn/version "0.2.1"}}
    :ns-default build}}}
