@@ -39,6 +39,9 @@
    {io.github.hlship/build-tools {:git/tag "0.9" :git/sha "4efa3c9"}}
    :ns-default build}}
 
+ :net.lewisship.build/scm
+ {:url "https://github.com/walmartlabs/lacinia-pedestal"}
+
  :codox/config
  {:description "Expose Lacinia GraphQL as Pedestal endpoints"
   :source-uri "https://github.com/walmartlabs/lacinia-pedestal/blob/master/{filepath}#L{line}"}}
