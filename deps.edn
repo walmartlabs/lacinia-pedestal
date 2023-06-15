@@ -36,6 +36,9 @@
 
   :build
   {:deps
-   {io.github.clojure/tools.build {:git/tag "v0.9.4" :git/sha "76b78fe"}
-    slipset/deps-deploy {:mvn/version "0.2.1"}}
-   :ns-default build}}}
+   {io.github.hlship/build-tools {:git/tag "0.9" :git/sha "4efa3c9"}}
+   :ns-default build}}
+
+ :codox/config
+ {:description "Expose Lacinia GraphQL as Pedestal endpoints"
+  :source-uri "https://github.com/walmartlabs/lacinia-pedestal/blob/master/{filepath}#L{line}"}}

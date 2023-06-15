@@ -15,18 +15,21 @@
 ;; clj -T:build <var>
 
 (ns build
-  (:require [clojure.tools.build.api :as b]
-            [deps-deploy.deps-deploy :as d]))
+  (:require [clojure.tools.build.api :as api]
+            [net.lewisship.build :as b]))
 
 (def lib 'com.walmartlabs/lacinia-pedestal)
-(def version "1.1")
+(def version "1.2-beta-1")
+
+(def project-opts
+  {:project-name lib
+   :version version})
+
 (def class-dir "target/classes")
-(def jar-file (format "target/%s-%s.jar" (name lib) version))
-(def copy-srcs ["src" "resources"])
 
 (defn clean
   [_]
-  (b/delete {:path "target"}))
+  (api/delete {:path "target"}))
 
 (def ^:private graphiql-files
   {"graphiql/graphiql.min.js" "graphiql.min.js"
@@ -39,64 +42,27 @@
 (defn prep
   "Runs `npm install` and copies necessary files into class-dir."
   [_]
-  (let [{:keys [exit out err] :as process-result}
-        (b/process {:command-args ["npm" "ci"]
-                    :dir "node"})]
+  (let [{:keys [exit] :as process-result}
+        (api/process {:command-args ["npm" "ci"]
+                      :dir "node"})]
     (when-not (zero? exit)
       (throw (ex-info "npm install failed"
                       process-result)))
     (doseq [[node-path resource-name] graphiql-files
             :let [in-path (str "node/node_modules/" node-path)
                   out-path (str class-dir "/graphiql/" resource-name)]]
-      (b/copy-file {:src in-path :target out-path}))))
+      (api/copy-file {:src in-path :target out-path}))))
 
 (defn jar
   [_params]
   (prep nil)
-  (let [basis (b/create-basis)]
-    (b/write-pom {:class-dir class-dir
-                  :lib lib
-                  :version version
-                  :basis basis
-                  :src-pom "templates/pom.xml"
-                  :scm {:url "https://github.com/walmartlabs/lacinia-pedestal"
-                        :connection "scm:git:git://github.com/walmartlabs/lacinia-pedestal.git"
-                        :developerConnection "scm:git:ssh://git@github.com/walmartlabs/lacinia-pedestal.git"
-                        :tag version}
-                  :src-dirs ["src"]
-                  :resource-dirs ["resources"]})
-    (b/copy-dir {:src-dirs copy-srcs
-                 :target-dir class-dir})
-    (b/jar {:class-dir class-dir
-            :jar-file jar-file}))
-  (println "Created:" jar-file))
+  (b/create-jar project-opts))
 
 (defn deploy
   [_params]
   (clean nil)
-  (jar nil)
-  (d/deploy {:installer :remote
-             :artifact jar-file
-             :pom-file (b/pom-path {:lib lib :class-dir class-dir})
-             :sign-releases? true
-             :sign-key-id (or (System/getenv "CLOJARS_GPG_ID")
-                              (throw (RuntimeException. "CLOJARS_GPG_ID environment variable not set")))}))
+  (b/deploy-jar (jar nil)))
 
 (defn codox
   [_params]
-  (let [basis (b/create-basis {:extra '{:deps {codox/codox {:mvn/version "0.10.8"
-                                                            :exclusions [org.ow2.asm/asm-all]}}}
-                               :aliases [:dev]})
-        expression `(do
-                      ((requiring-resolve 'codox.main/generate-docs)
-                       {:metadata {:doc/format :markdown}
-                        :source-uri "https://github.com/walmartlabs/lacinia-pedestal/blob/master/{filepath}#L{line}"
-                        :name ~(str lib)
-                        :version ~version
-                        :description "Clojure-native implementation of GraphQL"})
-                      nil)
-        process-params (b/java-command
-                         {:basis basis
-                          :main "clojure.main"
-                          :main-args ["--eval" (pr-str expression)]})]
-    (b/process process-params)))
+  (b/generate-codox project-opts))

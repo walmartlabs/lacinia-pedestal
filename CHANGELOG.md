@@ -3,6 +3,7 @@
 Logging from the `com.walmartlabs.lacinia.pedestal.subscriptions` namespace
 now is at level TRACE, not DEBUG.
 
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/issues?q=is%3Aclosed+milestone%3A1.2)
 
 ## 1.1 -- 14 Jan 2020
 
