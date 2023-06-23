@@ -2,6 +2,7 @@
 
 [![Clojars Project](https://img.shields.io/clojars/v/com.walmartlabs/lacinia-pedestal.svg)](https://clojars.org/com.walmartlabs/lacinia-pedestal)
 [![CI](https://github.com/walmartlabs/lacinia-pedestal/actions/workflows/config.yml/badge.svg)](https://github.com/walmartlabs/lacinia-pedestal/actions/workflows/config.yml)
+[![API DOCS](https://cljdoc.org/badge/com.walmartlabs/lacinia-pedestal)](https://cljdoc.org/d/com.walmartlabs/lacinia-pedestal)
 
 A library that adds the
 [Pedestal](https://github.com/pedestal/pedestal) underpinnings needed when exposing
@@ -20,22 +21,20 @@ the `com.walmartlabs.lacinia.pedestal2/default-service` function to
 generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 
 ```clojure
-;; This example is based off of the code generated from the template
-;;  `lein new pedestal-service graphql-demo`
-
 (ns graphql-demo.server
   (:require [io.pedestal.http :as http]
             [com.walmartlabs.lacinia.pedestal2 :as lp]
-            [com.walmartlabs.lacinia.schema :as schema]))
+            [com.walmartlabs.lacinia.schema :as schema]
+            [com.walmartlabs.lacinia.util :as util]))
 
 (def hello-schema 
-  (schema/compile
-    {:queries 
-      {:hello
-        ;; String is quoted here; in EDN the quotation is not required 
-        ;; You could also use :String
-        {:type 'String
-         :resolve (constantly "world")}}}))
+  (-> {:objects 
+        {:Query
+         {:fields
+            ;; String is quoted here; in EDN the quotation is not required 
+            ;; You could also use :String
+            {:hello {:type 'String}}}}}
+       (util/inject-resolvers {:Query/hello (constantly "hello")})))
 
 ;; Use default options:
 (def service (lp/default-service hello-schema nil))
@@ -45,7 +44,6 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 (defonce runnable-service (http/create-server service))
 
 (defn -main
-  "The entry-point for 'lein run'"
   [& args]
   (println "\nCreating your server...")
   (http/start runnable-service))
@@ -53,7 +51,7 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
 
 Lacinia will handle POST requests at the `/api` endpoint:
 
-```
+```bash
 $ curl localhost:8888/api -X POST -H "content-type: application/json" -d '{"query": "{ hello }"}'
 {"data":{"hello":"world"}}
 ```
@@ -73,16 +71,16 @@ the compiled schema based on the latest code you've loaded into the REPL.
 
 ## Beyond default-server
 
-`default-server` is intentionally limited, and exists only to help you get started.
+`default-service` is intentionally limited, and exists only to help you get started.
 Once you start adding anything more complicated, such as authentication, or supporting
 multiple schemas (or schema versions) at different paths, 
-you will want to simply create your routes and servers in your own code,
+you will want to simply create your routes and server in your own code,
 using the building-blocks provided by `com.walmartlabs.lacinia.pedestal2`.
 
 ### GraphiQL
 
 The GraphiQL packaged inside the library is built using `npm`, from
-version `1.4.7`.
+version `1.7.1`.
 
 If you are including lacinia-pedestal via Git coordinate (rather than a published version
 of the library by using a :mvn/version coordinate), then the library will need to be prepped for use 
@@ -94,7 +92,7 @@ to execute GraphiQL.
 
 ## License
 
-Copyright © 2017-2022 Walmart
+Copyright © 2017-2024 Walmart
 
 Distributed under the Apache Software License 2.0.
 

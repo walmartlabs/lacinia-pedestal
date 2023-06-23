@@ -1,7 +1,9 @@
-## 1.2 -- UNRELEASED
+## 1.2 -- 23 Jun 2023
 
 Logging from the `com.walmartlabs.lacinia.pedestal.subscriptions` namespace
 now is at level TRACE, not DEBUG.
+
+Dependency on Pedestal updated to 0.6.0.
 
 [Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/issues?q=is%3Aclosed+milestone%3A1.2)
 
