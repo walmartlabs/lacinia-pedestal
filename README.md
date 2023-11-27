@@ -34,7 +34,8 @@ generate a service, then invoke `io.pedestal.http/create-server` and `/start`.
             ;; String is quoted here; in EDN the quotation is not required 
             ;; You could also use :String
             {:hello {:type 'String}}}}}
-       (util/inject-resolvers {:Query/hello (constantly "hello")})))
+       (util/inject-resolvers {:Query/hello (constantly "hello")})
+       (schema/compile)))
 
 ;; Use default options:
 (def service (lp/default-service hello-schema nil))
