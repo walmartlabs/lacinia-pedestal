@@ -485,10 +485,8 @@
    execute-operation-interceptor])
 
 
-(defn listener-fn-factory
+(defn subscription-websocket-endpoint
   "A factory for the websocket endpoint map.
-
-  `listener-fn-factory` is no longer an accurate name and may change in the future.
 
   This function is invoked for each new client connecting to the service.
 
@@ -581,7 +579,7 @@
                :on-text on-text
                :on-error on-error))))
 
-(s/fdef listener-fn-factory
+(s/fdef subscription-websocket-endpoint
         :args (s/cat :compiled-schema ::spec/compiled-schema
                      :options (s/nilable ::listener-fn-factory-options)))
 

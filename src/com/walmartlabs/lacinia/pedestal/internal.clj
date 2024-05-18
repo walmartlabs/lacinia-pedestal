@@ -265,6 +265,4 @@
 (defn add-subscriptions-support
   [service-map compiled-schema subscriptions-path subscription-options]
   (assoc-in service-map [::http/websockets subscriptions-path]
-            ;; TODO: Rename it because it doesn't reflect what it now does, maybe
-            ;; `subscription-websocket-map`?
-            (subscriptions/listener-fn-factory compiled-schema subscription-options)))
+            (subscriptions/subscription-websocket-endpoint compiled-schema subscription-options)))
