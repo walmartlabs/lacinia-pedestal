@@ -28,7 +28,6 @@
     [io.pedestal.log :as log]
     [clojure.java.io :as io]
     [ring.util.response :as response]
-    [io.pedestal.http.jetty.websockets :as ws]
     [io.pedestal.http :as http]
     [io.pedestal.interceptor.chain :as chain]
     [com.walmartlabs.lacinia.pedestal.subscriptions :as subscriptions]
@@ -265,12 +264,7 @@
 
 (defn add-subscriptions-support
   [service-map compiled-schema subscriptions-path subscription-options]
-  (assoc-in service-map
-            [::http/container-options :context-configurator]
-            ;; The listener-fn is responsible for creating the listener; it is passed
-            ;; the request, response, and the ws-map. In sample code, the ws-map
-            ;; has callbacks such as :on-connect and :on-text, but in our scenario
-            ;; the callbacks are created by the listener-fn, so the value is nil.
-            #(ws/add-ws-endpoints % {subscriptions-path nil}
-                                  {:listener-fn
-                                   (subscriptions/listener-fn-factory compiled-schema subscription-options)})))
+  (assoc-in service-map [::http/websockets subscriptions-path]
+            ;; TODO: Rename it because it doesn't reflect what it now does, maybe
+            ;; `subscription-websocket-map`?
+            (subscriptions/listener-fn-factory compiled-schema subscription-options)))

@@ -1,3 +1,9 @@
+## 1.3 -- UNRELEASED
+
+Bumped many dependencies to latest.
+
+Bumped Pedestal dependency to 0.7.0-beta-1.
+
 ## 1.2 -- 23 Jun 2023
 
 Logging from the `com.walmartlabs.lacinia.pedestal.subscriptions` namespace

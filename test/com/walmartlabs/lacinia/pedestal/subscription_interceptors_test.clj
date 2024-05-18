@@ -17,13 +17,9 @@
     [clojure.test :refer [deftest is use-fixtures]]
     [com.walmartlabs.lacinia.pedestal :refer [inject]]
     [com.walmartlabs.lacinia.test-utils
-     :refer [test-server-fixture *ping-subscribes *ping-cleanups
-             ws-uri
-             subscriptions-fixture
-             send-data send-init <message!! expect-message]]
+     :refer [test-server-fixture subscriptions-fixture send-data send-init expect-message]]
     [io.pedestal.interceptor :refer [interceptor]]
-    [com.walmartlabs.lacinia.pedestal.subscriptions :as s])
-  (:import [org.eclipse.jetty.websocket.servlet ServletUpgradeRequest]))
+    [com.walmartlabs.lacinia.pedestal.subscriptions :as s]))
 
 (def ^:private *invoke-count (atom 0))
 
@@ -35,29 +31,16 @@
               (swap! *invoke-count inc)
               context)}))
 
-(def ^:private *user-agent (atom nil))
-
-(def ^:private user-agent-interceptor
-  "Used to demonstrate that the init-context option works"
-  (interceptor
-   {:name ::user-agent
-    :enter (fn [context]
-             (reset! *user-agent (get-in context [:request :user-agent]))
-             context)}))
-
 (defn ^:private options-builder
   [schema]
   {:subscription-interceptors
    ;; Add ::invoke-count, and ensure it executes before ::execute-operation.
    (-> (s/default-subscription-interceptors schema nil)
-       (inject invoke-count-interceptor :before ::s/execute-operation)
-       (inject user-agent-interceptor :before ::s/execute-operation))
+       (inject invoke-count-interceptor :before ::s/execute-operation))
 
-   :init-context
-   (fn [ctx ^ServletUpgradeRequest req resp]
-     (reset! *invoke-count 0)
-     (reset! *user-agent nil)
-     (assoc-in ctx [:request :user-agent] (.getHeader (.getHttpServletRequest req) "User-Agent")))})
+   :session-initializer
+   (fn [_ _]
+     (reset! *invoke-count 0))})
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}
@@ -92,7 +75,4 @@
 
   (expect-message {:id 987
                    :payload {:data {:ping {:message "short #1"}}}
-                   :type "data"})
-
-  (is (not-empty @*user-agent)
-      "The user agent was set by the init-context function."))
+                   :type "data"}))
