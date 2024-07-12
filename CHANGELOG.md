@@ -11,7 +11,7 @@ hasn't changed.
 Other changes:
 
 * Bumped many dependencies to latest
-* Bumped Pedestal dependency to 0.7.0-beta-1
+* Bumped Pedestal dependency to 0.7.0
 
 ## 1.2 -- 23 Jun 2023
 

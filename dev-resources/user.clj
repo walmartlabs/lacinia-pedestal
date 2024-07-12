@@ -4,6 +4,7 @@
     [clojure.spec.alpha :as s]
     [net.lewisship.trace :as trace]
     [clj-commons.pretty.repl :as repl]
+    matcher-combinators.test
     [expound.alpha :as expound]))
 
 (s/check-asserts true)

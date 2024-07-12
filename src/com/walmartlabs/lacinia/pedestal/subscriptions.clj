@@ -551,11 +551,13 @@
                             (log/trace :event ::connected :id session-id)
                             (when session-initializer
                               (session-initializer session config)))
-                        response-data-ch (response-chan-fn) ; server data -> client
+                        ; server data -> client
+                        response-data-ch (response-chan-fn)
                         send-ch (ws/start-ws-connection session {:send-buffer-or-n send-buffer-or-n})
-                        ws-text-ch (chan 1)                 ; client text -> server
-                        ws-data-ch (chan 10)                ; client text -> client data
-                        ]
+                        ; client text -> server
+                        ws-text-ch (chan 1)
+                        ; client text -> client data
+                        ws-data-ch (chan 10)]
                     (response-encode-loop response-data-ch send-ch)
                     (ws-parse-loop session-id ws-text-ch ws-data-ch response-data-ch)
                     (connection-loop session-id keep-alive-ms ws-data-ch response-data-ch base-context)
