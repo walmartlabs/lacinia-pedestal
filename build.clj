@@ -19,7 +19,7 @@
             [net.lewisship.build :as b]))
 
 (def lib 'com.walmartlabs/lacinia-pedestal)
-(def version "1.2")
+(def version "1.3")
 
 (def project-opts
   {:project-name lib

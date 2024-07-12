@@ -1,4 +1,4 @@
-## 1.3 -- UNRELEASED
+## 1.3 -- 12 Jul 2024
 
 *BREAKING CHANGES*
 
@@ -12,6 +12,8 @@ Other changes:
 
 * Bumped many dependencies to latest
 * Bumped Pedestal dependency to 0.7.0
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/20?closed=1)
 
 ## 1.2 -- 23 Jun 2023
 
