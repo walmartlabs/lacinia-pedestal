@@ -1,3 +1,18 @@
+## 1.3 -- UNRELEASED
+
+*BREAKING CHANGES*
+
+Function `com.walmartlabs.lacinia.pedestal.subscriptions/listener-fn-factory`
+was renamed to `subscription-websocket-endpoint`, and its behavior and options 
+have changed.  Fortunately, most Lacinia applications only use this function
+indirectly, via `com.walmartlabs.lacinia.pedestal2/enable-subscriptions`, which
+hasn't changed.
+
+Other changes:
+
+* Bumped many dependencies to latest
+* Bumped Pedestal dependency to 0.7.0
+
 ## 1.2 -- 23 Jun 2023
 
 Logging from the `com.walmartlabs.lacinia.pedestal.subscriptions` namespace
