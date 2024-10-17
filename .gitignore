@@ -21,3 +21,5 @@ resources/graphiql/
 .clj-kondo
 .settings
 .vscode
+.lsp/
+*.asc

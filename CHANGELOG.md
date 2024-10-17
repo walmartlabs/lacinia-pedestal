@@ -1,4 +1,4 @@
-## 1.3 -- 12 Jul 2024
+## 1.3 -- 17 Oct 2024
 
 *BREAKING CHANGES*
 

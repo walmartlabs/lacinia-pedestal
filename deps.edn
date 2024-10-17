@@ -37,14 +37,12 @@
    :exec-fn cognitect.test-runner.api/test}
 
   ;; clj -T:build <command>
-
-  :build
-  {:deps
-   {io.github.hlship/build-tools {:git/tag "0.10.2" :git/sha "3c446e4"}}
-   :ns-default build}}
+  :build {:deps {io.github.hlship/build-tools {:git/tag "0.10.2" :git/sha "3c446e4"}}
+          :ns-default build}}
 
  :net.lewisship.build/scm
- {:url "https://github.com/walmartlabs/lacinia-pedestal"}
+ {:url "https://github.com/walmartlabs/lacinia-pedestal"
+  :license :asl}
 
  :codox/config
  {:description "Expose Lacinia GraphQL as Pedestal endpoints"
