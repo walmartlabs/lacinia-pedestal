@@ -58,11 +58,13 @@
 
 (defn jar
   [_params]
+  (clean nil)
+  (prep nil)
   (requiring-invoke net.lewisship.build.jar/create-jar jar-params))
-
+.
 (defn deploy
   [_params]
-  (requiring-invoke net.lewisship.build.jar/deploy-jar (jar jar-params)))
+  (requiring-invoke net.lewisship.build.jar/deploy-jar (jar nil)))
 
 (defn codox
   [_params]
