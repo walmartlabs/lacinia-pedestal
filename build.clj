@@ -19,7 +19,7 @@
             [net.lewisship.build :refer [requiring-invoke]]))
 
 (def lib 'com.walmartlabs/lacinia-pedestal)
-(def version "1.3")
+(def version "1.3.1")
 
 (def jar-params {:project-name lib
                  :version version})
@@ -61,7 +61,7 @@
   (clean nil)
   (prep nil)
   (requiring-invoke net.lewisship.build.jar/create-jar jar-params))
-.
+
 (defn deploy
   [_params]
   (requiring-invoke net.lewisship.build.jar/deploy-jar (jar nil)))

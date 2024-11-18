@@ -1,3 +1,11 @@
+## 1.3.1 -- 17 Nov 2024
+
+This bug fix release corrects the fact that GraphiQL resouces were not
+packaged with the JAR file.
+
+[Closed Issues](https://github.com/walmartlabs/lacinia-pedestal/milestone/21?closed=1)
+
+
 ## 1.3 -- 17 Oct 2024
 
 *BREAKING CHANGES*
