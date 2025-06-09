@@ -510,6 +510,14 @@
 
   :session-initializer Passed the jakarta.websocket.Session to perform any additional initialization.
 
+  :context-initializer
+  : A function returning the base context for the subscription-interceptors to operate on.
+    The function takes the following arguments:
+     - the minimal viable context for operation
+     - the jakarta.websocket.Session for this connection
+     - the jakarta.websocket.EndpointConfig for this connection
+    Defaults to returning the context unchanged.
+
   :keep-alive-ms (default: 25000)
   : The interval at which keep alive messages are sent to the client.
     Note that configuring this timeout to be at or above 30s conflicts with a default Jetty timeout
@@ -535,7 +543,8 @@
   : Used to create the channel of text responses sent to the client. The default is 10 (a non-lossy
     channel)."
   [compiled-schema options]
-  (let [{:keys [keep-alive-ms app-context send-buffer-or-n response-chan-fn values-chan-fn session-initializer]
+  (let [{:keys [keep-alive-ms app-context send-buffer-or-n response-chan-fn values-chan-fn session-initializer
+                context-initializer]
          :or {keep-alive-ms 25000
               send-buffer-or-n 10
               response-chan-fn #(chan 10)
@@ -551,6 +560,9 @@
                             (log/trace :event ::connected :id session-id)
                             (when session-initializer
                               (session-initializer session config)))
+                        session-context (if context-initializer
+                                          (context-initializer base-context session config)
+                                          base-context)
                         ; server data -> client
                         response-data-ch (response-chan-fn)
                         send-ch (ws/start-ws-connection session {:send-buffer-or-n send-buffer-or-n})
@@ -560,7 +572,7 @@
                         ws-data-ch (chan 10)]
                     (response-encode-loop response-data-ch send-ch)
                     (ws-parse-loop session-id ws-text-ch ws-data-ch response-data-ch)
-                    (connection-loop session-id keep-alive-ms ws-data-ch response-data-ch base-context)
+                    (connection-loop session-id keep-alive-ms ws-data-ch response-data-ch session-context)
                     {:response-data-ch response-data-ch
                      :ws-text-ch ws-text-ch
                      :ws-data-ch ws-data-ch
@@ -588,14 +600,14 @@
 (s/def ::listener-fn-factory-options (s/keys :opt-un [::keep-alive-ms
                                                       ::spec/app-context
                                                       ::subscription-interceptors
-                                                      ::init-context
+                                                      ::context-initializer
                                                       ::response-ch-fn
                                                       ::values-chan-fn
                                                       ::send-buffer-or-n]))
 
 (s/def ::keep-alive-ms pos-int?)
 (s/def ::subscription-interceptors ::spec/interceptors)
-(s/def ::init-context fn?)
+(s/def ::context-initializer fn?)
 (s/def ::response-chan-fn fn?)
 (s/def ::values-chan-fn fn?)
 (s/def ::send-buffer-or-n ::spec/buffer-or-n)

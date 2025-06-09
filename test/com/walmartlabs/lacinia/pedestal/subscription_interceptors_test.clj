@@ -22,6 +22,7 @@
     [com.walmartlabs.lacinia.pedestal.subscriptions :as s]))
 
 (def ^:private *invoke-count (atom 0))
+(def ^:private *context-data (atom nil))
 
 (def ^:private invoke-count-interceptor
   "Used to demonstrate that subscription interceptor customization works."
@@ -31,16 +32,29 @@
               (swap! *invoke-count inc)
               context)}))
 
+(def ^:private context-capture-interceptor
+  "Captures context data to verify context-initializer works."
+  (interceptor
+   {:name ::context-capture
+    :enter (fn [context]
+             (reset! *context-data (::context-data context))
+             context)}))
+
 (defn ^:private options-builder
   [schema]
   {:subscription-interceptors
    ;; Add ::invoke-count, and ensure it executes before ::execute-operation.
    (-> (s/default-subscription-interceptors schema nil)
-       (inject invoke-count-interceptor :before ::s/execute-operation))
+       (inject invoke-count-interceptor :before ::s/execute-operation)
+       (inject context-capture-interceptor :before ::s/execute-operation))
 
    :session-initializer
    (fn [_ _]
-     (reset! *invoke-count 0))})
+     (reset! *invoke-count 0))
+
+   :context-initializer
+   (fn [base-context session _]
+     (assoc base-context ::context-data {:session session}))})
 
 (use-fixtures :once (test-server-fixture {:subscriptions true
                                           :keep-alive-ms 200}
@@ -64,7 +78,7 @@
   (is (= 1 @*invoke-count)
       "The added interceptor has been executed."))
 
-(deftest context-is-created-by-init-context
+(deftest context-is-created-by-context-initializer
   (send-init)
   (expect-message {:type "connection_ack"})
 
@@ -75,4 +89,6 @@
 
   (expect-message {:id 987
                    :payload {:data {:ping {:message "short #1"}}}
-                   :type "data"}))
+                   :type "data"})
+  (is (string? (.getId (:session @*context-data)))
+      "Custom data has been added to the context."))
