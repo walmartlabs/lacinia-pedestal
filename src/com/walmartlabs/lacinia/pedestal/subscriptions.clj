@@ -148,6 +148,15 @@
 
   :session-initializer Passed the jakarta.websocket.Session to perform any additional initialization.
 
+  :context-initializer
+  : An optional function `(fn [context session] -> context)` invoked once per WebSocket
+    connection, at open time. It receives the base subscription context and the
+    jakarta.websocket.Session for the handshake, and the returned context becomes the
+    per-connection context (carried into every operation on the connection). This is the
+    hook for establishing connection-scoped state -- for example, authenticating the
+    handshake (URL token, headers) and attaching the resulting principal so downstream
+    resolvers can authorize.
+
   :keep-alive-ms (default: 25000)
   : The interval at which keep alive messages are sent to the client.
     Note that configuring this timeout to be at or above 30s conflicts with a default Jetty timeout
@@ -173,7 +182,8 @@
   : Used to create the channel of text responses sent to the client. The default is 10 (a non-lossy
     channel)."
   [compiled-schema options]
-  (let [{:keys [keep-alive-ms app-context send-buffer-or-n response-chan-fn values-chan-fn session-initializer]
+  (let [{:keys [keep-alive-ms app-context send-buffer-or-n response-chan-fn values-chan-fn session-initializer
+                context-initializer]
          :or {keep-alive-ms 25000
               send-buffer-or-n 10
               response-chan-fn #(chan 10)
@@ -195,10 +205,17 @@
                         ; client text -> server
                         ws-text-ch (chan 1)
                         ; client text -> client data
-                        ws-data-ch (chan 10)]
+                        ws-data-ch (chan 10)
+                        ;; Build the per-connection context: let the application initialize it from
+                        ;; the handshake Session (authentication, etc.), and record the negotiated
+                        ;; subprotocol -- authoritative here, straight from the container -- so
+                        ;; responses use the right message type ("next" vs. legacy "data").
+                        context (cond-> base-context
+                                  (fn? context-initializer) (context-initializer session)
+                                  :always (assoc ::internal/subprotocol (.getNegotiatedSubprotocol session)))]
                     (internal/response-encode-loop response-data-ch send-ch)
                     (internal/ws-parse-loop session-id ws-text-ch ws-data-ch response-data-ch)
-                    (internal/connection-loop session-id keep-alive-ms ws-data-ch response-data-ch base-context)
+                    (internal/connection-loop session-id keep-alive-ms ws-data-ch response-data-ch context)
                     {:response-data-ch response-data-ch
                      :ws-text-ch ws-text-ch
                      :ws-data-ch ws-data-ch
@@ -213,7 +230,7 @@
                    (log/error :event ::error :session-id session-id :exception t))]
     (-> options
         (select-keys [:idle-timeout-ms])
-        (assoc :subprotocols ["graphql-ws"]
+        (assoc :subprotocols ["graphql-transport-ws" "graphql-ws"]
                :on-open on-open
                :on-close on-close
                :on-text on-text
@@ -227,11 +244,13 @@
                                                       ::spec/app-context
                                                       ::subscription-interceptors
                                                       ::init-context
+                                                      ::context-initializer
                                                       ::response-ch-fn
                                                       ::values-chan-fn
                                                       ::send-buffer-or-n]))
 
 (s/def ::keep-alive-ms pos-int?)
+(s/def ::context-initializer fn?)
 (s/def ::subscription-interceptors ::spec/interceptors)
 (s/def ::init-context fn?)
 (s/def ::response-chan-fn fn?)

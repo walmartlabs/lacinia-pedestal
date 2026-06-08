@@ -431,9 +431,17 @@
                (when (>! response-data-ch {:type :connection_ack})
                  (recur (assoc connection-state :connection-params payload)))
 
+               ;; graphql-transport-ws keep-alive: the client may send a "ping" at any time,
+               ;; and the server must reply with a "pong".
+               "ping"
+               (when (>! response-data-ch {:type :pong})
+                 (recur connection-state))
+
                ;; TODO: Track state, don't allow start, etc. until after connection_init
 
-               "start"
+               ;; "start" is the legacy graphql-ws verb; "subscribe" is its graphql-transport-ws
+               ;; equivalent.
+               ("start" "subscribe")
                (if (contains? (:subs connection-state) id)
                  (do
                    (log/trace :event ::ignoring-duplicate :id id)
@@ -444,7 +452,9 @@
                          sub-shutdown-ch (execute-query-interceptors id payload response-data-ch cleanup-ch merged-context)]
                      (recur (assoc-in connection-state [:subs id] sub-shutdown-ch)))))
 
-               "stop"
+               ;; "stop" is the legacy graphql-ws verb; "complete" is its graphql-transport-ws
+               ;; equivalent.
+               ("stop" "complete")
                (do
                  (log/trace :event ::stop :id id)
                  (when-some [sub-shutdown-ch (get-in connection-state [:subs id])]
@@ -538,11 +548,25 @@
                             :payload payload})
     (close! response-data-ch)))
 
+(defn protocol-response-type
+  "Returns the message :type to use when delivering query/subscription payloads to the
+  client, based on the negotiated WebSocket subprotocol stored in the context under
+  ::subprotocol.
+
+  The modern graphql-transport-ws protocol (used by GraphiQL and current Apollo clients)
+  expects \"next\" messages, while the legacy graphql-ws (subscriptions-transport-ws)
+  protocol expects \"data\" messages. Defaults to :data when the subprotocol is unknown,
+  preserving legacy behaviour."
+  [context]
+  (case (::subprotocol context)
+    "graphql-transport-ws" :next
+    :data))
+
 (defn leave-send-operation-response
   [context]
   (when-let [response (:response context)]
     (let [{:keys [id response-data-ch]} (:request context)]
-      (put! response-data-ch {:type    :data
+      (put! response-data-ch {:type    (protocol-response-type context)
                               :id      id
                               :payload response})
       (put! response-data-ch {:type :complete
@@ -590,6 +614,7 @@
 (defn ^:private execute-subscription
   [context parsed-query]
   (let [{:keys [::values-chan-fn request]} context
+        response-type        (protocol-response-type context)
         source-stream-ch     (values-chan-fn)
         {:keys [id shutdown-ch response-data-ch]} request
         source-stream        (fn accept-value [value]
@@ -643,7 +668,7 @@
                  (resolve/on-deliver! (fn [response]
                                         (log/trace :response response :id id)
                                         (put! response-data-ch
-                                              {:type    :data
+                                              {:type    response-type
                                                :id      id
                                                :payload response})
                                         (let [new-count (swap! *execution-count dec)]
