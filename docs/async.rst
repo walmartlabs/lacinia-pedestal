@@ -3,16 +3,16 @@ Async
 
 By default, Lacinia-Pedestal blocks the Pedestal request thread
 while executing the query. The default interceptor stack includes a synchronous
-query execution handler, ``query-executor-handler``, available in both
-``com.walmartlabs.lacinia.pedestal3`` and ``com.walmartlabs.lacinia.pedestal2``.
+query execution handler, ``query-executor-handler``, available in
+``com.walmartlabs.lacinia.pedestal3`` (recommended) and ``com.walmartlabs.lacinia.pedestal2``.
 
-Lacinia also provides an asynchronous query execution handler:
+``com.walmartlabs.lacinia.pedestal2`` also provides an asynchronous query execution handler:
 ``com.walmartlabs.lacinia.pedestal2/async-query-executor-handler``.
 
 .. note::
 
-  ``async-query-executor-handler`` is only available in ``pedestal2``. It is not
-  included in ``pedestal3``.
+  ``async-query-executor-handler`` is only available in the legacy ``pedestal2`` namespace.
+  It is not included in ``pedestal3``.
 
 When used in the interceptor stack, execution starts on a Pedestal request
 processing thread, but (at the discretion of individual field resolver

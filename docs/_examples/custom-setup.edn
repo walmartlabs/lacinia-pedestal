@@ -1,10 +1,11 @@
 (ns server
   (:require
     [com.stuartsierra.component :as component]
-    [com.walmartlabs.lacinia.pedestal2 :as p2]
+    [com.walmartlabs.lacinia.pedestal3 :as lp]
     [com.walmartlabs.lacinia.pedestal :refer [inject]]
-    [io.pedestal.interceptor :refer [interceptor]
-    [io.pedestal.http :as http]))
+    [io.pedestal.connector :as conn]
+    [io.pedestal.http.jetty :as jetty]
+    [io.pedestal.interceptor :refer [interceptor]]))
 
 (defn ^:private extract-user-info
   [request]
@@ -16,35 +17,33 @@
    {:name ::user-info
     :enter (fn [context]
               (let [{:keys [request]} context
-                  user-info (extract-user-info request)]
+                    user-info (extract-user-info request)]
                 (assoc-in context [:request :lacinia-app-context :user-info] user-info)))}))
 
 (defn ^:private interceptors
   [schema]
-  (-> (p2/default-interceptors schema nil)
-      (inject user-info-interceptor :after ::p2/inject-app-context)))
+  (-> (lp/default-interceptors schema nil)
+      (inject user-info-interceptor :after ::lp/inject-app-context)))
 
-(defn ^:private create-server
+(defn ^:private create-connector
   [compiled-schema port]
   (let [interceptors (interceptors compiled-schema)
         routes #{["/api" :post interceptors :route-name ::api]}]
-    (-> {:env :dev
-         ::http/routes routes
-         ::http/port port
-         ::http/type :jetty
-         ::http/join? false}
-        http/create-server
-        http/start)))
+    (-> (conn/default-connector-map port)
+        (conn/with-routes routes
+          (lp/subscription-routes compiled-schema))
+        (jetty/create-connector nil)
+        conn/start!)))
 
-(defrecord Server [schema-source server port]
+(defrecord Server [schema-source connector port]
 
   component/Lifecycle
 
   (start [this]
     (let [compiled-schema (:schema schema-source)
-          server' (create-server compiled-schema port)]
-      (assoc this :server server')))
+          connector' (create-connector compiled-schema port)]
+      (assoc this :connector connector')))
 
   (stop [this]
-    (http/stop server)
-    (assoc this :server nil)))
+    (conn/stop! connector)
+    (assoc this :connector nil)))
