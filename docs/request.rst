@@ -23,7 +23,7 @@ When using POST with the ``application/json`` content type, the body of the requ
     more than one named operation.
 
 This is the standard and expected request format, and the only one directly supported with
-``com.walmartlabs.lacinia.pedestal3`` and ``com.walmartlabs.lacinia.pedestal2``.
+``com.walmartlabs.lacinia.pedestal3`` (recommended) and ``com.walmartlabs.lacinia.pedestal2``.
 
 
 GET (deprecated)
@@ -32,7 +32,7 @@ GET (deprecated)
 The GraphQL query document must be provided as query parameter ``query``.
 
 This is only supported with the ``com.walmartlabs.lacinia.pedestal`` namespace; ``GET`` is not
-supported out-of-the-box with ``pedestal2``.
+supported out-of-the-box with ``pedestal2`` or ``pedestal3``.
 
 POST application/graphql (deprecated)
 -------------------------------------
@@ -49,7 +49,7 @@ If the query document defines variables, they must be specified as the ``variabl
 a string-ified JSON object.
 
 This is only supported with the ``com.walmartlabs.lacinia.pedestal`` namespace; it is not
-supported out-of-the-box with ``pedestal2``.
+supported out-of-the-box with ``pedestal2`` or ``pedestal3``.
 
 
 

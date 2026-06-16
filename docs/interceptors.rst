@@ -57,7 +57,7 @@ There's a lot to process in this more worked example:
 
 - The schema is provided by a source component (in the next listing), injected as a dependency into the ``Server`` component.
 
-- We're building our Pedestal connector explicitly, rather than using ``default-service``.
+- We're building our Pedestal connector explicitly using ``io.pedestal.connector``, rather than using ``default-service``.
 
 The interceptor is responsible for putting the user info *into* the request, and then
 it's simple to get that data inside a resolver function:

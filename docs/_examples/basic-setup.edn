@@ -2,10 +2,11 @@
   (:require
     [clojure.edn :as edn]
     [clojure.java.io :as io]
-    [com.walmartlabs.lacinia.pedestal2 :as p2]
+    [com.walmartlabs.lacinia.pedestal3 :as lp]
     [com.walmartlabs.lacinia.schema :as schema]
     [com.walmartlabs.lacinia.util :as util]
-    [io.pedestal.http :as http]))
+    [io.pedestal.connector :as conn]
+    [io.pedestal.http.jetty :as jetty]))
 
 (defn ^:private resolve-hello
   [context args value]
@@ -19,7 +20,12 @@
       (util/inject-resolvers {:queries/hello resolve-hello})
       schema/compile))
 
-(def service (-> (hello-schema)
-                 (p2/default-service nil)
-                 http/create-server
-                 http/start))
+(def connector
+  (let [compiled-schema (hello-schema)]
+    (-> (conn/default-connector-map 8888)
+        (conn/with-routes
+          #{["/api" :post (lp/default-interceptors compiled-schema nil)
+             :route-name ::graphql-api]}
+          (lp/subscription-routes compiled-schema))
+        (jetty/create-connector nil)
+        conn/start!)))

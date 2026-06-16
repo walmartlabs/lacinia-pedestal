@@ -25,21 +25,10 @@ From there there are three steps:
 Using ``pedestal3``
 -------------------
 
-With the Pedestal 0.8 connector API::
+With the Pedestal 0.8 connector API:
 
-  (ns graphql-demo.server
-    (:require [io.pedestal.connector :as conn]
-              [io.pedestal.http.jetty :as jetty]
-              [com.walmartlabs.lacinia.pedestal3 :as lp]))
-
-  (def connector
-    (-> (conn/default-connector-map 8888)
-        (conn/with-routes
-          #{["/api" :post (lp/default-interceptors compiled-schema nil)
-             :route-name ::graphql-api]}
-          (lp/subscription-routes compiled-schema))
-        (jetty/create-connector nil)
-        conn/start!))
+.. literalinclude:: _examples/basic-setup.edn
+   :language: clojure
 
 At the end of this, an instance of `Jetty <http://www.eclipse.org/jetty/>`_ is launched on port 8888.
 
