@@ -413,7 +413,12 @@
         (async/timeout keep-alive-ms)
         (do
           (log/trace :event ::timeout :session-id session-id)
-          (>! response-data-ch {:type :ka})
+          ;; Subprotocol-aware keep-alive: graphql-transport-ws has no "ka" message (an
+          ;; unknown type closes the connection on clients like Apollo/GraphiQL); its heartbeat
+          ;; is a "ping" (the client replies "pong"). Legacy graphql-ws uses "ka".
+          (>! response-data-ch (if (= "graphql-transport-ws" (::subprotocol context))
+                                 {:type :ping}
+                                 {:type :ka}))
           (recur connection-state))
 
         ws-data-ch
@@ -436,6 +441,11 @@
                "ping"
                (when (>! response-data-ch {:type :pong})
                  (recur connection-state))
+
+               ;; The client's reply to our keep-alive "ping" (or an unsolicited heartbeat).
+               ;; A "pong" requires no response; just keep listening.
+               "pong"
+               (recur connection-state)
 
                ;; TODO: Track state, don't allow start, etc. until after connection_init
 

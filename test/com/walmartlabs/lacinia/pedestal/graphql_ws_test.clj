@@ -140,12 +140,12 @@
             (finally (ws/close! (:session conn#)))))))
 
 (defn <non-ka!!
-  "Next message, skipping keep-alives."
+  "Next message, skipping server keep-alives: legacy \"ka\" and graphql-transport-ws \"ping\"."
   ([] (<non-ka!! 250))
   ([timeout-ms]
    (loop []
      (let [message (<message!! timeout-ms)]
-       (if (= message {:type "ka"}) (recur) message)))))
+       (if (#{"ka" "ping"} (:type message)) (recur) message)))))
 
 (defn init!
   "Sends connection_init (with optional payload) and asserts the ack."
@@ -193,6 +193,22 @@
     (let [id (start! :subscribe "{ echo(value: \"modern\") { value }}")]
       (is (= {:id id :type "next" :payload {:data {:echo {:value "modern"}}}} (<non-ka!!)))
       (is (= {:id id :type "complete"} (<non-ka!!))))))
+
+(deftest transport-ws-keepalive-is-ping-not-ka
+  ;; graphql-transport-ws has no "ka" (an unknown type closes real clients like Apollo/GraphiQL);
+  ;; the idle heartbeat must be a "ping". Read raw (<message!!) so the keep-alive is NOT skipped.
+  (with-connection {:subprotocols ["graphql-transport-ws"]}
+    (init!)
+    (is (= {:type "ping"} (<message!! 1000)))))
+
+(deftest server-tolerates-client-pong
+  ;; The client's pong (its reply to our ping, or an unsolicited heartbeat) must not error the
+  ;; connection -- it stays healthy and further operations still work.
+  (with-connection {:subprotocols ["graphql-transport-ws"]}
+    (init!)
+    (send-data {:type :pong})
+    (let [id (start! :subscribe "{ echo(value: \"ok\") { value }}")]
+      (is (= {:id id :type "next" :payload {:data {:echo {:value "ok"}}}} (<non-ka!!))))))
 
 ;; --- :context-initializer — who is the connected user? ----------------------
 ;; The principal is established once at the handshake, from one of three channels, and must be
