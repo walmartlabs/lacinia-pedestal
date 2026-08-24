@@ -263,9 +263,8 @@
        "}"))
 
 (defn graphiql-response
-  [api-path subscriptions-path asset-path ide-headers ide-connection-params]
-  (let [replacements {:asset-path                asset-path
-                      :api-path                  api-path
+  [api-path subscriptions-path ide-headers ide-connection-params]
+  (let [replacements {:api-path                  api-path
                       :subscriptions-path        subscriptions-path
                       :initial-connection-params (write-json-str ide-connection-params)
                       :request-headers           (request-headers-string ide-headers)}]

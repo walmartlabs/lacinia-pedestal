@@ -207,24 +207,7 @@
     enable-tracing-interceptor
     query-executor-handler]))
 
-(defn graphiql-asset-routes
-  "Returns a set of routes for retrieving GraphiQL assets (CSS and JS).
-
-  These routes are needed for the GraphiQL IDE to operate."
-  [asset-path]
-  (let [asset-path' (str asset-path "/*path")
-        asset-get-handler (wrap-not-modified
-                            (fn [request]
-                              (response/resource-response (-> request :path-params :path)
-                                                          {:root "graphiql"})))
-        asset-head-handler #(-> %
-                                asset-get-handler
-                                (assoc :body nil))]
-    #{[asset-path' :get asset-get-handler :route-name ::graphiql-get-assets]
-      [asset-path' :head asset-head-handler :route-name ::graphiql-head-assets]}))
-
 (def ^:private default-api-path "/api")
-(def ^:private default-asset-path "/assets/graphiql")
 (def ^:private default-subscriptions-path "/ws")
 (def ^:private default-host-address "localhost")
 
@@ -237,9 +220,6 @@
 
   :api-path (default: \"/api\")
   : Path at which GraphQL requests are serviced.
-
-  :asset-path (default: \"/assets/graphiql\")
-  : Path from which the JavaScript and CSS assets may be loaded.
 
   :subscriptions-path (default: \"/ws\")
   : Path for web socket connections, to handle GraphQL subscriptions.
@@ -258,13 +238,12 @@
     and becomes the connectionParams passed in the initial subscription web service call;
     this can be used to identify and authenticate subscription requests."
   [options]
-  (let [{:keys [api-path asset-path subscriptions-path ide-headers ide-connection-params]
+  (let [{:keys [api-path subscriptions-path ide-headers ide-connection-params]
          :or {api-path default-api-path
-              asset-path default-asset-path
               subscriptions-path default-subscriptions-path
               ide-headers {"lacinia-tracing" "true"}}} options
         response (internal/graphiql-response
-                   api-path subscriptions-path asset-path ide-headers ide-connection-params)]
+                   api-path subscriptions-path ide-headers ide-connection-params)]
     (fn [_]
       response)))
 
@@ -307,16 +286,14 @@
   This is useful for initial development and exploration, but applications with any more sophisticated needs
   should construct their service map directly."
   [compiled-schema options]
-  (let [{:keys [api-path ide-path asset-path app-context port host]
+  (let [{:keys [api-path ide-path app-context port host]
          :or {api-path default-api-path
               ide-path "/ide"
-              asset-path default-asset-path
               port 8888
               host default-host-address}} options
         interceptors (default-interceptors compiled-schema app-context options)
-        routes (into #{[api-path :post interceptors :route-name ::graphql-api]
-                       [ide-path :get (graphiql-ide-handler options) :route-name ::graphiql-ide]}
-                     (graphiql-asset-routes asset-path))]
+        routes #{[api-path :post interceptors :route-name ::graphql-api]
+                 [ide-path :get (graphiql-ide-handler options) :route-name ::graphiql-ide]}]
     (-> {:env :dev
          ::http/routes routes
          ::http/port port
