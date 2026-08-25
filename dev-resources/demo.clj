@@ -44,6 +44,8 @@
                  schema/compile
                  (lp2/default-service {:ide-headers {"apikey" "mean mister mustard"}
                                        :ide-connection-params {:moon-base :alpha}
+                                       :ide-path "/demo"
+                                       :api-path "/graph"
                                        :ide-title "Lacinia Demo"})
                  http/create-server
                  http/start)]
@@ -72,7 +74,7 @@
 
 (comment
   (start)
-  ;; Open browser to: http://localhost:8888/ide
+  ;; Open browser to: http://localhost:8888/demo
 
   (stop)
   )
