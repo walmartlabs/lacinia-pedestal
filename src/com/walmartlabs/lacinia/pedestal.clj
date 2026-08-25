@@ -34,8 +34,6 @@
 
 (def ^:private default-path "/graphql")
 
-(def ^:private default-asset-path "/assets/graphiql")
-
 (def ^:private default-subscriptions-path "/graphql-ws")
 
 (def ^:private default-host-address "localhost")
@@ -357,11 +355,10 @@
   {:added "0.7.0"
    :deprecated "0.14.0"}
   [options]
-  (let [{:keys [path asset-path subscriptions-path ide-headers ide-connection-params]
+  (let [{:keys [path subscriptions-path ide-headers ide-connection-params]
          :or {path default-path
-              asset-path default-asset-path
               subscriptions-path default-subscriptions-path}} options]
-    (internal/graphiql-response path subscriptions-path asset-path ide-headers ide-connection-params)))
+    (internal/graphiql-response path subscriptions-path ide-headers ide-connection-params "GraphiQL")))
 
 (defn ^{:deprecated "0.14.0"} graphql-routes
   "Creates default routes for handling GET and POST requests and
@@ -378,15 +375,10 @@
 
   The options for this function are described by [[service-map]].
 
-  Asset paths use wildcard matching; you should be careful to ensure that the asset path does not
-  overlap the paths for query request handling, the IDE, or subscriptions (or the asset handler will override the others
-  and deliver 404 responses).
-
   Deprecated: Use the [[com.walmartlabs.lacinia.pedestal2]] namespace instead."
   [compiled-schema options]
-  (let [{:keys [ide-path asset-path graphiql]
-         :or {asset-path default-asset-path
-              ide-path "/"}} options
+  (let [{:keys [ide-path graphiql]
+         :or {ide-path "/"}} options
         interceptors (or (:interceptors options)
                          (default-interceptors compiled-schema options))
         base-routes (routes-from-interceptors compiled-schema interceptors options)]
@@ -394,20 +386,9 @@
       base-routes
       (let [index-handler (let [index-response (graphiql-ide-response options)]
                             (fn [_]
-                              index-response))
-
-            asset-path' (str asset-path "/*path")
-
-            asset-get-handler (fn [request]
-                                (response/resource-response (-> request :path-params :path)
-                                                            {:root "graphiql"}))
-            asset-head-handler #(-> %
-                                    asset-get-handler
-                                    (assoc :body nil))]
+                              index-response))]
         (conj base-routes
-              [ide-path :get index-handler :route-name ::graphiql-ide-index]
-              [asset-path' :get asset-get-handler :route-name ::graphiql-get-assets]
-              [asset-path' :head asset-head-handler :route-name ::graphiql-head-assets])))))
+              [ide-path :get index-handler :route-name ::graphiql-ide-index])))))
 
 (defn service-map
   "Creates and returns a Pedestal service map.
@@ -443,9 +424,6 @@
 
   :ide-path (default: \"/\")
   : Path from which the GraphiQL IDE, if enabled, can be loaded.
-
-  :asset-path (default: \"/assets/graphiql\")
-  : Path from which the JavaScript and CSS assets may be loaded.
 
   :ide-headers
   : A map from header name to header value. Keys and values may be strings, keywords,
@@ -524,7 +502,6 @@
                                               ::get-enabled
                                               ::path
                                               ::ide-path
-                                              ::asset-path
                                               ::ide-headers
                                               ::ide-connection-params
                                               ::spec/interceptors
@@ -542,7 +519,6 @@
 (s/def ::path (s/and string?
                      #(str/starts-with? % "/")))
 (s/def ::ide-path ::path)
-(s/def ::asset-path ::path)
 (s/def ::ide-headers map?)
 (s/def ::ide-connection-params some?)
 (s/def ::async boolean?)

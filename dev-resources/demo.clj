@@ -43,7 +43,10 @@
                  (util/inject-streamers {:Subscription/ticks ticks-streamer})
                  schema/compile
                  (lp2/default-service {:ide-headers {"apikey" "mean mister mustard"}
-                                       :ide-connection-params {:moon-base :alpha}})
+                                       :ide-connection-params {:moon-base :alpha}
+                                       :ide-path "/demo"
+                                       :api-path "/graph"
+                                       :ide-title "Lacinia Demo"})
                  http/create-server
                  http/start)]
     server))
@@ -71,7 +74,7 @@
 
 (comment
   (start)
-  ;; Open browser to: http://localhost:8888/ide
+  ;; Open browser to: http://localhost:8888/demo
 
   (stop)
   )

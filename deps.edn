@@ -5,9 +5,6 @@
                  com.rpl/proxy-plus           {:mvn/version "0.0.11"}}
  :mvn/repos     {"redplanetlabs" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
  :paths         ["src" "resources"]
- :deps/prep-lib {:alias  :build
-                 :fn     prep
-                 :ensure "target/classes"}
  :aliases
  {
   ;; clj -X:test

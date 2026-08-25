@@ -128,7 +128,7 @@
 (deftest can-access-graphiql
   (let [response (client/get "http://localhost:8888/" {:throw-exceptions false})]
     (is (= 200 (:status response)))
-    (is (str/includes? (:body response) "<html>"))))
+    (is (str/includes? (:body response) "<html lang=\"en\">"))))
 
 (deftest forbids-subscriptions
   (let [response (send-request :post "subscription { ping(message: \"gnip\") { message }}")]
