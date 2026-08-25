@@ -263,10 +263,11 @@
        "}"))
 
 (defn graphiql-response
-  [api-path subscriptions-path ide-headers ide-connection-params]
+  [api-path subscriptions-path ide-headers ide-connection-params ide-title]
   (let [replacements {:api-path                  api-path
                       :subscriptions-path        subscriptions-path
                       :initial-connection-params (write-json-str ide-connection-params)
+                      :ide-title                 ide-title
                       :request-headers           (request-headers-string ide-headers)}]
     (-> "com/walmartlabs/lacinia/pedestal/graphiql.html"
         io/resource

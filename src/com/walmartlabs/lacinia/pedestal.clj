@@ -358,7 +358,7 @@
   (let [{:keys [path subscriptions-path ide-headers ide-connection-params]
          :or {path default-path
               subscriptions-path default-subscriptions-path}} options]
-    (internal/graphiql-response path subscriptions-path ide-headers ide-connection-params)))
+    (internal/graphiql-response path subscriptions-path ide-headers ide-connection-params "GraphiQL")))
 
 (defn ^{:deprecated "0.14.0"} graphql-routes
   "Creates default routes for handling GET and POST requests and

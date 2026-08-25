@@ -236,14 +236,18 @@
   :ide-connection-params
   : A value that is used with the GraphiQL IDE; this value is converted to JSON,
     and becomes the connectionParams passed in the initial subscription web service call;
-    this can be used to identify and authenticate subscription requests."
+    this can be used to identify and authenticate subscription requests.
+
+  :ide-title
+  : The title of GraphiQL IDE web page; defaults to `\"Lacinia/GraphiQL\"` if not given."
   [options]
-  (let [{:keys [api-path subscriptions-path ide-headers ide-connection-params]
+  (let [{:keys [api-path subscriptions-path ide-headers ide-connection-params ide-title]
          :or {api-path default-api-path
               subscriptions-path default-subscriptions-path
-              ide-headers {"lacinia-tracing" "true"}}} options
+              ide-headers {"lacinia-tracing" "true"}
+              ide-title "Lacinia/GraphiQL5"}} options
         response (internal/graphiql-response
-                   api-path subscriptions-path ide-headers ide-connection-params)]
+                   api-path subscriptions-path ide-headers ide-connection-params ide-title)]
     (fn [_]
       response)))
 

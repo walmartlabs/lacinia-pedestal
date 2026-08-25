@@ -43,7 +43,8 @@
                  (util/inject-streamers {:Subscription/ticks ticks-streamer})
                  schema/compile
                  (lp2/default-service {:ide-headers {"apikey" "mean mister mustard"}
-                                       :ide-connection-params {:moon-base :alpha}})
+                                       :ide-connection-params {:moon-base :alpha}
+                                       :ide-title "Lacinia Demo"})
                  http/create-server
                  http/start)]
     server))
